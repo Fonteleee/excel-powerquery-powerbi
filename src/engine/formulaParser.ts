@@ -1,0 +1,1313 @@
+import { CellData, CellPosition, CellRange, Sheet, CellFormat, FormulaParamGuide } from '../types/spreadsheet';
+
+export type { FormulaParamGuide };
+
+
+// Converts 0 -> 'A', 1 -> 'B', 25 -> 'Z', 26 -> 'AA', etc.
+export function colIndexToLabel(colIndex: number): string {
+  let label = '';
+  let temp = colIndex;
+  while (temp >= 0) {
+    label = String.fromCharCode((temp % 26) + 65) + label;
+    temp = Math.floor(temp / 26) - 1;
+  }
+  return label;
+}
+
+// Converts 'A' -> 0, 'B' -> 1, 'AA' -> 26
+export function labelToColIndex(label: string): number {
+  let col = 0;
+  const upper = label.toUpperCase().trim();
+  for (let i = 0; i < upper.length; i++) {
+    col = col * 26 + (upper.charCodeAt(i) - 64);
+  }
+  return col - 1;
+}
+
+// Parse "A1" -> { row: 0, col: 0 }
+export function parseCellAddress(address: string): CellPosition | null {
+  const match = address.trim().toUpperCase().match(/^(\$?)([A-Z]+)(\$?)([0-9]+)$/);
+  if (!match) return null;
+  const col = labelToColIndex(match[2]);
+  const row = parseInt(match[4], 10) - 1;
+  if (isNaN(row) || col < 0) return null;
+  return { row, col };
+}
+
+// Parse "A1:B10" or "A:A"
+export function parseRangeAddress(rangeStr: string, maxRows = 100): CellRange | null {
+  const parts = rangeStr.trim().toUpperCase().split(':');
+  if (parts.length === 1) {
+    const single = parseCellAddress(parts[0]);
+    if (!single) return null;
+    return { startRow: single.row, startCol: single.col, endRow: single.row, endCol: single.col };
+  }
+  if (parts.length === 2) {
+    // Check if whole columns like "A:B" or "A:A"
+    const colOnlyMatch1 = parts[0].match(/^[A-Z]+$/);
+    const colOnlyMatch2 = parts[1].match(/^[A-Z]+$/);
+    if (colOnlyMatch1 && colOnlyMatch2) {
+      const c1 = labelToColIndex(parts[0]);
+      const c2 = labelToColIndex(parts[1]);
+      return {
+        startRow: 0,
+        startCol: Math.min(c1, c2),
+        endRow: maxRows - 1,
+        endCol: Math.max(c1, c2),
+      };
+    }
+
+    const p1 = parseCellAddress(parts[0]);
+    const p2 = parseCellAddress(parts[1]);
+    if (!p1 || !p2) return null;
+    return {
+      startRow: Math.min(p1.row, p2.row),
+      startCol: Math.min(p1.col, p2.col),
+      endRow: Math.max(p1.row, p2.row),
+      endCol: Math.max(p1.col, p2.col),
+    };
+  }
+  return null;
+}
+
+export function cellPosToKey(row: number, col: number): string {
+  return `R${row}C${col}`;
+}
+
+export function keyToCellPos(key: string): CellPosition {
+  const match = key.match(/^R(\d+)C(\d+)$/);
+  if (match) {
+    return { row: parseInt(match[1], 10), col: parseInt(match[2], 10) };
+  }
+  const addr = parseCellAddress(key);
+  return addr || { row: 0, col: 0 };
+}
+
+export function cellPosToAddress(pos: CellPosition): string {
+  return `${colIndexToLabel(pos.col)}${pos.row + 1}`;
+}
+
+export function rangeToAddress(range: CellRange): string {
+  const p1 = `${colIndexToLabel(range.startCol)}${range.startRow + 1}`;
+  const p2 = `${colIndexToLabel(range.endCol)}${range.endRow + 1}`;
+  if (p1 === p2) return p1;
+  return `${p1}:${p2}`;
+}
+
+// Get cell value from sheet
+export function getCellValue(sheet: Sheet, row: number, col: number): any {
+  const key = cellPosToKey(row, col);
+  const cell = sheet.data[key];
+  if (!cell) return null;
+  return cell.value !== undefined ? cell.value : cell.raw;
+}
+
+// Get array of cell values in range
+export function getRangeValues(sheet: Sheet, range: CellRange): any[][] {
+  const matrix: any[][] = [];
+  for (let r = range.startRow; r <= range.endRow; r++) {
+    const rowVals: any[] = [];
+    for (let c = range.startCol; c <= range.endCol; c++) {
+      rowVals.push(getCellValue(sheet, r, c));
+    }
+    matrix.push(rowVals);
+  }
+  return matrix;
+}
+
+// Flatten range values
+export function getFlatRangeValues(sheet: Sheet, range: CellRange): any[] {
+  const flat: any[] = [];
+  for (let r = range.startRow; r <= range.endRow; r++) {
+    for (let c = range.startCol; c <= range.endCol; c++) {
+      const val = getCellValue(sheet, r, c);
+      flat.push(val);
+    }
+  }
+  return flat;
+}
+
+// Catalog of documented formulas for autocomplete and visual helper
+export const FORMULA_CATALOG: FormulaParamGuide[] = [
+  {
+    name: 'PROCX',
+    description: 'Procura um valor em um intervalo e retorna um item correspondente de um segundo intervalo (XLOOKUP).',
+    syntax: 'PROCX(pesquisa_valor, pesquisa_matriz, matriz_retorno, [se_não_encontrado], [modo_correspondência])',
+    example: 'PROCX(A2, B2:B20, C2:C20, "Não Encontrado", 0)',
+    category: 'Busca e Referência',
+    params: [
+      { name: 'pesquisa_valor', description: 'O valor que você deseja procurar' },
+      { name: 'pesquisa_matriz', description: 'O intervalo onde procurar o valor (ex: B2:B20)' },
+      { name: 'matriz_retorno', description: 'O intervalo com os dados a serem retornados (ex: C2:C20)' },
+      { name: 'se_não_encontrado', description: 'Valor retornado caso não haja correspondência (ex: "Não Encontrado")', optional: true, defaultValue: '"#N/D"' },
+      { name: 'modo_correspondência', description: '0 para exata (padrão), -1 menor próximo, 1 maior próximo', optional: true, defaultValue: '0' },
+    ],
+  },
+  {
+    name: 'SEERRO',
+    description: 'Retorna um valor personalizado se uma fórmula resultar em erro; caso contrário, retorna o resultado normal.',
+    syntax: 'SEERRO(valor, valor_se_erro)',
+    example: 'SEERRO(A2/B2, 0)',
+    category: 'Lógica',
+    params: [
+      { name: 'valor', description: 'A fórmula ou célula a ser verificada quanto a erro' },
+      { name: 'valor_se_erro', description: 'O valor retornado caso haja qualquer erro' },
+    ],
+  },
+  {
+    name: 'ÍNDICE',
+    description: 'Retorna o valor de uma célula dentro de uma tabela com base no número da linha e da coluna.',
+    syntax: 'ÍNDICE(matriz, núm_linha, [núm_coluna])',
+    example: 'ÍNDICE(A2:D20, 3, 2)',
+    category: 'Busca e Referência',
+    params: [
+      { name: 'matriz', description: 'O intervalo de células da tabela' },
+      { name: 'núm_linha', description: 'A posição da linha a retornar (1-based)' },
+      { name: 'núm_coluna', description: 'A posição da coluna a retornar (opcional em 1D)', optional: true, defaultValue: '1' },
+    ],
+  },
+  {
+    name: 'CORRESP',
+    description: 'Procura um item em um intervalo e retorna a posição relativa desse item.',
+    syntax: 'CORRESP(pesquisa_valor, pesquisa_matriz, [tipo_correspondência])',
+    example: 'CORRESP("Produto A", A2:A20, 0)',
+    category: 'Busca e Referência',
+    params: [
+      { name: 'pesquisa_valor', description: 'O valor a pesquisar' },
+      { name: 'pesquisa_matriz', description: 'O intervalo de 1 linha ou 1 coluna onde pesquisar' },
+      { name: 'tipo_correspondência', description: '0 para correspondência exata, 1 menor ou igual, -1 maior ou igual', optional: true, defaultValue: '0' },
+    ],
+  },
+  {
+    name: 'SOMARPRODUTO',
+    description: 'Multiplica os componentes correspondentes em duas ou mais matrizes e retorna a soma desses produtos.',
+    syntax: 'SOMARPRODUTO(matriz1, [matriz2], ...)',
+    example: 'SOMARPRODUTO(B2:B10, C2:C10)',
+    category: 'Matemática e Estatística',
+    params: [
+      { name: 'matriz1', description: 'Primeiro intervalo ou vetor (ex: Quantidade B2:B10)' },
+      { name: 'matriz2', description: 'Segundo intervalo ou vetor (ex: Preço C2:C10)' },
+    ],
+  },
+  {
+    name: 'MÉDIA.PONDERADA',
+    description: 'Calcula a média ponderada multiplicando os valores pelos seus respectivos pesos e dividindo pela soma dos pesos.',
+    syntax: 'MÉDIA.PONDERADA(valores, pesos)',
+    example: 'MÉDIA.PONDERADA(C2:C10, D2:D10)',
+    category: 'Matemática e Estatística',
+    params: [
+      { name: 'valores', description: 'Intervalo contendo os valores numéricos' },
+      { name: 'pesos', description: 'Intervalo contendo os pesos de cada valor' },
+    ],
+  },
+  {
+    name: 'UNIRTEXTO',
+    description: 'Concatena uma lista ou intervalo de cadeias de texto usando um delimitador especificado entre cada item.',
+    syntax: 'UNIRTEXTO(delimitador, ignorar_vazio, texto1, [texto2], ...)',
+    example: 'UNIRTEXTO(", ", VERDADEIRO, A2:A10)',
+    category: 'Texto',
+    params: [
+      { name: 'delimitador', description: 'O caractere separador (ex: ", " ou " - ")' },
+      { name: 'ignorar_vazio', description: 'VERDADEIRO para ignorar células vazias, FALSO para incluir' },
+      { name: 'texto1', description: 'Primeiro texto ou intervalo a unir' },
+    ],
+  },
+  {
+    name: 'SOMA',
+    description: 'Soma todos os números em um intervalo de células.',
+    syntax: 'SOMA(núm1, [núm2], ...)',
+    example: 'SOMA(A1:A10)',
+    category: 'Matemática e Estatística',
+    params: [{ name: 'intervalo', description: 'Intervalo de células para somar' }],
+  },
+  {
+    name: 'MÉDIA',
+    description: 'Retorna a média aritmética dos argumentos.',
+    syntax: 'MÉDIA(núm1, [núm2], ...)',
+    example: 'MÉDIA(B2:B20)',
+    category: 'Matemática e Estatística',
+    params: [{ name: 'intervalo', description: 'Intervalo para calcular a média' }],
+  },
+  {
+    name: 'CONT.SE',
+    description: 'Calcula o número de células em um intervalo que atendem a um determinado critério.',
+    syntax: 'CONT.SE(intervalo, critérios)',
+    example: 'CONT.SE(C2:C20, ">100")',
+    category: 'Matemática e Estatística',
+    params: [
+      { name: 'intervalo', description: 'O intervalo no qual contar as células' },
+      { name: 'critérios', description: 'A condição (ex: ">100", "Aprovado", ">=50")' },
+    ],
+  },
+  {
+    name: 'SE',
+    description: 'Verifica se uma condição foi atendida e retorna um valor se for VERDADEIRO e outro se for FALSO.',
+    syntax: 'SE(teste_lógico, valor_se_verdadeiro, [valor_se_falso])',
+    example: 'SE(A2>=7, "Aprovado", "Reprovado")',
+    category: 'Lógica',
+    params: [
+      { name: 'teste_lógico', description: 'A condição a ser testada' },
+      { name: 'valor_se_verdadeiro', description: 'Valor retornado se a condição for atendida' },
+      { name: 'valor_se_falso', description: 'Valor retornado se a condição não for atendida', optional: true },
+    ],
+  },
+  {
+    name: 'MAIÚSCULA',
+    description: 'Converte todas as letras de uma cadeia de texto em maiúsculas.',
+    syntax: 'MAIÚSCULA(texto)',
+    example: 'MAIÚSCULA(A2)',
+    category: 'Texto',
+    params: [{ name: 'texto', description: 'O texto a ser convertido' }],
+  },
+  {
+    name: 'MINÚSCULA',
+    description: 'Converte todas as letras de uma cadeia de texto em minúsculas.',
+    syntax: 'MINÚSCULA(texto)',
+    example: 'MINÚSCULA(A2)',
+    category: 'Texto',
+    params: [{ name: 'texto', description: 'O texto a ser convertido' }],
+  },
+  {
+    name: 'PRI.MAIÚSCULA',
+    description: 'Coloca em maiúscula a primeira letra de cada palavra em uma cadeia de texto.',
+    syntax: 'PRI.MAIÚSCULA(texto)',
+    example: 'PRI.MAIÚSCULA(A2)',
+    category: 'Texto',
+    params: [{ name: 'texto', description: 'O texto a ser formatado' }],
+  },
+  {
+    name: 'PROCV',
+    description: 'Procura um valor na primeira coluna à esquerda de uma tabela e retorna um valor na mesma linha de uma coluna especificada (VLOOKUP).',
+    syntax: 'PROCV(valor_procurado, matriz_tabela, núm_índice_coluna, [procurar_intervalo])',
+    example: 'PROCV(A2, B2:E20, 3, FALSO)',
+    category: 'Busca e Referência',
+    params: [
+      { name: 'valor_procurado', description: 'O valor a ser pesquisado na primeira coluna' },
+      { name: 'matriz_tabela', description: 'O intervalo contendo a tabela de pesquisa' },
+      { name: 'núm_índice_coluna', description: 'O número da coluna a retornar (1-based)' },
+      { name: 'procurar_intervalo', description: 'FALSO para correspondência exata, VERDADEIRO para aproximada', optional: true, defaultValue: 'FALSO' },
+    ],
+  },
+  {
+    name: 'SOMASE',
+    description: 'Adiciona as células especificadas por um determinado critério ou condição.',
+    syntax: 'SOMASE(intervalo, critérios, [intervalo_soma])',
+    example: 'SOMASE(A2:A20, "São Paulo", C2:C20)',
+    category: 'Matemática e Estatística',
+    params: [
+      { name: 'intervalo', description: 'O intervalo a ser avaliado pelo critério' },
+      { name: 'critérios', description: 'O critério (ex: ">100", "Aprovado")' },
+      { name: 'intervalo_soma', description: 'O intervalo com os valores a somar', optional: true },
+    ],
+  },
+  {
+    name: 'CONT.VALORES',
+    description: 'Calcula o número de células não vazias em um intervalo.',
+    syntax: 'CONT.VALORES(valor1, [valor2], ...)',
+    example: 'CONT.VALORES(A2:A50)',
+    category: 'Matemática e Estatística',
+    params: [{ name: 'intervalo', description: 'O intervalo de células preenchidas a contar' }],
+  },
+  {
+    name: 'MÁXIMO',
+    description: 'Retorna o valor máximo em um conjunto de valores.',
+    syntax: 'MÁXIMO(núm1, [núm2], ...)',
+    example: 'MÁXIMO(C2:C50)',
+    category: 'Matemática e Estatística',
+    params: [{ name: 'intervalo', description: 'Intervalo contendo os números' }],
+  },
+  {
+    name: 'MÍNIMO',
+    description: 'Retorna o valor mínimo em um conjunto de valores.',
+    syntax: 'MÍNIMO(núm1, [núm2], ...)',
+    example: 'MÍNIMO(C2:C50)',
+    category: 'Matemática e Estatística',
+    params: [{ name: 'intervalo', description: 'Intervalo contendo os números' }],
+  },
+  {
+    name: 'ARRED',
+    description: 'Arredonda um número para um número especificado de dígitos.',
+    syntax: 'ARRED(número, núm_dígitos)',
+    example: 'ARRED(A2, 2)',
+    category: 'Matemática e Estatística',
+    params: [
+      { name: 'número', description: 'O número a ser arredondado' },
+      { name: 'núm_dígitos', description: 'Quantidade de casas decimais' },
+    ],
+  },
+  {
+    name: 'HOJE',
+    description: 'Retorna a data atual no formato DD/MM/AAAA.',
+    syntax: 'HOJE()',
+    example: 'HOJE()',
+    category: 'Data e Hora',
+    params: [],
+  },
+  {
+    name: 'CONCAT',
+    description: 'Combina o texto de vários intervalos ou cadeias de caracteres.',
+    syntax: 'CONCAT(texto1, [texto2], ...)',
+    example: 'CONCAT(A2, " - ", B2)',
+    category: 'Texto',
+    params: [
+      { name: 'texto1', description: 'Primeiro texto ou célula a concatenar' },
+      { name: 'texto2', description: 'Segundo texto ou célula', optional: true },
+    ],
+  },
+];
+
+
+// Helper to safely parse numbers with Brazilian or US format
+export function parseNumberSafely(val: any, allowTimeAsSeconds = false): number | null {
+  if (typeof val === 'number') return isNaN(val) ? null : val;
+  if (typeof val !== 'string') return null;
+  const str = val.trim();
+  if (!str) return null;
+
+  // If contains time colon (e.g. "05:27:26", "04:03:02", "12:30")
+  if (str.includes(':')) {
+    if (allowTimeAsSeconds && /^\d{1,2}:\d{2}(:\d{2})?$/.test(str)) {
+      return valueToSeconds(str);
+    }
+    return null;
+  }
+
+
+
+  // If date format (e.g. "10/01/2023", "2023-01-10"), it is DATE, NOT a number!
+  if (/^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$/.test(str) || /^\d{4}-\d{2}-\d{2}$/.test(str)) return null;
+
+  // Handle currency prefixes like "R$", "$", "€"
+  const cleanStr = str
+    .replace(/^[R$€\s]+|[R$€\s]+$/g, '')
+    .replace(/%/g, '')
+    .trim();
+
+  if (!cleanStr) return null;
+
+  // If Brazilian format: 1.234,56 or 1234,56
+  if (cleanStr.includes(',') && !cleanStr.includes('.')) {
+    const normalized = cleanStr.replace(',', '.');
+    if (!/^[-+]?\d+(\.\d+)?$/.test(normalized)) return null;
+    const num = parseFloat(normalized);
+    if (!isNaN(num)) return str.includes('%') ? num / 100 : num;
+  } else if (cleanStr.includes('.') && cleanStr.includes(',')) {
+    if (cleanStr.lastIndexOf(',') > cleanStr.lastIndexOf('.')) {
+      // 1.234,56 -> 1234.56
+      const normalized = cleanStr.replace(/\./g, '').replace(',', '.');
+      if (!/^[-+]?\d+(\.\d+)?$/.test(normalized)) return null;
+      const num = parseFloat(normalized);
+      if (!isNaN(num)) return str.includes('%') ? num / 100 : num;
+    } else {
+      // 1,234.56 -> 1234.56
+      const normalized = cleanStr.replace(/,/g, '');
+      if (!/^[-+]?\d+(\.\d+)?$/.test(normalized)) return null;
+      const num = parseFloat(normalized);
+      if (!isNaN(num)) return str.includes('%') ? num / 100 : num;
+    }
+  } else {
+    // US or plain integer: e.g. 1234.56 or 1234 or -50
+    if (!/^[-+]?\d+(\.\d+)?$/.test(cleanStr)) return null;
+    const num = parseFloat(cleanStr);
+    if (!isNaN(num)) return str.includes('%') ? num / 100 : num;
+  }
+  return null;
+}
+
+// Evaluate formula
+export function evaluateFormula(
+  formula: string,
+  sheet: Sheet,
+  allSheets: Sheet[] = [sheet],
+  callStack: Set<string> = new Set()
+): any {
+  if (!formula.startsWith('=')) {
+    const num = parseNumberSafely(formula);
+    return num !== null ? num : formula;
+  }
+
+
+  const expr = formula.substring(1).trim();
+
+  try {
+    return evaluateExpression(expr, sheet, allSheets, callStack);
+  } catch (err: any) {
+    if (err.message && err.message.startsWith('#')) return err.message;
+    return '#VALOR!';
+  }
+}
+
+// Main Expression Evaluator
+function evaluateExpression(
+  expr: string,
+  sheet: Sheet,
+  allSheets: Sheet[],
+  callStack: Set<string>
+): any {
+  expr = expr.trim();
+  if (!expr) return '';
+
+  // Handle outer parentheses: (1 - I2) or ((A1+B1)*2)
+  if (expr.startsWith('(') && expr.endsWith(')')) {
+    let depth = 0;
+    let canStrip = true;
+    for (let i = 0; i < expr.length - 1; i++) {
+      if (expr[i] === '(') depth++;
+      else if (expr[i] === ')') depth--;
+      if (depth === 0) {
+        canStrip = false;
+        break;
+      }
+    }
+    if (canStrip) {
+      return evaluateExpression(expr.substring(1, expr.length - 1).trim(), sheet, allSheets, callStack);
+    }
+  }
+
+  // Check function call: FUNC(arg1, arg2, ...)
+  const funcMatch = expr.match(/^([A-ZÁÉÍÓÚÂÊÔÃÕÇ\._]+)\s*\((.*)\)$/i);
+  if (funcMatch) {
+    const funcName = funcMatch[1].toUpperCase();
+    const argsRaw = funcMatch[2];
+    const args = splitFormulaArguments(argsRaw);
+
+    return executeFunction(funcName, args, sheet, allSheets, callStack);
+  }
+
+
+  // Handle concatenation with & operator
+  if (hasTopLevelOperator(expr, '&')) {
+    const tokens = splitByTopLevelOperator(expr, '&');
+    return tokens
+      .map(t => {
+        const res = evaluateExpression(t, sheet, allSheets, callStack);
+        return res === null || res === undefined ? '' : String(res);
+      })
+      .join('');
+  }
+
+  // Handle comparison operators: =, <>, <=, >=, <, >
+  const compOps = ['<=', '>=', '<>', '=', '<', '>'];
+  for (const op of compOps) {
+    if (hasTopLevelOperator(expr, op)) {
+      const parts = splitByTopLevelOperator(expr, op);
+      if (parts.length === 2) {
+        const left = evaluateExpression(parts[0], sheet, allSheets, callStack);
+        const right = evaluateExpression(parts[1], sheet, allSheets, callStack);
+        if (op === '=') return left === right;
+        if (op === '<>') return left !== right;
+        if (op === '<') return Number(left) < Number(right);
+        if (op === '>') return Number(left) > Number(right);
+        if (op === '<=') return Number(left) <= Number(right);
+        if (op === '>=') return Number(left) >= Number(right);
+      }
+    }
+  }
+
+  // Handle arithmetic: +, -
+  if (hasTopLevelOperator(expr, '+') || hasTopLevelOperator(expr, '-')) {
+    const parts = splitAdditive(expr);
+    let total = 0;
+    for (const part of parts) {
+      const val = evaluateExpression(part.expr, sheet, allSheets, callStack);
+      const num = Number(val);
+      if (isNaN(num)) throw new Error('#VALOR!');
+      if (part.sign === '+') total += num;
+      else total -= num;
+    }
+    return total;
+  }
+
+  // Handle arithmetic: *, /
+  if (hasTopLevelOperator(expr, '*') || hasTopLevelOperator(expr, '/')) {
+    const parts = splitMultiplicative(expr);
+    let total = 1;
+    for (let i = 0; i < parts.length; i++) {
+      const val = evaluateExpression(parts[i].expr, sheet, allSheets, callStack);
+      const num = Number(val);
+      if (isNaN(num)) throw new Error('#VALOR!');
+      if (i === 0) {
+        total = num;
+      } else {
+        if (parts[i].op === '*') {
+          total *= num;
+        } else {
+          if (num === 0) throw new Error('#DIV/0!');
+          total /= num;
+        }
+      }
+    }
+    return total;
+  }
+
+  // Handle string literals "Hello"
+  if (expr.startsWith('"') && expr.endsWith('"') && expr.length >= 2) {
+    return expr.substring(1, expr.length - 1);
+  }
+
+  // Handle boolean literals
+  if (expr.toUpperCase() === 'VERDADEIRO' || expr.toUpperCase() === 'TRUE') return true;
+  if (expr.toUpperCase() === 'FALSO' || expr.toUpperCase() === 'FALSE') return false;
+
+  // Handle sheet qualified reference "Sheet2!A1" or "Sheet2!A1:B10"
+  if (expr.includes('!')) {
+    const [sheetName, cellRef] = expr.split('!');
+    const cleanSheetName = sheetName.replace(/^'|'$/g, '');
+    const targetSheet = allSheets.find(s => s.name.toUpperCase() === cleanSheetName.toUpperCase()) || sheet;
+    return evaluateExpression(cellRef, targetSheet, allSheets, callStack);
+  }
+
+  // Handle cell range "A1:B10"
+  const range = parseRangeAddress(expr, sheet.rowCount);
+  if (range && (range.startRow !== range.endRow || range.startCol !== range.endCol)) {
+    return getRangeValues(sheet, range);
+  }
+
+  // Handle single cell "A1"
+  const cellPos = parseCellAddress(expr);
+  if (cellPos) {
+    const cellKey = cellPosToKey(cellPos.row, cellPos.col);
+    if (callStack.has(`${sheet.id}:${cellKey}`)) {
+      throw new Error('#CIRCULAR!');
+    }
+    const cell = sheet.data[cellKey];
+    if (!cell) return 0;
+    if (cell.raw && cell.raw.startsWith('=')) {
+      const nextStack = new Set(callStack);
+      nextStack.add(`${sheet.id}:${cellKey}`);
+      return evaluateFormula(cell.raw, sheet, allSheets, nextStack);
+    }
+    const num = parseNumberSafely(cell.value ?? cell.raw);
+    return num !== null ? num : (cell.value ?? cell.raw ?? 0);
+  }
+
+  // Number literal
+  const num = parseNumberSafely(expr);
+  if (num !== null) return num;
+
+  return expr;
+}
+
+// Function Execution Handler
+function executeFunction(
+  name: string,
+  args: string[],
+  sheet: Sheet,
+  allSheets: Sheet[],
+  callStack: Set<string>
+): any {
+  // Alias mapping
+  const func = name.toUpperCase();
+
+  // PROCX / XLOOKUP
+  if (func === 'PROCX' || func === 'XLOOKUP') {
+    if (args.length < 3) throw new Error('#N/D');
+    const lookupVal = evaluateExpression(args[0], sheet, allSheets, callStack);
+    
+    // Evaluate lookup array
+    const lookupRange = parseRangeAddress(args[1], sheet.rowCount);
+    const returnRange = parseRangeAddress(args[2], sheet.rowCount);
+    const ifNotFound = args[3] !== undefined ? evaluateExpression(args[3], sheet, allSheets, callStack) : '#N/D';
+
+    if (!lookupRange || !returnRange) throw new Error('#VALOR!');
+
+    const lookupItems = getFlatRangeValues(sheet, lookupRange);
+    const returnItems = getFlatRangeValues(sheet, returnRange);
+
+    let matchIndex = -1;
+    const lookupStr = String(lookupVal).trim().toLowerCase();
+
+    for (let i = 0; i < lookupItems.length; i++) {
+      const item = lookupItems[i];
+      if (item === null || item === undefined) continue;
+      if (String(item).trim().toLowerCase() === lookupStr || item === lookupVal) {
+        matchIndex = i;
+        break;
+      }
+    }
+
+    if (matchIndex >= 0 && matchIndex < returnItems.length) {
+      return returnItems[matchIndex];
+    }
+    return ifNotFound;
+  }
+
+  // SEERRO / IFERROR
+  if (func === 'SEERRO' || func === 'IFERROR') {
+    if (args.length < 2) throw new Error('#VALOR!');
+    try {
+      const val = evaluateExpression(args[0], sheet, allSheets, callStack);
+      if (typeof val === 'string' && val.startsWith('#')) {
+        return evaluateExpression(args[1], sheet, allSheets, callStack);
+      }
+      if (typeof val === 'number' && isNaN(val)) {
+        return evaluateExpression(args[1], sheet, allSheets, callStack);
+      }
+      return val;
+    } catch {
+      return evaluateExpression(args[1], sheet, allSheets, callStack);
+    }
+  }
+
+  // ÍNDICE / INDEX
+  if (func === 'ÍNDICE' || func === 'INDICE' || func === 'INDEX') {
+    if (args.length < 2) throw new Error('#VALOR!');
+    const range = parseRangeAddress(args[0], sheet.rowCount);
+    if (!range) throw new Error('#REF!');
+    const rowNum = Number(evaluateExpression(args[1], sheet, allSheets, callStack));
+    const colNum = args[2] ? Number(evaluateExpression(args[2], sheet, allSheets, callStack)) : 1;
+
+    if (isNaN(rowNum) || rowNum < 1) throw new Error('#REF!');
+    const targetRow = range.startRow + (rowNum - 1);
+    const targetCol = range.startCol + (colNum - 1);
+
+    if (targetRow > range.endRow || targetCol > range.endCol) throw new Error('#REF!');
+    return getCellValue(sheet, targetRow, targetCol);
+  }
+
+  // CORRESP / MATCH
+  if (func === 'CORRESP' || func === 'MATCH') {
+    if (args.length < 2) throw new Error('#VALOR!');
+    const lookupVal = evaluateExpression(args[0], sheet, allSheets, callStack);
+    const range = parseRangeAddress(args[1], sheet.rowCount);
+    if (!range) throw new Error('#VALOR!');
+
+    const items = getFlatRangeValues(sheet, range);
+    const lookupStr = String(lookupVal).trim().toLowerCase();
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item !== null && (String(item).trim().toLowerCase() === lookupStr || item === lookupVal)) {
+        return i + 1; // 1-based index
+      }
+    }
+    throw new Error('#N/D');
+  }
+
+  // SOMARPRODUTO / SUMPRODUCT
+  if (func === 'SOMARPRODUTO' || func === 'SUMPRODUCT') {
+    if (args.length === 0) return 0;
+    const arrays: number[][] = [];
+    for (const arg of args) {
+      const range = parseRangeAddress(arg, sheet.rowCount);
+      if (range) {
+        const vals = getFlatRangeValues(sheet, range).map(v => {
+          const n = parseNumberSafely(v);
+          return n !== null ? n : 0;
+        });
+        arrays.push(vals);
+      } else {
+        const val = evaluateExpression(arg, sheet, allSheets, callStack);
+        arrays.push([Number(val) || 0]);
+      }
+    }
+
+    if (arrays.length === 0) return 0;
+    const len = arrays[0].length;
+    let sum = 0;
+    for (let i = 0; i < len; i++) {
+      let prod = 1;
+      for (const arr of arrays) {
+        prod *= arr[i] !== undefined ? arr[i] : 0;
+      }
+      sum += prod;
+    }
+    return sum;
+  }
+
+  // MÉDIA.PONDERADA / WEIGHTED.AVERAGE
+  if (func === 'MÉDIA.PONDERADA' || func === 'MEDIA.PONDERADA' || func === 'WEIGHTED.AVERAGE') {
+    if (args.length < 2) throw new Error('#VALOR!');
+    const valRange = parseRangeAddress(args[0], sheet.rowCount);
+    const weightRange = parseRangeAddress(args[1], sheet.rowCount);
+
+    if (!valRange || !weightRange) throw new Error('#VALOR!');
+    const vals = getFlatRangeValues(sheet, valRange).map(v => parseNumberSafely(v) ?? 0);
+    const weights = getFlatRangeValues(sheet, weightRange).map(w => parseNumberSafely(w) ?? 0);
+
+    let sumProd = 0;
+    let sumWeight = 0;
+    const minLen = Math.min(vals.length, weights.length);
+
+    for (let i = 0; i < minLen; i++) {
+      sumProd += vals[i] * weights[i];
+      sumWeight += weights[i];
+    }
+
+    if (sumWeight === 0) throw new Error('#DIV/0!');
+    return sumProd / sumWeight;
+  }
+
+  // UNIRTEXTO / TEXTJOIN
+  if (func === 'UNIRTEXTO' || func === 'TEXTJOIN') {
+    if (args.length < 3) throw new Error('#VALOR!');
+    const delimiter = String(evaluateExpression(args[0], sheet, allSheets, callStack));
+    const ignoreEmpty = Boolean(evaluateExpression(args[1], sheet, allSheets, callStack));
+
+    const textItems: string[] = [];
+    for (let i = 2; i < args.length; i++) {
+      const range = parseRangeAddress(args[i], sheet.rowCount);
+      if (range) {
+        const flat = getFlatRangeValues(sheet, range);
+        for (const f of flat) {
+          if (f === null || f === undefined || f === '') {
+            if (!ignoreEmpty) textItems.push('');
+          } else {
+            textItems.push(String(f));
+          }
+        }
+      } else {
+        const val = evaluateExpression(args[i], sheet, allSheets, callStack);
+        if (val === null || val === undefined || val === '') {
+          if (!ignoreEmpty) textItems.push('');
+        } else {
+          textItems.push(String(val));
+        }
+      }
+    }
+    return textItems.join(delimiter);
+  }
+
+  // CONCATENAR / CONCAT
+  if (func === 'CONCATENAR' || func === 'CONCAT') {
+    const texts: string[] = [];
+    for (const arg of args) {
+      const range = parseRangeAddress(arg, sheet.rowCount);
+      if (range) {
+        getFlatRangeValues(sheet, range).forEach(v => {
+          if (v !== null && v !== undefined) texts.push(String(v));
+        });
+      } else {
+        const v = evaluateExpression(arg, sheet, allSheets, callStack);
+        if (v !== null && v !== undefined) texts.push(String(v));
+      }
+    }
+    return texts.join('');
+  }
+
+  // SOMA / SUM
+  if (func === 'SOMA' || func === 'SUM') {
+    let sum = 0;
+    for (const arg of args) {
+      const range = parseRangeAddress(arg, sheet.rowCount);
+      if (range) {
+        getFlatRangeValues(sheet, range).forEach(v => {
+          const n = parseNumberSafely(v);
+          if (n !== null) sum += n;
+        });
+      } else {
+        const v = evaluateExpression(arg, sheet, allSheets, callStack);
+        const n = parseNumberSafely(v);
+        if (n !== null) sum += n;
+      }
+    }
+    return sum;
+  }
+
+  // MÉDIA / AVERAGE
+  if (func === 'MÉDIA' || func === 'MEDIA' || func === 'AVERAGE') {
+    let sum = 0;
+    let count = 0;
+    for (const arg of args) {
+      const range = parseRangeAddress(arg, sheet.rowCount);
+      if (range) {
+        getFlatRangeValues(sheet, range).forEach(v => {
+          const n = parseNumberSafely(v);
+          if (n !== null) {
+            sum += n;
+            count++;
+          }
+        });
+      } else {
+        const v = evaluateExpression(arg, sheet, allSheets, callStack);
+        const n = parseNumberSafely(v);
+        if (n !== null) {
+          sum += n;
+          count++;
+        }
+      }
+    }
+    if (count === 0) throw new Error('#DIV/0!');
+    return sum / count;
+  }
+
+  // CONT.SE / COUNTIF
+  if (func === 'CONT.SE' || func === 'CONTAR.SE' || func === 'COUNTIF') {
+    if (args.length < 2) throw new Error('#VALOR!');
+    const range = parseRangeAddress(args[0], sheet.rowCount);
+    if (!range) throw new Error('#VALOR!');
+    const criteriaRaw = evaluateExpression(args[1], sheet, allSheets, callStack);
+    const criteriaStr = String(criteriaRaw).trim();
+
+    const vals = getFlatRangeValues(sheet, range);
+    let count = 0;
+
+    for (const v of vals) {
+      if (v === null || v === undefined) continue;
+      if (criteriaStr.startsWith('>=')) {
+        const num = parseFloat(criteriaStr.substring(2));
+        if (Number(v) >= num) count++;
+      } else if (criteriaStr.startsWith('<=')) {
+        const num = parseFloat(criteriaStr.substring(2));
+        if (Number(v) <= num) count++;
+      } else if (criteriaStr.startsWith('<>')) {
+        const target = criteriaStr.substring(2);
+        if (String(v).toLowerCase() !== target.toLowerCase()) count++;
+      } else if (criteriaStr.startsWith('>')) {
+        const num = parseFloat(criteriaStr.substring(1));
+        if (Number(v) > num) count++;
+      } else if (criteriaStr.startsWith('<')) {
+        const num = parseFloat(criteriaStr.substring(1));
+        if (Number(v) < num) count++;
+      } else if (criteriaStr.startsWith('=')) {
+        const target = criteriaStr.substring(1);
+        if (String(v).toLowerCase() === target.toLowerCase()) count++;
+      } else {
+        if (String(v).toLowerCase() === criteriaStr.toLowerCase() || v === criteriaRaw) {
+          count++;
+        }
+      }
+    }
+    return count;
+  }
+
+  // CONT.VALORES / COUNTA
+  if (func === 'CONT.VALORES' || func === 'CONTAR.VALORES' || func === 'COUNTA') {
+    let count = 0;
+    for (const arg of args) {
+      const range = parseRangeAddress(arg, sheet.rowCount);
+      if (range) {
+        getFlatRangeValues(sheet, range).forEach(v => {
+          if (v !== null && v !== undefined && v !== '') count++;
+        });
+      } else {
+        const v = evaluateExpression(arg, sheet, allSheets, callStack);
+        if (v !== null && v !== undefined && v !== '') count++;
+      }
+    }
+    return count;
+  }
+
+  // MÁXIMO / MAX
+  if (func === 'MÁXIMO' || func === 'MAXIMO' || func === 'MAX') {
+    let max = -Infinity;
+    for (const arg of args) {
+      const range = parseRangeAddress(arg, sheet.rowCount);
+      if (range) {
+        getFlatRangeValues(sheet, range).forEach(v => {
+          const n = parseNumberSafely(v);
+          if (n !== null && n > max) max = n;
+        });
+      } else {
+        const v = Number(evaluateExpression(arg, sheet, allSheets, callStack));
+        if (!isNaN(v) && v > max) max = v;
+      }
+    }
+    return max === -Infinity ? 0 : max;
+  }
+
+  // MÍNIMO / MIN
+  if (func === 'MÍNIMO' || func === 'MINIMO' || func === 'MIN') {
+    let min = Infinity;
+    for (const arg of args) {
+      const range = parseRangeAddress(arg, sheet.rowCount);
+      if (range) {
+        getFlatRangeValues(sheet, range).forEach(v => {
+          const n = parseNumberSafely(v);
+          if (n !== null && n < min) min = n;
+        });
+      } else {
+        const v = Number(evaluateExpression(arg, sheet, allSheets, callStack));
+        if (!isNaN(v) && v < min) min = v;
+      }
+    }
+    return min === Infinity ? 0 : min;
+  }
+
+  // SE / IF
+  if (func === 'SE' || func === 'IF') {
+    if (args.length < 2) throw new Error('#VALOR!');
+    const cond = evaluateExpression(args[0], sheet, allSheets, callStack);
+    if (cond) {
+      return evaluateExpression(args[1], sheet, allSheets, callStack);
+    } else {
+      return args[2] ? evaluateExpression(args[2], sheet, allSheets, callStack) : false;
+    }
+  }
+
+  // MAIÚSCULA / UPPER
+  if (func === 'MAIÚSCULA' || func === 'MAIUSCULA' || func === 'UPPER') {
+    const val = evaluateExpression(args[0] || '', sheet, allSheets, callStack);
+    return String(val ?? '').toUpperCase();
+  }
+
+  // MINÚSCULA / LOWER
+  if (func === 'MINÚSCULA' || func === 'MINUSCULA' || func === 'LOWER') {
+    const val = evaluateExpression(args[0] || '', sheet, allSheets, callStack);
+    return String(val ?? '').toLowerCase();
+  }
+
+  // PRI.MAIÚSCULA / PROPER
+  if (func === 'PRI.MAIÚSCULA' || func === 'PRI.MAIUSCULA' || func === 'PROPER') {
+    const val = String(evaluateExpression(args[0] || '', sheet, allSheets, callStack) ?? '');
+    return val.replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  // ARRED / ROUND
+  if (func === 'ARRED' || func === 'ROUND') {
+    const val = Number(evaluateExpression(args[0], sheet, allSheets, callStack));
+    const decimals = args[1] ? Number(evaluateExpression(args[1], sheet, allSheets, callStack)) : 0;
+    const factor = Math.pow(10, decimals);
+    return Math.round(val * factor) / factor;
+  }
+
+  // HOJE / TODAY
+  if (func === 'HOJE' || func === 'TODAY') {
+    const now = new Date();
+    return `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  }
+
+  throw new Error('#NOME?');
+}
+
+// Split formula arguments handling nested brackets and quotes
+function splitFormulaArguments(raw: string): string[] {
+  const args: string[] = [];
+  let current = '';
+  let depth = 0;
+  let inQuotes = false;
+
+  for (let i = 0; i < raw.length; i++) {
+    const char = raw[i];
+    if (char === '"') inQuotes = !inQuotes;
+    if (!inQuotes) {
+      if (char === '(' || char === '[' || char === '{') depth++;
+      else if (char === ')' || char === ']' || char === '}') depth--;
+      else if ((char === ',' || char === ';') && depth === 0) {
+        args.push(current.trim());
+        current = '';
+        continue;
+      }
+    }
+    current += char;
+  }
+  if (current.trim()) args.push(current.trim());
+  return args;
+}
+
+// Split by top-level operator (+, -, *, etc.)
+function hasTopLevelOperator(expr: string, op: string): boolean {
+  let depth = 0;
+  let inQuotes = false;
+  for (let i = 0; i < expr.length; i++) {
+    const char = expr[i];
+    if (char === '"') inQuotes = !inQuotes;
+    if (!inQuotes) {
+      if (char === '(' || char === '[' || char === '{') depth++;
+      else if (char === ')' || char === ']' || char === '}') depth--;
+      else if (depth === 0) {
+        if (expr.substring(i, i + op.length) === op) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function splitByTopLevelOperator(expr: string, op: string): string[] {
+  const tokens: string[] = [];
+  let current = '';
+  let depth = 0;
+  let inQuotes = false;
+
+  for (let i = 0; i < expr.length; i++) {
+    const char = expr[i];
+    if (char === '"') inQuotes = !inQuotes;
+    if (!inQuotes) {
+      if (char === '(' || char === '[' || char === '{') depth++;
+      else if (char === ')' || char === ']' || char === '}') depth--;
+      else if (depth === 0 && expr.substring(i, i + op.length) === op) {
+        tokens.push(current.trim());
+        current = '';
+        i += op.length - 1;
+        continue;
+      }
+    }
+    current += char;
+  }
+  if (current.trim()) tokens.push(current.trim());
+  return tokens;
+}
+
+function splitAdditive(expr: string): { expr: string; sign: '+' | '-' }[] {
+  const parts: { expr: string; sign: '+' | '-' }[] = [];
+  let current = '';
+  let currentSign: '+' | '-' = '+';
+  let depth = 0;
+  let inQuotes = false;
+
+  for (let i = 0; i < expr.length; i++) {
+    const char = expr[i];
+    if (char === '"') inQuotes = !inQuotes;
+    if (!inQuotes) {
+      if (char === '(' || char === '[' || char === '{') depth++;
+      else if (char === ')' || char === ']' || char === '}') depth--;
+      else if (depth === 0 && (char === '+' || char === '-')) {
+        if (i === 0) {
+          currentSign = char as '+' | '-';
+          continue;
+        }
+        parts.push({ expr: current.trim(), sign: currentSign });
+        current = '';
+        currentSign = char as '+' | '-';
+        continue;
+      }
+    }
+    current += char;
+  }
+  if (current.trim()) parts.push({ expr: current.trim(), sign: currentSign });
+  return parts;
+}
+
+function splitMultiplicative(expr: string): { expr: string; op: '*' | '/' }[] {
+  const parts: { expr: string; op: '*' | '/' }[] = [];
+  let current = '';
+  let currentOp: '*' | '/' = '*';
+  let depth = 0;
+  let inQuotes = false;
+
+  for (let i = 0; i < expr.length; i++) {
+    const char = expr[i];
+    if (char === '"') inQuotes = !inQuotes;
+    if (!inQuotes) {
+      if (char === '(' || char === '[' || char === '{') depth++;
+      else if (char === ')' || char === ']' || char === '}') depth--;
+      else if (depth === 0 && (char === '*' || char === '/')) {
+        parts.push({ expr: current.trim(), op: currentOp });
+        current = '';
+        currentOp = char as '*' | '/';
+        continue;
+      }
+    }
+    current += char;
+  }
+  if (current.trim()) parts.push({ expr: current.trim(), op: currentOp });
+  return parts;
+}
+
+/**
+ * Helper to convert any value into total seconds
+ * Supports:
+ * - Numbers: 60 (as min = 3600s, as hrs = 216000s)
+ * - Strings: "60", "60m", "60 min", "1h 30m", "01:00:00", "01:00"
+ */
+export function valueToSeconds(value: any, specificMode?: 'hours' | 'minutes' | 'seconds' | 'auto'): number {
+  if (value === null || value === undefined || value === '') return 0;
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+
+    // Check HH:MM:SS or HH:MM
+    const timeMatch = trimmed.match(/^(\d{1,3}):(\d{1,2})(?::(\d{1,2}))?$/);
+    if (timeMatch) {
+      const h = parseInt(timeMatch[1], 10) || 0;
+      const m = parseInt(timeMatch[2], 10) || 0;
+      const s = parseInt(timeMatch[3], 10) || 0;
+      return h * 3600 + m * 60 + s;
+    }
+
+    // Check Duration strings like "1h 30m", "60min", "60m", "45s", "120 seg"
+    const durMatch = trimmed.match(/^(?:(\d+)\s*h(?:oras?)?)?\s*(?:(\d+)\s*m(?:in(?:utos?)?)?)?\s*(?:(\d+)\s*s(?:eg(?:undos?)?)?)?$/i);
+    if (durMatch && (durMatch[1] || durMatch[2] || durMatch[3])) {
+      const h = parseInt(durMatch[1] || '0', 10);
+      const m = parseInt(durMatch[2] || '0', 10);
+      const s = parseInt(durMatch[3] || '0', 10);
+      return h * 3600 + m * 60 + s;
+    }
+  }
+
+  const num = parseNumberSafely(value);
+  if (num === null) return 0;
+
+  if (specificMode === 'hours') return Math.round(num * 3600);
+  if (specificMode === 'minutes') return Math.round(num * 60);
+  if (specificMode === 'seconds') return Math.round(num);
+
+  // Auto inference:
+  // If Excel fraction of day (e.g. 0.041666 = 1h, 0.5 = 12h, 0.137106 -> 03:17:26)
+  if (num > 0 && num < 1) return Math.round(num * 86400);
+
+  // If numbers > 1440 (likely seconds, e.g. 11846 -> 03:17:26, 3600 -> 01:00:00)
+  if (num > 1440) return Math.round(num);
+
+  // If 0..24 (e.g. 1 -> 1h = 3600s = 01:00:00, 2 -> 2h = 02:00:00, 3.29 -> 03:17:26)
+  if (num >= 0 && num <= 24) return Math.round(num * 3600);
+
+  // If 25..1440 (likely minutes, e.g. 60 -> 60min = 3600s = 01:00:00, 90 -> 01:30:00)
+  if (num > 24 && num <= 1440) return Math.round(num * 60);
+
+  return Math.round(num);
+}
+
+
+/**
+ * Formats total seconds into desired time string
+ */
+export function formatSecondsToTime(
+  totalSeconds: number,
+  formatType: 'time' | 'time_hh_mm' | 'time_hh_mm_ss' | 'time_duration' | 'time_minutes_label'
+): string {
+  const isNeg = totalSeconds < 0;
+  const absSec = Math.abs(totalSeconds);
+
+  const hours = Math.floor(absSec / 3600);
+  const minutes = Math.floor((absSec % 3600) / 60);
+  const seconds = Math.floor(absSec % 60);
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  if (formatType === 'time_minutes_label') {
+    // Total in minutes (e.g. 60m, 15m, 120m, 0m)
+    const totalMin = Math.round(absSec / 60);
+    return `${isNeg ? '-' : ''}${totalMin}m`;
+  }
+
+  if (formatType === 'time_hh_mm') {
+    return `${isNeg ? '-' : ''}${pad(hours)}:${pad(minutes)}`;
+  }
+
+  if (formatType === 'time_duration') {
+    if (hours > 0) {
+      return `${isNeg ? '-' : ''}${hours}h ${pad(minutes)}m${seconds > 0 ? ` ${pad(seconds)}s` : ''}`;
+    }
+    return `${isNeg ? '-' : ''}${minutes}m${seconds > 0 ? ` ${pad(seconds)}s` : ''}`;
+  }
+
+
+  // Default 'time' or 'time_hh_mm_ss' -> HH:MM:SS
+  return `${isNeg ? '-' : ''}${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+}
+
+// Format cell value for display
+export function formatCellValue(value: any, format?: CellFormat): string {
+  if (value === null || value === undefined || value === '') return '';
+  if (typeof value === 'string' && value.startsWith('#')) return value; // Error flag
+
+  const type = format?.type || 'general';
+  const decimals = format?.decimals !== undefined ? format.decimals : 2;
+
+  // Explicit TEXT format
+  if (type === 'text') {
+    let text = String(value);
+    if (format?.textCase === 'uppercase') text = text.toUpperCase();
+    else if (format?.textCase === 'lowercase') text = text.toLowerCase();
+    else if (format?.textCase === 'capitalize') text = text.replace(/\b\w/g, c => c.toUpperCase());
+    return text;
+  }
+
+  // Time & Duration formats
+  if (
+    type === 'time' ||
+    type === 'time_hh_mm' ||
+    type === 'time_hh_mm_ss' ||
+    type === 'time_duration' ||
+    type === 'time_minutes_label'
+  ) {
+    const totalSec = valueToSeconds(value, 'auto');
+    return formatSecondsToTime(totalSec, type);
+  }
+  if (type === 'time_from_decimal_hours') {
+    const totalSec = valueToSeconds(value, 'hours');
+    return formatSecondsToTime(totalSec, 'time_hh_mm_ss');
+  }
+  if (type === 'time_from_minutes') {
+    const totalSec = valueToSeconds(value, 'minutes');
+    return formatSecondsToTime(totalSec, 'time_hh_mm_ss');
+  }
+
+  if (type === 'time_from_seconds') {
+    const totalSec = valueToSeconds(value, 'seconds');
+    return formatSecondsToTime(totalSec, 'time_hh_mm_ss');
+  }
+
+  const numVal = parseNumberSafely(value);
+
+
+  if (numVal !== null) {
+    if (type === 'currency') {
+      return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      }).format(numVal);
+    }
+    if (type === 'currency_usd') {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      }).format(numVal);
+    }
+    if (type === 'currency_eur') {
+      return new Intl.NumberFormat('de-DE', {
+        style: 'currency',
+        currency: 'EUR',
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      }).format(numVal);
+    }
+    if (type === 'percentage') {
+      const pct = numVal > 1 && numVal <= 100 ? numVal : numVal * 100;
+      return `${pct.toLocaleString('pt-BR', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      })}%`;
+    }
+    if (type === 'number') {
+      return numVal.toLocaleString('pt-BR', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      });
+    }
+    if (type === 'date') {
+      const d = new Date(numVal > 10000000000 ? numVal : (numVal - 25569) * 86400 * 1000);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString('pt-BR');
+      }
+    }
+  }
+
+  let text = String(value);
+  if (format?.textCase === 'uppercase') text = text.toUpperCase();
+  else if (format?.textCase === 'lowercase') text = text.toLowerCase();
+  else if (format?.textCase === 'capitalize') text = text.replace(/\b\w/g, c => c.toUpperCase());
+
+  return text;
+}
+
+
+
+// Recalculate whole sheet
+export function recalculateSheet(sheet: Sheet, allSheets: Sheet[] = [sheet]): Sheet {
+  const updatedData = { ...sheet.data };
+  for (const [key, cell] of Object.entries(updatedData)) {
+    if (cell.raw && cell.raw.startsWith('=')) {
+      try {
+        const val = evaluateFormula(cell.raw, sheet, allSheets);
+        updatedData[key] = {
+          ...cell,
+          value: val,
+          error: typeof val === 'string' && val.startsWith('#') ? val : null,
+        };
+      } catch (err: any) {
+        updatedData[key] = {
+          ...cell,
+          value: '#ERRO!',
+          error: err.message || '#ERRO!',
+        };
+      }
+    }
+  }
+  return { ...sheet, data: updatedData };
+}
