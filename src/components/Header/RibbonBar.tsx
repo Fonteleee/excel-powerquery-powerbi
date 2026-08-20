@@ -186,87 +186,81 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
   ];
 
   return (
-    <div className="bg-[#ffffff] border-b border-[#edebe9] flex flex-col select-none z-20 font-sans">
-      {/* 1. EXCEL ONLINE TOP SUITE BAR */}
-      <div className="h-10 px-3 flex items-center justify-between border-b border-[#edebe9] bg-[#ffffff]">
-        {/* Left: Office Waffle + Excel Icon + Name + Saved status */}
+    <div className="bg-[#f5f5f5] border-b border-[#e0e0e0] flex flex-col select-none z-20 font-sans">
+      {/* 1. EXCEL ONLINE TOP SUITE BAR (Exact Replica of Image 2) */}
+      <div className="h-11 px-3 flex items-center justify-between bg-[#f5f5f5]">
+        {/* Left: 9-Dot Waffle + Excel Icon + Document Title + Cloud Sync */}
         <div className="flex items-center gap-2.5">
           {/* Office 365 9-Dots Waffle Menu */}
           <button
             title="Inicializador de Aplicativos"
-            className="p-1.5 rounded hover:bg-[#f3f2f1] text-[#605e5c] hover:text-[#201f1e] cursor-pointer"
+            className="p-1 rounded hover:bg-[#ebebeb] text-[#505050] hover:text-[#242424] cursor-pointer"
           >
-            <div className="grid grid-cols-3 gap-0.5 size-3.5">
+            <div className="grid grid-cols-3 gap-0.5 size-4 p-0.5">
               {Array.from({ length: 9 }).map((_, i) => (
-                <div key={i} className="size-0.75 bg-[#605e5c] rounded-2xs" />
+                <div key={i} className="size-0.75 bg-[#505050] rounded-2xs" />
               ))}
             </div>
           </button>
 
-          {/* Excel Green Square App Icon */}
-          <div className="size-6 bg-[#107c41] rounded flex items-center justify-center text-white font-bold text-xs shadow-xs">
-            X
+          {/* Excel Modern Rounded App Icon */}
+          <div className="size-7 bg-[#e8f5e9] border border-[#c8e6c9] rounded-md flex items-center justify-center shadow-xs cursor-pointer hover:scale-105 transition-transform">
+            <div className="size-5 bg-[#107c41] rounded flex items-center justify-center text-white font-bold text-xs shadow-2xs">
+              X
+            </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold text-xs text-[#201f1e]">Excel</span>
-            <span className="text-[#8a8886]">|</span>
+          <div className="flex items-center gap-2">
             <span
               title="Clique para renomear a pasta de trabalho"
-              className="font-semibold text-xs text-[#201f1e] hover:bg-[#f3f2f1] px-1.5 py-0.5 rounded cursor-pointer"
+              className="font-medium text-sm text-[#242424] hover:bg-[#ebebeb] px-1.5 py-0.5 rounded cursor-pointer max-w-[280px] truncate"
             >
-              {sheet.name}.xlsx
+              {sheet.name}
             </span>
-            <span className="text-[11px] text-[#605e5c] flex items-center gap-1 ml-1">
-              <Check className="size-3 text-[#107c41]" />
-              <span>Salvo</span>
-            </span>
-          </div>
 
-          {/* Quick Undo / Redo */}
-          <div className="flex items-center gap-0.5 ml-2">
-            <button
-              onClick={onUndo}
-              disabled={!canUndo}
-              title="Desfazer (Ctrl+Z)"
-              className="p-1 rounded hover:bg-[#f3f2f1] text-[#605e5c] hover:text-[#201f1e] disabled:opacity-30 cursor-pointer"
-            >
-              <Undo2 className="size-3.5" />
-            </button>
-            <button
-              onClick={onRedo}
-              disabled={!canRedo}
-              title="Refazer (Ctrl+Y)"
-              className="p-1 rounded hover:bg-[#f3f2f1] text-[#605e5c] hover:text-[#201f1e] disabled:opacity-30 cursor-pointer"
-            >
-              <Redo2 className="size-3.5" />
-            </button>
+            {/* Cloud Sync & Shield Icons */}
+            <div className="flex items-center gap-1.5 text-[#505050]">
+              <div title="Protegido e seguro" className="size-4 rounded-full bg-blue-600 flex items-center justify-center text-white text-[9px] shadow-2xs">
+                🛡️
+              </div>
+              <div title="Salvo no OneDrive" className="flex items-center text-emerald-600 text-xs">
+                ☁️✓
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Center: Excel Online Search / Command Palette Box (Alt + Q) */}
+        {/* Center: Excel Online Search Bar (Exact Replica of Image 2) */}
         <div
           onClick={onOpenFindReplace}
-          title="Pesquisar ou inserir comandos (Alt+Q)"
-          className="hidden md:flex items-center gap-2 px-3 py-1 bg-[#f3f2f1] hover:bg-[#edebe9] border border-transparent hover:border-[#e1dfdd] rounded-md text-xs text-[#605e5c] w-80 cursor-pointer transition-colors"
+          title="Pesquisar ferramentas, ajuda e muito mais (Alt + Q)"
+          className="hidden md:flex items-center gap-2.5 px-3 py-1.5 bg-white border border-[#e0e0e0] hover:border-[#b0b0b0] rounded-md text-xs text-[#707070] w-[420px] cursor-pointer transition-colors shadow-2xs"
         >
-          <Search className="size-3.5 text-[#605e5c]" />
-          <span className="truncate">Pesquisar (Alt + Q)</span>
+          <Search className="size-3.5 text-[#707070]" />
+          <span className="truncate">Pesquisar ferramentas, ajuda e muito mais (</span>
         </div>
 
-        {/* Right: Module Switcher (Planilha / Power Query / Power BI) + Exportar */}
+        {/* Right: Comments, Actions, Module Switchers, Compartilhar */}
         <div className="flex items-center gap-2">
-          {/* Module Switcher Tabs */}
-          <div className="flex items-center p-0.5 bg-[#f3f2f1] rounded border border-[#edebe9]">
+          {/* Comentários Button */}
+          <button
+            onClick={onOpenShortcutsModal}
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-white border border-[#e0e0e0] hover:bg-[#ebebeb] rounded-md text-xs text-[#242424] font-normal transition-colors cursor-pointer shadow-2xs"
+          >
+            <span>💬 Comentários</span>
+          </button>
+
+          {/* Module Switcher Pills */}
+          <div className="flex items-center p-0.5 bg-[#ebebeb] rounded-md border border-[#e0e0e0]">
             <button
               onClick={() => {
                 onSetActiveView('spreadsheet');
                 setActiveRibbonTab('home');
               }}
-              className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
+              className={`px-2 py-0.5 rounded text-xs font-semibold transition-all cursor-pointer ${
                 activeView === 'spreadsheet'
                   ? 'bg-white text-[#107c41] shadow-2xs font-bold'
-                  : 'text-[#605e5c] hover:text-[#201f1e]'
+                  : 'text-[#505050] hover:text-[#242424]'
               }`}
             >
               Planilha
@@ -276,10 +270,10 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
                 onSetActiveView('powerquery');
                 setActiveRibbonTab('data');
               }}
-              className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
+              className={`px-2 py-0.5 rounded text-xs font-semibold transition-all cursor-pointer ${
                 activeView === 'powerquery'
                   ? 'bg-white text-[#4338ca] shadow-2xs font-bold'
-                  : 'text-[#605e5c] hover:text-[#4338ca]'
+                  : 'text-[#505050] hover:text-[#4338ca]'
               }`}
             >
               Power Query
@@ -289,35 +283,36 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
                 onSetActiveView('powerbi');
                 setActiveRibbonTab('view');
               }}
-              className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
+              className={`px-2 py-0.5 rounded text-xs font-semibold transition-all cursor-pointer ${
                 activeView === 'powerbi'
                   ? 'bg-white text-[#b45309] shadow-2xs font-bold'
-                  : 'text-[#605e5c] hover:text-[#b45309]'
+                  : 'text-[#505050] hover:text-[#b45309]'
               }`}
             >
               Power BI
             </button>
           </div>
 
+          {/* Compartilhar / Exportar XLSX Button (Green) */}
           <button
             onClick={() => exportSheetToExcel(sheet, sheet.name)}
-            title="Exportar para Excel (.xlsx)"
-            className="flex items-center gap-1.5 px-3 py-1 rounded bg-[#107c41] hover:bg-[#0e6b37] text-white text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+            title="Compartilhar / Exportar Pasta de Trabalho"
+            className="flex items-center gap-1.5 px-3 py-1 bg-[#107c41] hover:bg-[#0e6b37] text-white rounded-md text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
           >
             <Download className="size-3.5" />
-            <span>Exportar XLSX</span>
+            <span>Compartilhar</span>
           </button>
         </div>
       </div>
 
-      {/* 2. RIBBON TABS (Excel Online Tabs Bar) */}
-      <div className="h-7 px-2 flex items-center gap-0.5 bg-[#ffffff] border-b border-[#edebe9] text-xs font-medium text-[#323130]">
+      {/* 2. RIBBON TABS (Exact Replica of Image 2 Tabs Bar) */}
+      <div className="h-7 px-2 flex items-center gap-0.5 bg-[#f5f5f5] text-xs font-normal text-[#242424] border-b border-[#e0e0e0]">
         <button
           onClick={() => {
             onSetActiveView('spreadsheet');
             setActiveRibbonTab('home');
           }}
-          className="px-2.5 h-full flex items-center hover:bg-[#f3f2f1] text-[#323130] rounded-t cursor-pointer"
+          className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] rounded-t cursor-pointer"
         >
           Arquivo
         </button>
@@ -327,13 +322,13 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
             onSetActiveView('spreadsheet');
             setActiveRibbonTab('home');
           }}
-          className={`px-3 h-full flex items-center cursor-pointer ${
+          className={`px-2.5 h-full flex items-center cursor-pointer ${
             activeRibbonTab === 'home' && activeView === 'spreadsheet'
               ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
-              : 'hover:bg-[#f3f2f1] text-[#323130]'
+              : 'hover:bg-[#ebebeb] text-[#242424]'
           }`}
         >
-          Página Inicial
+          Início
         </button>
 
         <button
@@ -341,13 +336,20 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
             onSetActiveView('spreadsheet');
             setActiveRibbonTab('insert');
           }}
-          className={`px-3 h-full flex items-center cursor-pointer ${
+          className={`px-2.5 h-full flex items-center cursor-pointer ${
             activeRibbonTab === 'insert'
               ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
-              : 'hover:bg-[#f3f2f1] text-[#323130]'
+              : 'hover:bg-[#ebebeb] text-[#242424]'
           }`}
         >
           Inserir
+        </button>
+
+        <button
+          onClick={() => exportSheetToExcel(sheet, sheet.name)}
+          className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
+        >
+          Compartilhar
         </button>
 
         <button
@@ -355,10 +357,20 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
             onSetActiveView('spreadsheet');
             setActiveRibbonTab('formulas');
           }}
-          className={`px-3 h-full flex items-center cursor-pointer ${
+          className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
+        >
+          Layout da Página
+        </button>
+
+        <button
+          onClick={() => {
+            onSetActiveView('spreadsheet');
+            setActiveRibbonTab('formulas');
+          }}
+          className={`px-2.5 h-full flex items-center cursor-pointer ${
             activeRibbonTab === 'formulas'
               ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
-              : 'hover:bg-[#f3f2f1] text-[#323130]'
+              : 'hover:bg-[#ebebeb] text-[#242424]'
           }`}
         >
           Fórmulas
@@ -369,13 +381,20 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
             onSetActiveView('powerquery');
             setActiveRibbonTab('data');
           }}
-          className={`px-3 h-full flex items-center cursor-pointer ${
+          className={`px-2.5 h-full flex items-center cursor-pointer ${
             activeRibbonTab === 'data' || activeView === 'powerquery'
               ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
-              : 'hover:bg-[#f3f2f1] text-[#323130]'
+              : 'hover:bg-[#ebebeb] text-[#242424]'
           }`}
         >
-          Dados & Power Query
+          Dados
+        </button>
+
+        <button
+          onClick={() => onOpenQuickAnalysis()}
+          className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
+        >
+          Revisão
         </button>
 
         <button
@@ -383,22 +402,30 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
             onSetActiveView('powerbi');
             setActiveRibbonTab('view');
           }}
-          className={`px-3 h-full flex items-center cursor-pointer ${
+          className={`px-2.5 h-full flex items-center cursor-pointer ${
             activeRibbonTab === 'view' || activeView === 'powerbi'
               ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
-              : 'hover:bg-[#f3f2f1] text-[#323130]'
+              : 'hover:bg-[#ebebeb] text-[#242424]'
           }`}
         >
-          Exibir & Power BI
+          Exibir
         </button>
 
         <button
           onClick={onOpenShortcutsModal}
-          className="px-3 h-full flex items-center hover:bg-[#f3f2f1] text-[#323130] cursor-pointer"
+          className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
         >
-          Ajuda & Atalhos
+          Ajuda
+        </button>
+
+        <button
+          onClick={() => onOpenTextToColumns()}
+          className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
+        >
+          Desenhar
         </button>
       </div>
+
 
       {/* 3. RIBBON TOOLBAR BODY */}
 
