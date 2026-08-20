@@ -260,91 +260,99 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ sheet, onClose
   };
 
   return (
-    <div className="h-full flex flex-col bg-slate-100 select-none overflow-hidden">
+    <div className="h-full flex flex-col bg-[#0b0f19] text-slate-100 select-none overflow-hidden font-sans">
       {/* 1. TOP HEADER */}
-      <div className="h-11 px-4 bg-white border-b border-slate-200 flex items-center justify-between shadow-2xs z-10">
+      <div className="h-11 px-4 bg-[#0b0f19] border-b border-white/10 flex items-center justify-between shadow-xs z-10">
         <div className="flex items-center gap-3">
           <button
             onClick={onClose}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xs bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer border border-slate-200"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-medium border border-white/10 transition-colors cursor-pointer"
           >
             <ArrowLeft className="size-3.5" />
             <span>Voltar para Planilha</span>
           </button>
-          <div className="h-4 w-px bg-slate-200" />
+          <div className="h-4 w-px bg-white/10" />
           <div className="flex items-center gap-2">
-            <div className="size-6 rounded-xs bg-amber-600 flex items-center justify-center text-white font-black text-xs shadow-2xs">BI</div>
-            <div>
-              <span className="text-xs font-bold text-slate-900">Power BI Studio</span>
-              <span className="text-[11px] text-slate-500 ml-2">Planilha: <strong>{sheet.name}</strong></span>
+            <div className="size-6 rounded-md bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-white font-mono font-bold text-xs shadow-[0_0_12px_rgba(245,158,11,0.35)]">
+              BI
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-white font-mono">POWER BI STUDIO</span>
+              <span className="text-[10px] text-slate-400 font-mono ml-1">({sheet.name})</span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center bg-slate-100 p-0.5 rounded-md border border-slate-200">
+        <div className="flex items-center bg-[#131b2e] p-0.5 rounded-lg border border-white/10 shadow-inner">
           <button
             onClick={() => setActiveTab('kpi_charts')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold ${activeTab === 'kpi_charts' ? 'bg-white text-amber-700 shadow-2xs font-bold' : 'text-slate-600'}`}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'kpi_charts' ? 'bg-amber-600 text-white shadow-sm font-bold' : 'text-slate-400 hover:text-white'
+            }`}
           >
-            <BarChart2 className="size-3.5 text-amber-600" /> Dashboard
+            <BarChart2 className="size-3.5" /> Dashboard
           </button>
           <button
             onClick={() => setActiveTab('pivot_table')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold ${activeTab === 'pivot_table' ? 'bg-white text-emerald-800 shadow-2xs font-bold' : 'text-slate-600'}`}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'pivot_table' ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'text-slate-400 hover:text-white'
+            }`}
           >
-            <Table className="size-3.5 text-[#107c41]" /> Matriz
+            <Table className="size-3.5" /> Matriz
           </button>
           <button
             onClick={() => setActiveTab('ai_assistant')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold ${activeTab === 'ai_assistant' ? 'bg-white text-purple-700 shadow-2xs font-bold' : 'text-slate-600'}`}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'ai_assistant' ? 'bg-purple-600 text-white shadow-sm font-bold' : 'text-slate-400 hover:text-white'
+            }`}
           >
-            <Sparkles className="size-3.5 text-purple-600" /> IA
+            <Sparkles className="size-3.5" /> IA
           </button>
         </div>
 
         <button
           onClick={() => exportPivotReportToExcel(sheet, pivotResult, kpis, `PowerBI_${sheet.name}`)}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-xs bg-[#107c41] hover:bg-[#0e6b37] text-white text-xs font-bold transition-all cursor-pointer shadow-2xs"
+          className="flex items-center gap-1.5 px-3.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer shadow-[0_0_12px_rgba(16,185,129,0.3)]"
         >
           <Download className="size-3.5" /> Exportar XLSX
         </button>
       </div>
 
       {/* 2. FIELD WELLS */}
-      <div className="h-12 px-4 bg-white border-b border-slate-200 flex items-center justify-between gap-4 text-xs">
+      <div className="h-12 px-4 bg-[#111827] border-b border-white/5 flex items-center justify-between gap-4 text-xs text-slate-300">
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 font-semibold">Dimensão (Eixo X):</span>
+            <span className="text-slate-400 font-medium text-[11px]">Dimensão (Eixo X):</span>
             <select
               value={selectedDimensionCol}
               onChange={e => setSelectedDimensionCol(parseInt(e.target.value, 10))}
-              className="h-7 px-2 bg-slate-50 border border-slate-300 rounded-xs font-semibold cursor-pointer"
+              className="h-7 px-2.5 bg-white/5 border border-white/10 rounded-md font-medium text-white focus:outline-hidden focus:border-amber-500 cursor-pointer"
             >
-              {columnProfiles.map(cp => <option key={cp.colIndex} value={cp.colIndex}>{cp.colName}</option>)}
+              {columnProfiles.map(cp => <option key={cp.colIndex} value={cp.colIndex} className="bg-slate-900 text-white">{cp.colName}</option>)}
             </select>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 font-semibold">Métrica (Valores):</span>
+            <span className="text-slate-400 font-medium text-[11px]">Métrica (Valores):</span>
             <select
               value={selectedMetricCol}
               onChange={e => setSelectedMetricCol(parseInt(e.target.value, 10))}
-              className="h-7 px-2 bg-slate-50 border border-slate-300 rounded-xs font-semibold cursor-pointer"
+              className="h-7 px-2.5 bg-white/5 border border-white/10 rounded-md font-medium text-white focus:outline-hidden focus:border-amber-500 cursor-pointer"
             >
-              {columnProfiles.map(cp => <option key={cp.colIndex} value={cp.colIndex}>{cp.colName}</option>)}
+              {columnProfiles.map(cp => <option key={cp.colIndex} value={cp.colIndex} className="bg-slate-900 text-white">{cp.colName}</option>)}
             </select>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 font-semibold">Cálculo:</span>
+            <span className="text-slate-400 font-medium text-[11px]">Cálculo:</span>
             <select
               value={selectedAggregation}
               onChange={e => setSelectedAggregation(e.target.value as AggregationType)}
-              className="h-7 px-2 bg-slate-50 border border-slate-300 rounded-xs font-semibold cursor-pointer"
+              className="h-7 px-2.5 bg-white/5 border border-white/10 rounded-md font-medium text-white focus:outline-hidden focus:border-amber-500 cursor-pointer"
             >
-              <option value="SUM">Soma (Total)</option>
-              <option value="AVERAGE">Média</option>
-              <option value="COUNT">Contagem</option>
-              <option value="MAX">Máximo</option>
-              <option value="MIN">Mínimo</option>
+              <option value="SUM" className="bg-slate-900 text-white">Soma (Total)</option>
+              <option value="AVERAGE" className="bg-slate-900 text-white">Média</option>
+              <option value="COUNT" className="bg-slate-900 text-white">Contagem</option>
+              <option value="MAX" className="bg-slate-900 text-white">Máximo</option>
+              <option value="MIN" className="bg-slate-900 text-white">Mínimo</option>
             </select>
           </div>
         </div>
@@ -352,7 +360,7 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ sheet, onClose
         {filterCategory && (
           <button
             onClick={() => setFilterCategory(null)}
-            className="text-xs font-bold text-amber-700 hover:text-amber-800 bg-amber-50 px-2 py-1 rounded-xs border border-amber-200 cursor-pointer"
+            className="text-xs font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20 cursor-pointer"
           >
             ✕ Limpar Filtro ({filterCategory})
           </button>
@@ -365,61 +373,65 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ sheet, onClose
           <div className="space-y-4 max-w-7xl mx-auto">
             {/* 4 KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs space-y-1">
+              <div className="p-4 rounded-xl bg-[#131b2e] border border-white/10 shadow-sm space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-500 truncate max-w-[180px]">Total {activeMetricProfile.colName}</span>
-                  <div className="p-1.5 rounded-md bg-amber-50 text-amber-700">
+                  <span className="text-xs font-semibold text-slate-400 truncate max-w-[180px]">Total {activeMetricProfile.colName}</span>
+                  <div className="p-1.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/20">
                     {isMetricTime ? <Clock className="size-4" /> : isMetricCurrency ? <DollarSign className="size-4" /> : <Hash className="size-4" />}
                   </div>
                 </div>
-                <div className="text-2xl font-bold font-mono text-slate-900">{formatMetricValue(totalSum)}</div>
-                <div className="text-[11px] text-slate-500 font-sans">Soma acumulada</div>
+                <div className="text-2xl font-bold font-mono text-white tabular-nums">{formatMetricValue(totalSum)}</div>
+                <div className="text-[11px] text-slate-400 font-sans">Soma acumulada</div>
               </div>
 
-              <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs space-y-1">
+              <div className="p-4 rounded-xl bg-[#131b2e] border border-white/10 shadow-sm space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-500 truncate max-w-[180px]">Média por Registro</span>
-                  <div className="p-1.5 rounded-md bg-blue-50 text-blue-700"><Activity className="size-4" /></div>
+                  <span className="text-xs font-semibold text-slate-400 truncate max-w-[180px]">Média por Registro</span>
+                  <div className="p-1.5 rounded-md bg-sky-500/15 text-sky-400 border border-sky-500/20"><Activity className="size-4" /></div>
                 </div>
-                <div className="text-2xl font-bold font-mono text-blue-900">{formatMetricValue(avgVal, true)}</div>
-                <div className="text-[11px] text-slate-500 font-sans">Média calculada sobre {rowCount} itens</div>
+                <div className="text-2xl font-bold font-mono text-sky-400 tabular-nums">{formatMetricValue(avgVal, true)}</div>
+                <div className="text-[11px] text-slate-400 font-sans">Média calculada sobre {rowCount} itens</div>
               </div>
 
-              <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs space-y-1">
+              <div className="p-4 rounded-xl bg-[#131b2e] border border-white/10 shadow-sm space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-500 truncate max-w-[180px]">Maior Categoria</span>
-                  <div className="p-1.5 rounded-md bg-emerald-50 text-[#107c41]"><TrendingUp className="size-4" /></div>
+                  <span className="text-xs font-semibold text-slate-400 truncate max-w-[180px]">Maior Categoria</span>
+                  <div className="p-1.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"><TrendingUp className="size-4" /></div>
                 </div>
-                <div className="text-xl font-bold font-mono text-[#107c41] truncate">{maxCategory?.name || 'N/A'}</div>
-                <div className="text-[11px] text-slate-500 font-sans">Valor: <strong>{maxCategory ? formatMetricValue(maxCategory.value) : '0'}</strong></div>
+                <div className="text-xl font-bold font-mono text-emerald-400 truncate">{maxCategory?.name || 'N/A'}</div>
+                <div className="text-[11px] text-slate-400 font-sans">Valor: <strong className="text-white">{maxCategory ? formatMetricValue(maxCategory.value) : '0'}</strong></div>
               </div>
 
-              <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs space-y-1">
+              <div className="p-4 rounded-xl bg-[#131b2e] border border-white/10 shadow-sm space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-500">Total de Linhas</span>
-                  <div className="p-1.5 rounded-md bg-purple-50 text-purple-700"><Layers className="size-4" /></div>
+                  <span className="text-xs font-semibold text-slate-400">Total de Linhas</span>
+                  <div className="p-1.5 rounded-md bg-purple-500/15 text-purple-400 border border-purple-500/20"><Layers className="size-4" /></div>
                 </div>
-                <div className="text-2xl font-bold font-mono text-purple-900">{rowCount} <span className="text-sm font-sans font-normal text-slate-500">linhas</span></div>
-                <div className="text-[11px] text-slate-500 font-sans">{chartData.length} categorias distintas</div>
+                <div className="text-2xl font-bold font-mono text-purple-400 tabular-nums">{rowCount} <span className="text-sm font-sans font-normal text-slate-400">linhas</span></div>
+                <div className="text-[11px] text-slate-400 font-sans">{chartData.length} categorias distintas</div>
               </div>
             </div>
 
             {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs space-y-3">
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+              <div className="p-5 rounded-xl bg-[#131b2e] border border-white/10 shadow-sm space-y-3">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
                   Distribuição de {activeMetricProfile.colName} por {activeDimensionProfile.colName}
                 </h3>
                 <div className="h-64 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={chartData.slice(0, 15)} margin={{ top: 10, right: 10, bottom: 40 }}>
-                      <XAxis dataKey="name" fontSize={10} angle={-30} textAnchor="end" interval={0} height={50} />
+                      <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} angle={-30} textAnchor="end" interval={0} height={50} />
                       <YAxis
+                        stroke="#94a3b8"
                         fontSize={10}
                         tickFormatter={(v: number) => isMetricTime ? `${Math.round(v / 3600)}h` : isMetricCurrency ? `R$${v}` : String(v)}
                       />
-                      <Tooltip formatter={(val: any) => [formatMetricValue(Number(val)), activeMetricProfile.colName]} />
-                      <Bar dataKey="value" onClick={(e: any) => setFilterCategory(e.name)} className="cursor-pointer">
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '11px' }}
+                        formatter={(val: any) => [formatMetricValue(Number(val)), activeMetricProfile.colName]}
+                      />
+                      <Bar dataKey="value" onClick={(e: any) => setFilterCategory(e.name)} className="cursor-pointer" radius={[4, 4, 0, 0]}>
                         {chartData.slice(0, 15).map((entry, i) => (
                           <Cell key={i} fill={chartColors[i % chartColors.length]} opacity={filterCategory && filterCategory !== entry.name ? 0.3 : 1} />
                         ))}
@@ -429,8 +441,8 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ sheet, onClose
                 </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs space-y-3">
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">Participação Percentual (%)</h3>
+              <div className="p-5 rounded-xl bg-[#131b2e] border border-white/10 shadow-sm space-y-3">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">Participação Percentual (%)</h3>
                 <div className="h-64 w-full flex items-center justify-between gap-4">
                   <div className="h-full w-1/2 flex items-center justify-center">
                     <ResponsiveContainer width="100%" height="100%">
@@ -438,7 +450,10 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ sheet, onClose
                         <Pie data={topChartData} dataKey="value" innerRadius={50} outerRadius={80} paddingAngle={3}>
                           {topChartData.map((_, i) => <Cell key={i} fill={chartColors[i % chartColors.length]} />)}
                         </Pie>
-                        <Tooltip formatter={(val: any) => [formatMetricValue(Number(val)), 'Valor']} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '11px' }}
+                          formatter={(val: any) => [formatMetricValue(Number(val)), 'Valor']}
+                        />
                       </RechartsPie>
                     </ResponsiveContainer>
                   </div>
@@ -448,18 +463,18 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ sheet, onClose
                       <div
                         key={idx}
                         onClick={() => setFilterCategory(item.name !== 'Outros' ? item.name : null)}
-                        className={`flex items-center justify-between p-1.5 rounded-xs transition-colors cursor-pointer ${
-                          filterCategory === item.name ? 'bg-amber-50 font-bold' : 'hover:bg-slate-50'
+                        className={`flex items-center justify-between p-2 rounded-md transition-colors cursor-pointer ${
+                          filterCategory === item.name ? 'bg-amber-500/20 font-bold text-amber-300' : 'hover:bg-white/5 text-slate-300'
                         }`}
                       >
-                        <div className="flex items-center gap-1.5 truncate max-w-[120px]">
+                        <div className="flex items-center gap-2 truncate max-w-[120px]">
                           <span
-                            className="size-2.5 rounded-xs shrink-0"
+                            className="size-2.5 rounded-full shrink-0"
                             style={{ backgroundColor: chartColors[idx % chartColors.length] }}
                           />
-                          <span className="truncate text-slate-800 text-[11px]">{item.name}</span>
+                          <span className="truncate text-white text-xs">{item.name}</span>
                         </div>
-                        <span className="font-mono text-[11px] font-semibold text-slate-600">{item.percent.toFixed(1)}%</span>
+                        <span className="font-mono text-xs font-semibold text-slate-300">{item.percent.toFixed(1)}%</span>
                       </div>
                     ))}
                   </div>
@@ -471,34 +486,34 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ sheet, onClose
 
         {/* PIVOT TABLE TAB */}
         {activeTab === 'pivot_table' && (
-          <div className="max-w-7xl mx-auto bg-white p-4 rounded-xl border border-slate-200">
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-              <Table className="size-4 text-[#107c41]" /> Matriz de Dados
+          <div className="max-w-7xl mx-auto bg-[#131b2e] p-5 rounded-xl border border-white/10 shadow-sm">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Table className="size-4 text-emerald-400" /> Matriz de Dados
             </h3>
-            <div className="overflow-x-auto border border-slate-200 rounded-xs">
+            <div className="overflow-x-auto border border-white/10 rounded-lg">
               <table className="w-full text-xs font-mono border-collapse">
                 <thead>
-                  <tr className="bg-slate-100 border-b border-slate-300">
-                    <th className="p-2 text-left text-slate-800 font-bold border-r border-slate-200">{activeDimensionProfile.colName}</th>
-                    <th className="p-2 text-right text-slate-800 font-bold border-r border-slate-200">Total {activeMetricProfile.colName}</th>
-                    <th className="p-2 text-right text-slate-800 font-bold border-r border-slate-200">Qtd Linhas</th>
-                    <th className="p-2 text-right text-slate-800 font-bold">% do Total</th>
+                  <tr className="bg-white/5 border-b border-white/10">
+                    <th className="p-2.5 text-left text-slate-200 font-bold border-r border-white/10">{activeDimensionProfile.colName}</th>
+                    <th className="p-2.5 text-right text-slate-200 font-bold border-r border-white/10">Total {activeMetricProfile.colName}</th>
+                    <th className="p-2.5 text-right text-slate-200 font-bold border-r border-white/10">Qtd Linhas</th>
+                    <th className="p-2.5 text-right text-slate-200 font-bold">% do Total</th>
                   </tr>
                 </thead>
                 <tbody>
                   {chartData.map((row, i) => (
-                    <tr key={i} className="border-b border-slate-200 hover:bg-slate-50">
-                      <td className="p-2 text-left font-sans text-slate-900 font-medium border-r border-slate-200">{row.name}</td>
-                      <td className="p-2 text-right font-bold text-[#107c41] border-r border-slate-200">{formatMetricValue(row.value)}</td>
-                      <td className="p-2 text-right text-slate-700 border-r border-slate-200">{row.rawCount}</td>
-                      <td className="p-2 text-right text-slate-700 font-semibold">{row.percent.toFixed(1)}%</td>
+                    <tr key={i} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <td className="p-2.5 text-left font-sans text-white font-medium border-r border-white/10">{row.name}</td>
+                      <td className="p-2.5 text-right font-bold text-emerald-400 border-r border-white/10 tabular-nums">{formatMetricValue(row.value)}</td>
+                      <td className="p-2.5 text-right text-slate-300 border-r border-white/10 tabular-nums">{row.rawCount}</td>
+                      <td className="p-2.5 text-right text-slate-300 font-semibold tabular-nums">{row.percent.toFixed(1)}%</td>
                     </tr>
                   ))}
-                  <tr className="bg-slate-100 font-bold border-t-2 border-slate-400">
-                    <td className="p-2 text-left font-sans text-slate-900 border-r border-slate-200">Total Geral</td>
-                    <td className="p-2 text-right text-[#107c41] border-r border-slate-200">{formatMetricValue(totalSum)}</td>
-                    <td className="p-2 text-right text-slate-900 border-r border-slate-200">{rowCount}</td>
-                    <td className="p-2 text-right text-slate-900">100,0%</td>
+                  <tr className="bg-white/10 font-bold border-t-2 border-white/20">
+                    <td className="p-2.5 text-left font-sans text-white border-r border-white/10">Total Geral</td>
+                    <td className="p-2.5 text-right text-emerald-400 border-r border-white/10 tabular-nums">{formatMetricValue(totalSum)}</td>
+                    <td className="p-2.5 text-right text-white border-r border-white/10 tabular-nums">{rowCount}</td>
+                    <td className="p-2.5 text-right text-white tabular-nums">100,0%</td>
                   </tr>
                 </tbody>
               </table>
@@ -508,38 +523,38 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ sheet, onClose
 
         {/* AI ASSISTANT TAB */}
         {activeTab === 'ai_assistant' && (
-          <div className="max-w-3xl mx-auto bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col h-[480px] overflow-hidden">
-            <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+          <div className="max-w-3xl mx-auto bg-[#131b2e] rounded-xl border border-white/10 shadow-sm flex flex-col h-[480px] overflow-hidden">
+            <div className="p-3.5 bg-white/5 border-b border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="size-6 rounded-md bg-purple-600 text-white flex items-center justify-center">
+                <div className="size-6 rounded-md bg-purple-600 text-white flex items-center justify-center shadow-xs">
                   <Sparkles className="size-3.5" />
                 </div>
-                <span className="text-xs font-bold text-slate-800">Assistente Analítico de Dados</span>
+                <span className="text-xs font-bold text-white">Assistente Analítico de Dados</span>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {chatMessages.map((msg, idx) => (
                 <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] p-3 rounded-xl text-xs leading-relaxed ${msg.sender === 'user' ? 'bg-purple-600 text-white font-medium' : 'bg-slate-100 text-slate-800 border border-slate-200'}`}>
+                  <div className={`max-w-[85%] p-3.5 rounded-xl text-xs leading-relaxed ${msg.sender === 'user' ? 'bg-purple-600 text-white font-medium shadow-xs' : 'bg-white/5 text-slate-200 border border-white/10'}`}>
                     {msg.text}
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="p-3 border-t border-slate-200 bg-white flex items-center gap-2">
+            <div className="p-3.5 border-t border-white/10 bg-[#0f172a] flex items-center gap-2">
               <input
                 type="text"
                 value={inputQuestion}
                 onChange={e => setInputQuestion(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSendQuestion()}
                 placeholder="Ex: Qual atendente teve maior tempo logado? Qual a média?"
-                className="flex-1 px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-hidden focus:border-purple-600"
+                className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-xs text-white placeholder-slate-400 focus:outline-hidden focus:border-purple-500"
               />
               <button
                 onClick={handleSendQuestion}
-                className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                className="px-3.5 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
               >
                 <Send className="size-3.5" />
                 <span>Perguntar</span>
@@ -550,6 +565,7 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ sheet, onClose
       </div>
     </div>
   );
+
 };
 
 

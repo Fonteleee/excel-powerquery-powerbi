@@ -56,16 +56,16 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
   };
 
   return (
-    <div className="h-8 bg-white border-b border-slate-200 flex items-center px-3 gap-2 select-none z-20 relative">
+    <div className="h-9 bg-slate-50/90 backdrop-blur-sm border-b border-slate-200/90 flex items-center px-4 gap-2 select-none z-20 relative">
       {/* Name Box (Address) */}
       <div
         title={`Célula Ativa: ${addressText}`}
-        className="w-24 h-6 px-2 bg-slate-50 border border-slate-300 rounded-xs flex items-center justify-center font-mono text-[11px] font-bold text-slate-700 select-all"
+        className="w-24 h-6 px-2 bg-white border border-slate-300/80 rounded-md flex items-center justify-center font-mono text-xs font-bold text-slate-800 shadow-2xs select-all"
       >
-        {addressText}
+        <span className="text-emerald-700 font-mono">{addressText}</span>
       </div>
 
-      <div className="h-4 w-px bg-slate-200" />
+      <div className="h-4 w-px bg-slate-300/80 mx-0.5" />
 
       {/* Cancel / Commit buttons */}
       <div className="flex items-center gap-0.5">
@@ -76,7 +76,7 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
           }}
           title="Cancelar (Esc)"
           disabled={inputValue === (currentCell?.raw || '')}
-          className="p-1 rounded-xs text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-30 transition-colors cursor-pointer"
+          className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-30 transition-colors cursor-pointer"
         >
           <X className="size-3.5" />
         </button>
@@ -87,7 +87,7 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
           }}
           title="Confirmar (Enter)"
           disabled={inputValue === (currentCell?.raw || '')}
-          className="p-1 rounded-xs text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 disabled:opacity-30 transition-colors cursor-pointer"
+          className="p-1 rounded-md text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 disabled:opacity-30 transition-colors cursor-pointer"
         >
           <Check className="size-3.5" />
         </button>
@@ -96,13 +96,13 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
       {/* FX Insert Function Button */}
       <button
         onClick={onOpenFormulaWizard}
-        title="Inserir Função (fx) — PROCX, SOMARPRODUTO, SEERRO, ÍNDICE..."
-        className="px-2 h-6 rounded-xs bg-slate-50 hover:bg-emerald-50 hover:text-emerald-800 border border-slate-300 hover:border-emerald-500 transition-colors flex items-center gap-1 cursor-pointer group"
+        title="Assistente de Funções (fx)"
+        className="px-2 h-6 rounded-md bg-white hover:bg-emerald-50 hover:text-emerald-800 border border-slate-300/80 hover:border-emerald-400 transition-colors flex items-center gap-1 cursor-pointer shadow-2xs group"
       >
         <span className="font-serif italic font-bold text-xs text-slate-600 group-hover:text-emerald-700">fx</span>
       </button>
 
-      <div className="h-4 w-px bg-slate-200" />
+      <div className="h-4 w-px bg-slate-300/80 mx-0.5" />
 
       {/* Formula Input Container */}
       <div className="flex-1 relative flex items-center">
@@ -114,33 +114,32 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
           onChange={e => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Digite um valor ou fórmula iniciando com = (ex: =PROCX, =SOMA, =SOMARPRODUTO...)"
-          className={`w-full h-6 px-2.5 bg-white border rounded-xs text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-hidden transition-colors ${
+          className={`w-full h-6 px-3 bg-white border rounded-md text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-hidden transition-all shadow-2xs ${
             isFormula
-              ? 'border-emerald-600 focus:ring-1 focus:ring-emerald-600 text-slate-950 font-medium'
-              : 'border-slate-300 focus:border-slate-500 focus:ring-1 focus:ring-slate-400'
+              ? 'border-emerald-600 ring-1 ring-emerald-500/30 text-slate-950 font-medium'
+              : 'border-slate-300/80 focus:border-slate-500 focus:ring-1 focus:ring-slate-300'
           }`}
         />
 
         {/* Live Evaluated Preview Pill */}
         {isFormula && evaluatedDisplay && !isFocused && (
-          <div className="absolute right-2 flex items-center gap-1.5 pointer-events-none">
-            <span className="text-[10px] text-slate-400 font-sans">Resultado:</span>
-            <span className="text-[11px] font-mono font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded-xs border border-emerald-200">
+          <div className="absolute right-2.5 flex items-center gap-1.5 pointer-events-none">
+            <span className="text-[10px] text-slate-400 font-sans font-medium">Resultado:</span>
+            <span className="text-xs font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shadow-2xs">
               {evaluatedDisplay}
             </span>
           </div>
         )}
-
-        {/* Formula Autocomplete Dropdown & Parameter Guide */}
-        {isFocused && (
-          <FormulaAutocomplete
-            input={inputValue}
-            onSelectFormula={handleSelectFormula}
-          />
-        )}
       </div>
+
+      {/* Formula Autocomplete Dropdown */}
+      {isFocused && isFormula && (
+        <FormulaAutocomplete
+          input={inputValue}
+          onSelectFormula={handleSelectFormula}
+        />
+      )}
     </div>
   );
 };
-
 

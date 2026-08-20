@@ -1169,9 +1169,10 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         <thead className="sticky top-0 z-20 bg-slate-100 shadow-2xs">
           <tr>
             {/* Top-left corner cell */}
-            <th className="sticky left-0 z-30 w-12 h-7 bg-slate-100 border-r border-b border-slate-300 text-slate-500 font-normal text-center select-none">
-              <span className="text-[10px]">#</span>
+            <th className="sticky left-0 z-30 w-12 h-7 bg-slate-200/90 border-r border-b border-slate-300 text-slate-400 font-normal text-center select-none">
+              <span className="text-[10px] font-mono font-bold">#</span>
             </th>
+
 
             {Array.from({ length: renderedCols }).map((_, colIdx) => {
               const colLabel = colIndexToLabel(colIdx);
@@ -1186,15 +1187,15 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                 <th
                   key={colIdx}
                   style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
-                  className={`relative h-7 border-r border-b border-slate-300 font-semibold text-xs transition-colors cursor-pointer select-none ${
+                  className={`relative h-7 border-r border-b border-slate-300 text-xs transition-colors cursor-pointer select-none ${
                     isColSelected
-                      ? 'bg-emerald-100 text-emerald-900 border-b-2 border-b-emerald-600'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
+                      ? 'bg-emerald-100 text-emerald-950 font-bold border-b-2 border-b-emerald-600 shadow-inner'
+                      : 'bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200/90 hover:text-slate-950'
                   }`}
                   onMouseDown={e => handleColHeaderMouseDown(e, colIdx)}
                   onMouseEnter={() => handleColHeaderMouseEnter(colIdx)}
                 >
-                  <div className="flex items-center justify-between px-1.5 font-mono">
+                  <div className="flex items-center justify-between px-2 font-mono">
                     <span className="truncate">{colLabel}</span>
 
                     {/* Filter Button */}
@@ -1204,7 +1205,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                         setOpenFilterCol(openFilterCol === colIdx ? null : colIdx);
                       }}
                       title={`Filtrar / Classificar Coluna ${colLabel}`}
-                      className={`p-1 rounded-sm transition-all cursor-pointer ${
+                      className={`p-0.5 rounded transition-all cursor-pointer ${
                         isColFiltered
                           ? 'bg-emerald-600 text-white shadow-2xs'
                           : 'text-slate-400 hover:text-emerald-700 hover:bg-slate-200'
@@ -1257,15 +1258,14 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
               rowIdx >= selectedRange.startRow && rowIdx <= selectedRange.endRow;
             const height = sheet.rowHeights[rowIdx] || 28;
 
-
             return (
               <tr key={rowIdx} style={{ height: `${height}px` }}>
                 {/* Sticky Row Number (Left column) */}
                 <th
-                  className={`sticky left-0 z-10 w-12 border-r border-b border-slate-300 text-[11px] font-medium text-center select-none transition-colors cursor-pointer ${
+                  className={`sticky left-0 z-10 w-12 border-r border-b border-slate-300 text-xs font-mono select-none transition-colors cursor-pointer ${
                     isRowSelected
-                      ? 'bg-emerald-100 text-emerald-900 border-r-2 border-r-emerald-600'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                      ? 'bg-emerald-100 text-emerald-950 font-bold border-r-2 border-r-emerald-600 shadow-inner'
+                      : 'bg-slate-100 text-slate-500 font-medium hover:bg-slate-200 hover:text-slate-900'
                   }`}
                   onMouseDown={e => handleRowHeaderMouseDown(e, rowIdx)}
                   onMouseEnter={() => handleRowHeaderMouseEnter(rowIdx)}
@@ -1281,6 +1281,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
 
                 {/* Cells in row */}
                 {Array.from({ length: renderedCols }).map((_, colIdx) => {
+
                   const key = cellPosToKey(rowIdx, colIdx);
                   const cell = sheet.data[key];
 

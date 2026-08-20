@@ -192,10 +192,10 @@ export const FormulaAutocomplete: React.FC<FormulaAutocompleteProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`absolute left-0 top-full mt-1 z-50 w-[420px] bg-white rounded-lg shadow-2xl border border-slate-300 overflow-hidden flex flex-col text-xs font-sans animate-in fade-in duration-100 ${className}`}
+      className={`absolute left-0 top-full mt-1.5 z-50 w-[420px] bg-[#0f172a]/95 backdrop-blur-xl rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 overflow-hidden flex flex-col text-xs font-sans animate-in fade-in duration-100 ${className}`}
     >
       {/* Suggestions List */}
-      <div className="max-h-52 overflow-y-auto divide-y divide-slate-100 scrollbar-thin">
+      <div className="max-h-52 overflow-y-auto divide-y divide-white/5 scrollbar-thin">
         {suggestions.map((item, idx) => {
           const isSelected = idx === selectedIndex;
           const matchPos = item.name.toUpperCase().indexOf(prefix);
@@ -206,48 +206,46 @@ export const FormulaAutocomplete: React.FC<FormulaAutocompleteProps> = ({
               onMouseEnter={() => setSelectedIndex(idx)}
               onClick={() => applySuggestion(item)}
               className={`px-3 py-2 flex items-center justify-between cursor-pointer transition-colors ${
-                isSelected ? 'bg-emerald-50 text-slate-900' : 'hover:bg-slate-50 text-slate-700'
+                isSelected ? 'bg-emerald-500/20 text-white' : 'hover:bg-white/5 text-slate-300'
               }`}
             >
-              <div className="flex items-center gap-2">
-                <div className={`p-1 rounded-xs font-mono font-black text-[10px] ${
-                  isSelected ? 'bg-[#107c41] text-white' : 'bg-slate-100 text-slate-600'
+              <div className="flex items-center gap-2.5">
+                <div className={`size-5 rounded flex items-center justify-center font-serif italic font-bold text-[11px] ${
+                  isSelected ? 'bg-emerald-500 text-white shadow-xs' : 'bg-white/10 text-slate-400'
                 }`}>
                   fx
                 </div>
                 <div>
-                  <span className="font-mono font-bold text-xs">
+                  <span className="font-mono font-bold text-xs text-white">
                     {matchPos >= 0 ? (
                       <>
                         {item.name.substring(0, matchPos)}
-                        <span className="text-emerald-700 underline">{item.name.substring(matchPos, matchPos + prefix.length)}</span>
+                        <span className="text-emerald-400 underline">{item.name.substring(matchPos, matchPos + prefix.length)}</span>
                         {item.name.substring(matchPos + prefix.length)}
                       </>
                     ) : (
                       item.name
                     )}
                   </span>
-                  <span className="text-[10px] text-slate-400 ml-2 font-sans">{item.category}</span>
+                  <span className="text-[10px] text-slate-400 ml-2 font-mono">({item.category})</span>
                 </div>
               </div>
-
-              {isSelected && (
-                <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-700">
-                  <span>Tab ⇥</span>
-                </div>
-              )}
+              <span className="text-[10px] text-slate-400 font-mono">Tab ⇥</span>
             </div>
           );
         })}
       </div>
 
-      {/* Description Preview for Selected Formula */}
+      {/* Guide Preview Card */}
       {activeGuide && (
-        <div className="p-2.5 bg-slate-50 border-t border-slate-200 text-[11px] space-y-1">
-          <div className="font-mono font-bold text-slate-900 text-xs flex items-center gap-1.5">
-            <span className="text-emerald-700">{activeGuide.syntax}</span>
-          </div>
-          <p className="text-slate-600 leading-snug">{activeGuide.description}</p>
+        <div className="p-3 bg-[#090d16] border-t border-white/10 text-slate-300 text-[11px] space-y-1">
+          <div className="font-mono font-bold text-emerald-400 text-xs">{activeGuide.syntax}</div>
+          <div className="text-slate-300 leading-relaxed">{activeGuide.description}</div>
+          {activeGuide.example && (
+            <div className="text-[10px] text-slate-400 font-mono pt-1">
+              Exemplo: <span className="text-amber-300">{activeGuide.example}</span>
+            </div>
+          )}
         </div>
       )}
     </div>

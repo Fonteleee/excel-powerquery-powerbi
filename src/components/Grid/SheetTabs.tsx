@@ -55,7 +55,7 @@ export const SheetTabs: React.FC<SheetTabsProps> = ({
   };
 
   return (
-    <footer className="h-9 bg-slate-100/90 backdrop-blur-xs border-t border-slate-200/90 flex items-center justify-between px-3 text-xs select-none z-20 shadow-2xs">
+    <footer className="h-9 bg-[#0b0f19] border-t border-white/10 flex items-center justify-between px-3 text-xs select-none z-20 shadow-xs">
       {/* Sheet Tabs */}
       <div className="flex items-center gap-1 overflow-x-auto max-w-[55%] scrollbar-none py-0.5">
         {sheets.map(sheet => {
@@ -66,12 +66,13 @@ export const SheetTabs: React.FC<SheetTabsProps> = ({
               key={sheet.id}
               onClick={() => onSelectSheet(sheet.id)}
               onDoubleClick={() => handleStartRename(sheet)}
-              className={`group relative flex items-center gap-2 px-3.5 py-1 rounded-t-lg border-t-2 transition-all cursor-pointer text-xs font-semibold ${
+              className={`group relative flex items-center gap-2 px-3 py-1 rounded-md transition-all cursor-pointer text-xs font-semibold ${
                 isActive
-                  ? 'bg-white text-emerald-800 border-emerald-600 shadow-xs'
-                  : 'bg-slate-200/60 text-slate-600 border-transparent hover:bg-slate-200/90 hover:text-slate-900'
+                  ? 'bg-white/10 text-white font-bold border border-white/15 shadow-2xs'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
               }`}
             >
+              {isActive && <div className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />}
               {editingSheetId === sheet.id ? (
                 <input
                   autoFocus
@@ -83,7 +84,7 @@ export const SheetTabs: React.FC<SheetTabsProps> = ({
                     if (e.key === 'Enter') handleCommitRename(sheet.id);
                     if (e.key === 'Escape') setEditingSheetId(null);
                   }}
-                  className="w-24 px-1.5 py-0.5 bg-white border border-emerald-600 rounded text-xs text-emerald-800 focus:outline-hidden font-medium"
+                  className="w-24 px-1.5 py-0.5 bg-slate-900 border border-emerald-500 rounded text-xs text-white focus:outline-hidden font-medium"
                 />
               ) : (
                 <span className="truncate max-w-[140px] tracking-tight">{sheet.name}</span>
@@ -96,7 +97,7 @@ export const SheetTabs: React.FC<SheetTabsProps> = ({
                     onDeleteSheet(sheet.id);
                   }}
                   title="Excluir aba"
-                  className="opacity-0 group-hover:opacity-100 hover:text-rose-600 p-0.5 rounded-full hover:bg-rose-50 transition-all cursor-pointer"
+                  className="opacity-0 group-hover:opacity-100 hover:text-rose-400 p-0.5 rounded hover:bg-white/10 transition-all cursor-pointer"
                 >
                   <X className="size-3" />
                 </button>
@@ -109,49 +110,49 @@ export const SheetTabs: React.FC<SheetTabsProps> = ({
         <button
           onClick={onAddSheet}
           title="Nova Planilha"
-          className="p-1 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-slate-200/80 transition-colors ml-1 cursor-pointer"
+          className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-white/10 transition-colors ml-1 cursor-pointer"
         >
-          <Plus className="size-4" />
+          <Plus className="size-3.5" />
         </button>
       </div>
 
       {/* Real-time Status Metrics Bar (Linear / Apple Pro aesthetic) */}
-      <div className="flex items-center gap-3 text-[11px] font-mono text-slate-600">
-        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 font-semibold shadow-2xs">
-          <span className="text-slate-400">Ref:</span>
-          <span className="text-emerald-700 font-bold">{rangeText}</span>
+      <div className="flex items-center gap-2.5 text-[11px] font-mono text-slate-300">
+        <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/5 border border-white/10 text-slate-300 font-semibold">
+          <span className="text-slate-500">Ref:</span>
+          <span className="text-emerald-400 font-mono font-bold">{rangeText}</span>
         </div>
 
         {count > 0 && (
-          <div className="flex items-center gap-2.5 px-2.5 py-0.5 rounded-md bg-white border border-slate-200 shadow-2xs">
-            <span className="text-slate-500 text-[10px]">
-              CONTAGEM: <strong className="text-slate-900 font-bold">{count}</strong>
+          <div className="flex items-center gap-2 px-2.5 py-0.5 rounded bg-white/5 border border-white/10 tabular-nums">
+            <span className="text-slate-400 text-[10px]">
+              CONTAGEM: <strong className="text-white font-bold">{count}</strong>
             </span>
 
             {numbers.length > 0 && (
               <>
-                <span className="w-px h-3 bg-slate-200" />
-                <span className="text-slate-500 text-[10px]">
+                <span className="w-px h-3 bg-white/10" />
+                <span className="text-slate-400 text-[10px]">
                   MÉDIA:{' '}
-                  <strong className="text-blue-700 font-bold">
+                  <strong className="text-sky-400 font-bold">
                     {avg.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </strong>
                 </span>
 
-                <span className="w-px h-3 bg-slate-200" />
-                <span className="text-slate-500 text-[10px]">
+                <span className="w-px h-3 bg-white/10" />
+                <span className="text-slate-400 text-[10px]">
                   SOMA:{' '}
-                  <strong className="text-emerald-700 font-bold">
+                  <strong className="text-emerald-400 font-bold">
                     {sum.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </strong>
                 </span>
 
                 {numbers.length > 1 && (
                   <>
-                    <span className="w-px h-3 bg-slate-200" />
-                    <span className="text-slate-500 text-[10px] hidden lg:inline">
+                    <span className="w-px h-3 bg-white/10" />
+                    <span className="text-slate-400 text-[10px] hidden lg:inline">
                       MÍN/MÁX:{' '}
-                      <strong className="text-slate-700 font-bold">
+                      <strong className="text-slate-200 font-bold">
                         {min.toLocaleString('pt-BR')} / {max.toLocaleString('pt-BR')}
                       </strong>
                     </span>
@@ -162,11 +163,12 @@ export const SheetTabs: React.FC<SheetTabsProps> = ({
           </div>
         )}
 
-        <div className="flex items-center gap-1 text-emerald-700 text-[10px] font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/80">
-          <CheckCircle className="size-3 text-emerald-600" />
+        <div className="flex items-center gap-1 text-emerald-400 text-[10px] font-semibold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">
+          <CheckCircle className="size-3 text-emerald-400" />
           <span>Pronto</span>
         </div>
       </div>
     </footer>
   );
 };
+

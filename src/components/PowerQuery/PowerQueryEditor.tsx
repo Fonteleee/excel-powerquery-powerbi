@@ -690,16 +690,26 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
   const activeStepMFormula = activeStep?.params?.formulaM || `= Table.TransformColumnTypes(#"${activeStep?.name || 'Fonte'}", {})`;
 
   return (
-    <div className="h-full flex flex-col bg-slate-100 select-none overflow-hidden text-xs">
-      {/* 1. POWER QUERY TOP TITLE BAR */}
-      <div className="h-10 px-4 bg-white border-b border-slate-200 flex items-center justify-between shadow-2xs z-20">
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-slate-900 text-slate-100 font-sans select-none z-40">
+      {/* 1. TOP POWER QUERY APPLICATION TITLE BAR */}
+      <div className="h-11 px-4 flex items-center justify-between bg-[#0b0f19] border-b border-white/10 text-white shrink-0">
         <div className="flex items-center gap-3">
-          <div className="size-6 rounded-xs bg-purple-700 flex items-center justify-center text-white font-black text-xs shadow-2xs">
-            PQ
+          <div className="flex items-center gap-2">
+            <div className="size-6 rounded-md bg-gradient-to-br from-indigo-500 to-purple-700 flex items-center justify-center shadow-[0_0_12px_rgba(99,102,241,0.4)]">
+              <Database className="size-3.5 text-white" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-xs tracking-tight text-white font-mono">POWER QUERY</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400 font-mono font-medium border border-indigo-500/20">STUDIO</span>
+            </div>
           </div>
-          <div>
-            <span className="font-bold text-slate-900 text-xs">Editor do Power Query</span>
-            <span className="text-[11px] text-slate-500 ml-2">Consulta Ativa: <strong>{workingSheet.name}</strong></span>
+
+          <div className="h-4 w-px bg-white/10 mx-0.5" />
+
+          <div className="flex items-center gap-1.5 text-xs text-slate-300">
+            <span className="text-slate-400">Consulta:</span>
+            <strong className="text-white font-mono">{workingSheet.name}</strong>
+            <span className="text-[10px] text-slate-500 font-mono">({workingSheet.rowCount - 1} linhas × {workingSheet.colCount} cols)</span>
           </div>
         </div>
 
@@ -709,7 +719,7 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
               onApplyChangesToSheet(workingSheet);
               onClose();
             }}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-xs bg-purple-700 hover:bg-purple-800 text-white font-bold transition-all cursor-pointer shadow-2xs"
+            className="flex items-center gap-1.5 px-3.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all cursor-pointer shadow-[0_0_12px_rgba(99,102,241,0.35)]"
           >
             <Check className="size-3.5" />
             <span>Fechar & Aplicar</span>
@@ -717,7 +727,7 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
 
           <button
             onClick={() => exportSheetToExcel(workingSheet, `${workingSheet.name}_PowerQuery`)}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-xs bg-[#107c41] hover:bg-[#0e6b37] text-white font-bold transition-all cursor-pointer shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white font-semibold text-xs border border-white/10 transition-all cursor-pointer"
           >
             <Download className="size-3.5" />
             <span>Exportar XLSX</span>
@@ -725,7 +735,7 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
 
           <button
             onClick={onClose}
-            className="px-3 py-1 rounded-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold border border-slate-300 transition-colors cursor-pointer"
+            className="px-3 py-1 rounded-md bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white font-medium text-xs border border-white/10 transition-colors cursor-pointer"
           >
             Voltar
           </button>
@@ -735,11 +745,11 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
       {/* 2. POWER QUERY DESKTOP RIBBON BAR */}
       <div className="bg-white border-b border-slate-200">
         {/* Ribbon Tabs Switcher */}
-        <div className="flex items-center px-4 border-b border-slate-100 bg-slate-50 gap-1 text-xs">
+        <div className="flex items-center px-4 border-b border-white/5 bg-[#111827] gap-1 text-xs text-slate-400">
           <button
             onClick={() => setActiveTab('home')}
             className={`px-3 py-1.5 font-bold border-b-2 transition-all cursor-pointer ${
-              activeTab === 'home' ? 'border-purple-700 text-purple-900 bg-white' : 'border-transparent text-slate-600 hover:text-slate-900'
+              activeTab === 'home' ? 'border-indigo-400 text-indigo-400 bg-white/5' : 'border-transparent hover:text-slate-200 hover:bg-white/5'
             }`}
           >
             Página Inicial
@@ -747,7 +757,7 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
           <button
             onClick={() => setActiveTab('transform')}
             className={`px-3 py-1.5 font-bold border-b-2 transition-all cursor-pointer ${
-              activeTab === 'transform' ? 'border-purple-700 text-purple-900 bg-white' : 'border-transparent text-slate-600 hover:text-slate-900'
+              activeTab === 'transform' ? 'border-indigo-400 text-indigo-400 bg-white/5' : 'border-transparent hover:text-slate-200 hover:bg-white/5'
             }`}
           >
             Transformar
@@ -755,7 +765,7 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
           <button
             onClick={() => setActiveTab('add_column')}
             className={`px-3 py-1.5 font-bold border-b-2 transition-all cursor-pointer ${
-              activeTab === 'add_column' ? 'border-purple-700 text-purple-900 bg-white' : 'border-transparent text-slate-600 hover:text-slate-900'
+              activeTab === 'add_column' ? 'border-indigo-400 text-indigo-400 bg-white/5' : 'border-transparent hover:text-slate-200 hover:bg-white/5'
             }`}
           >
             Adicionar Coluna
@@ -763,7 +773,7 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
           <button
             onClick={() => setActiveTab('view')}
             className={`px-3 py-1.5 font-bold border-b-2 transition-all cursor-pointer ${
-              activeTab === 'view' ? 'border-purple-700 text-purple-900 bg-white' : 'border-transparent text-slate-600 hover:text-slate-900'
+              activeTab === 'view' ? 'border-indigo-400 text-indigo-400 bg-white/5' : 'border-transparent hover:text-slate-200 hover:bg-white/5'
             }`}
           >
             Exibir
