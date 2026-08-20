@@ -1348,6 +1348,10 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                       !(m.startRow === rowIdx && m.startCol === colIdx)
                   );
 
+                  const isSingleCell =
+                    selectedRange.startRow === selectedRange.endRow &&
+                    selectedRange.startCol === selectedRange.endCol;
+
                   return (
                     <GridCell
                       key={colIdx}
@@ -1357,12 +1361,19 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                       isSelected={isCellSelected}
                       isInRange={isCellInRange}
                       isMultiSelected={multiSelectedKeys.has(key)}
+                      isSingleCellSelection={isSingleCell}
+                      isRangeTop={isCellInRange && rowIdx === selectedRange.startRow}
+                      isRangeBottom={isCellInRange && rowIdx === selectedRange.endRow}
+                      isRangeLeft={isCellInRange && colIdx === selectedRange.startCol}
+                      isRangeRight={isCellInRange && colIdx === selectedRange.endCol}
+                      isRangeBottomRight={isCellInRange && rowIdx === selectedRange.endRow && colIdx === selectedRange.endCol}
                       isEditing={isCellEditing}
                       editValue={editValue}
                       mergedRegion={merged}
                       isMergeCovered={isCovered}
                       conditionalRules={sheet.conditionalRules}
                       allColumnValues={columnValueMap[colIdx] || []}
+
 
                       onMouseDown={handleCellMouseDown}
                       onMouseEnter={handleCellMouseEnter}

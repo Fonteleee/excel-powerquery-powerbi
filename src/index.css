@@ -57,29 +57,34 @@
 }
 
 /* Excel Online Cell Selection */
-.cell-selected {
+.cell-selected-single {
   outline: 2px solid #107c41 !important;
   outline-offset: -2px;
+  z-index: 20;
+  background-color: #ffffff;
+}
+
+.cell-range-anchor {
   z-index: 10;
-  box-shadow: inset 0 0 0 9999px rgba(16, 124, 65, 0.04);
+  background-color: #ffffff;
 }
 
 .cell-in-range {
-  box-shadow: inset 0 0 0 9999px rgba(16, 124, 65, 0.08);
+  background-color: rgba(16, 124, 65, 0.08) !important;
+  z-index: 5;
 }
 
 .cell-multi-selected {
-  outline: 2px solid #107c41 !important;
-  outline-offset: -2px;
-  z-index: 10;
-  box-shadow: inset 0 0 0 9999px rgba(16, 124, 65, 0.12);
+  background-color: rgba(16, 124, 65, 0.08) !important;
+  z-index: 5;
 }
 
 .cell-highlight-edit {
   outline: 2px solid #107c41;
   outline-offset: -2px;
-  z-index: 20;
+  z-index: 30;
 }
+
 
 /* Excel Online Fluent Button Styles */
 .fluent-btn {

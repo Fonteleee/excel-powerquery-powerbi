@@ -10,12 +10,18 @@ interface GridCellProps {
   isSelected: boolean;
   isInRange: boolean;
   isMultiSelected?: boolean;
+  isSingleCellSelection?: boolean;
+  isRangeTop?: boolean;
+  isRangeBottom?: boolean;
+  isRangeLeft?: boolean;
+  isRangeRight?: boolean;
+  isRangeBottomRight?: boolean;
   isEditing: boolean;
   editValue: string;
   mergedRegion?: MergedRegion;
   isMergeCovered?: boolean;
   conditionalRules: ConditionalFormatRule[];
-  allColumnValues?: any[]; // for min/max calculation in data bars
+  allColumnValues?: any[];
   onMouseDown: (e: React.MouseEvent, row: number, col: number) => void;
   onMouseEnter: (e: React.MouseEvent, row: number, col: number) => void;
   onDoubleClick: (row: number, col: number) => void;
@@ -31,6 +37,12 @@ const GridCellComponent: React.FC<GridCellProps> = ({
   isSelected,
   isInRange,
   isMultiSelected = false,
+  isSingleCellSelection = true,
+  isRangeTop = false,
+  isRangeBottom = false,
+  isRangeLeft = false,
+  isRangeRight = false,
+  isRangeBottomRight = false,
   isEditing,
   editValue,
   mergedRegion,
@@ -44,14 +56,12 @@ const GridCellComponent: React.FC<GridCellProps> = ({
   onEditKeyDown,
   onEditBlur,
 }) => {
-  if (isMergeCovered) return null; // Hidden under merged region
+  if (isMergeCovered) return null;
 
-  // Raw & formatted value
   const rawValue = cell?.raw ?? '';
   const cellVal = cell?.value !== undefined ? cell.value : rawValue;
   const displayFormatted = formatCellValue(cellVal, cell?.format);
 
-  // Helper to interpolate between two hex colors
   const interpolateHexColor = (color1: string, color2: string, factor: number): string => {
     const parseHex = (hex: string) => {
       let clean = hex.replace('#', '');
@@ -71,7 +81,6 @@ const GridCellComponent: React.FC<GridCellProps> = ({
     }
   };
 
-  // Evaluate conditional rules applicable to this cell
   const matchedRule = useMemo(() => {
     for (const rule of conditionalRules) {
       if (
@@ -84,30 +93,14 @@ const GridCellComponent: React.FC<GridCellProps> = ({
         const v1 = parseNumberSafely(rule.value1) ?? rule.value1;
         const v2 = parseNumberSafely(rule.value2) ?? rule.value2;
 
-        if (rule.type === 'data_bar' && numVal !== null) {
-          return rule;
-        }
-        if (rule.type === 'color_scale_3' && numVal !== null) {
-          return rule;
-        }
-        if (rule.type === 'icon_set' && numVal !== null) {
-          return rule;
-        }
-        if (rule.type === 'highlight_greater' && numVal !== null && typeof v1 === 'number' && numVal > v1) {
-          return rule;
-        }
-        if (rule.type === 'highlight_less' && numVal !== null && typeof v1 === 'number' && numVal < v1) {
-          return rule;
-        }
-        if (rule.type === 'highlight_between' && numVal !== null && typeof v1 === 'number' && typeof v2 === 'number' && numVal >= v1 && numVal <= v2) {
-          return rule;
-        }
-        if (rule.type === 'highlight_equal' && String(cellVal).toLowerCase() === String(v1).toLowerCase()) {
-          return rule;
-        }
-        if (rule.type === 'highlight_text' && String(cellVal).toLowerCase().includes(String(v1).toLowerCase())) {
-          return rule;
-        }
+        if (rule.type === 'data_bar' && numVal !== null) return rule;
+        if (rule.type === 'color_scale_3' && numVal !== null) return rule;
+        if (rule.type === 'icon_set' && numVal !== null) return rule;
+        if (rule.type === 'highlight_greater' && numVal !== null && typeof v1 === 'number' && numVal > v1) return rule;
+        if (rule.type === 'highlight_less' && numVal !== null && typeof v1 === 'number' && numVal < v1) return rule;
+        if (rule.type === 'highlight_between' && numVal !== null && typeof v1 === 'number' && typeof v2 === 'number' && numVal >= v1 && numVal <= v2) return rule;
+        if (rule.type === 'highlight_equal' && String(cellVal).toLowerCase() === String(v1).toLowerCase()) return rule;
+        if (rule.type === 'highlight_text' && String(cellVal).toLowerCase().includes(String(v1).toLowerCase())) return rule;
         if (rule.type === 'highlight_above_avg' && numVal !== null) {
           const numList = allColumnValues.map(v => parseNumberSafely(v)).filter((n): n is number => n !== null);
           const avg = numList.length > 0 ? numList.reduce((a, b) => a + b, 0) / numList.length : 0;
@@ -118,7 +111,8 @@ const GridCellComponent: React.FC<GridCellProps> = ({
     return null;
   }, [conditionalRules, row, col, cellVal, allColumnValues]);
 
-  // Compute Data Bar width if matched
+
+  // Compute Data Bar percentage if matched
   const dataBarPercent = useMemo(() => {
     if (matchedRule?.type === 'data_bar') {
       const numVal = parseNumberSafely(cellVal, true);
@@ -147,7 +141,7 @@ const GridCellComponent: React.FC<GridCellProps> = ({
       const max = Math.max(...numList);
       if (max === min) return matchedRule.style.midColor || '#fef08a';
 
-      const ratio = Math.min(Math.max((numVal - min) / (max - min), 0), 1);
+      const ratio = Math.min(Math.max((numVal - min) / (max - min || 1), 0), 1);
       const minCol = matchedRule.style.minColor || '#fecaca'; // red
       const midCol = matchedRule.style.midColor || '#fef08a'; // yellow
       const maxCol = matchedRule.style.maxColor || '#bbf7d0'; // green
@@ -160,6 +154,7 @@ const GridCellComponent: React.FC<GridCellProps> = ({
     }
     return null;
   }, [matchedRule, cellVal, allColumnValues]);
+
 
 
   // Styles
@@ -199,6 +194,42 @@ const GridCellComponent: React.FC<GridCellProps> = ({
   const colSpan = mergedRegion ? mergedRegion.endCol - mergedRegion.startCol + 1 : 1;
   const rowSpan = mergedRegion ? mergedRegion.endRow - mergedRegion.startRow + 1 : 1;
 
+  // Perimeter border style when inside a multi-cell selected range (Excel Online Style)
+  const rangeBorders: React.CSSProperties = {};
+  if (isInRange && !isSingleCellSelection) {
+    if (isRangeTop) {
+      rangeBorders.borderTop = '2px solid #107c41';
+    }
+    if (isRangeBottom) {
+      rangeBorders.borderBottom = '2px solid #107c41';
+    }
+    if (isRangeLeft) {
+      rangeBorders.borderLeft = '2px solid #107c41';
+    }
+    if (isRangeRight) {
+      rangeBorders.borderRight = '2px solid #107c41';
+    }
+  }
+
+  const mergedStyle: React.CSSProperties = {
+    ...cellStyle,
+    ...rangeBorders,
+  };
+
+  // Compute unified selection class
+  let selectionClass = '';
+  if (isEditing) {
+    selectionClass = 'cell-highlight-edit';
+  } else if (isSingleCellSelection && isSelected) {
+    selectionClass = 'cell-selected-single';
+  } else if (isInRange) {
+    selectionClass = isSelected ? 'cell-range-anchor' : 'cell-in-range';
+  } else if (isMultiSelected) {
+    selectionClass = isSelected ? 'cell-selected-single' : 'cell-multi-selected';
+  } else {
+    selectionClass = 'hover:bg-[#f3f2f1]/60 bg-white';
+  }
+
   return (
     <td
       colSpan={colSpan > 1 ? colSpan : undefined}
@@ -206,20 +237,17 @@ const GridCellComponent: React.FC<GridCellProps> = ({
       onMouseDown={e => onMouseDown(e, row, col)}
       onMouseEnter={e => onMouseEnter(e, row, col)}
       onDoubleClick={() => onDoubleClick(row, col)}
-      style={cellStyle}
-      className={`relative px-1.5 py-0.5 text-xs font-sans border-r border-b border-[#e1dfdd] transition-colors select-none overflow-visible ${
-        isSelected
-          ? 'cell-selected z-20 outline-2 outline-[#107c41] -outline-offset-2'
-          : isMultiSelected
-          ? 'cell-multi-selected z-15'
-          : isInRange
-          ? 'cell-in-range bg-[#e8f5e9]/50'
-          : 'hover:bg-[#f3f2f1]/60 bg-white'
-      } ${isError ? 'text-rose-600 font-semibold bg-rose-50' : ''}`}
+      style={mergedStyle}
+      className={`relative px-1.5 py-0.5 text-xs font-sans border-r border-b border-[#e1dfdd] transition-colors select-none overflow-visible ${selectionClass} ${
+        isError ? 'text-rose-600 font-semibold bg-rose-50' : ''
+      }`}
     >
-      {/* Excel Online Autofill Corner Handle Pip */}
-      {isSelected && !isEditing && (
-        <div className="absolute -bottom-0.75 -right-0.75 size-1.5 bg-[#107c41] border border-white z-30 pointer-events-none shadow-2xs" />
+      {/* Excel Online Autofill Corner Handle Pip (Only on single cell or bottom-right of range) */}
+      {!isEditing && (
+        (isSingleCellSelection && isSelected) ||
+        (!isSingleCellSelection && isRangeBottomRight)
+      ) && (
+        <div className="absolute -bottom-1 -right-1 size-1.5 bg-[#107c41] border border-white z-30 pointer-events-none shadow-2xs" />
       )}
 
       {/* Data Bar background fill */}
@@ -281,6 +309,12 @@ export const GridCell = React.memo(GridCellComponent, (prev, next) => {
     prev.isSelected === next.isSelected &&
     prev.isInRange === next.isInRange &&
     prev.isMultiSelected === next.isMultiSelected &&
+    prev.isSingleCellSelection === next.isSingleCellSelection &&
+    prev.isRangeTop === next.isRangeTop &&
+    prev.isRangeBottom === next.isRangeBottom &&
+    prev.isRangeLeft === next.isRangeLeft &&
+    prev.isRangeRight === next.isRangeRight &&
+    prev.isRangeBottomRight === next.isRangeBottomRight &&
     prev.isEditing === next.isEditing &&
     prev.editValue === next.editValue &&
     prev.isMergeCovered === next.isMergeCovered &&
@@ -290,5 +324,6 @@ export const GridCell = React.memo(GridCellComponent, (prev, next) => {
     prev.conditionalRules === next.conditionalRules
   );
 });
+
 
 
