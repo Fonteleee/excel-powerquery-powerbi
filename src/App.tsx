@@ -45,13 +45,14 @@ export function App() {
   });
 
   const [activeSheetId, setActiveSheetId] = useState<string>(() => sheets[0]?.id || 'sheet-sales');
-  const [activeCell, setActiveCell] = useState<CellPosition>({ row: 1, col: 2 });
+  const [activeCell, setActiveCell] = useState<CellPosition>({ row: 8, col: 6 });
   const [selectedRange, setSelectedRange] = useState<CellRange>({
-    startRow: 1,
-    startCol: 2,
-    endRow: 12,
-    endCol: 9,
+    startRow: 8,
+    startCol: 6,
+    endRow: 8,
+    endCol: 6,
   });
+
 
   // History stack for Undo / Redo
   const [historyPast, setHistoryPast] = useState<Sheet[][]>([]);

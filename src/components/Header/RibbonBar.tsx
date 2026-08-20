@@ -86,7 +86,9 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
 }) => {
 
   const [activeRibbonTab, setActiveRibbonTab] = useState<'home' | 'insert' | 'formulas' | 'data' | 'view'>('home');
+  const [isRibbonCollapsed, setIsRibbonCollapsed] = useState(true);
   const [showColorPicker, setShowColorPicker] = useState<'text' | 'bg' | null>(null);
+
 
   // Apply format to all cells in selected range
   const applyFormat = (formatPatch: Partial<CellFormat>) => {
@@ -306,130 +308,144 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
       </div>
 
       {/* 2. RIBBON TABS (Exact Replica of Image 2 Tabs Bar) */}
-      <div className="h-7 px-2 flex items-center gap-0.5 bg-[#f5f5f5] text-xs font-normal text-[#242424] border-b border-[#e0e0e0]">
-        <button
-          onClick={() => {
-            onSetActiveView('spreadsheet');
-            setActiveRibbonTab('home');
-          }}
-          className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] rounded-t cursor-pointer"
-        >
-          Arquivo
-        </button>
+      <div className="h-7 px-2 flex items-center justify-between bg-[#f5f5f5] text-xs font-normal text-[#242424] border-b border-[#e0e0e0]">
+        <div className="flex items-center gap-0.5 h-full">
+          <button
+            onClick={() => {
+              onSetActiveView('spreadsheet');
+              setActiveRibbonTab('home');
+            }}
+            className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] rounded-t cursor-pointer"
+          >
+            Arquivo
+          </button>
 
-        <button
-          onClick={() => {
-            onSetActiveView('spreadsheet');
-            setActiveRibbonTab('home');
-          }}
-          className={`px-2.5 h-full flex items-center cursor-pointer ${
-            activeRibbonTab === 'home' && activeView === 'spreadsheet'
-              ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
-              : 'hover:bg-[#ebebeb] text-[#242424]'
-          }`}
-        >
-          Início
-        </button>
+          <button
+            onClick={() => {
+              onSetActiveView('spreadsheet');
+              setActiveRibbonTab('home');
+              setIsRibbonCollapsed(prev => activeRibbonTab === 'home' ? !prev : false);
+            }}
+            className={`px-2.5 h-full flex items-center cursor-pointer ${
+              activeRibbonTab === 'home' && activeView === 'spreadsheet'
+                ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
+                : 'hover:bg-[#ebebeb] text-[#242424]'
+            }`}
+          >
+            Início
+          </button>
 
-        <button
-          onClick={() => {
-            onSetActiveView('spreadsheet');
-            setActiveRibbonTab('insert');
-          }}
-          className={`px-2.5 h-full flex items-center cursor-pointer ${
-            activeRibbonTab === 'insert'
-              ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
-              : 'hover:bg-[#ebebeb] text-[#242424]'
-          }`}
-        >
-          Inserir
-        </button>
+          <button
+            onClick={() => {
+              onSetActiveView('spreadsheet');
+              setActiveRibbonTab('insert');
+              setIsRibbonCollapsed(prev => activeRibbonTab === 'insert' ? !prev : false);
+            }}
+            className={`px-2.5 h-full flex items-center cursor-pointer ${
+              activeRibbonTab === 'insert'
+                ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
+                : 'hover:bg-[#ebebeb] text-[#242424]'
+            }`}
+          >
+            Inserir
+          </button>
 
-        <button
-          onClick={() => exportSheetToExcel(sheet, sheet.name)}
-          className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
-        >
-          Compartilhar
-        </button>
+          <button
+            onClick={() => exportSheetToExcel(sheet, sheet.name)}
+            className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
+          >
+            Compartilhar
+          </button>
 
-        <button
-          onClick={() => {
-            onSetActiveView('spreadsheet');
-            setActiveRibbonTab('formulas');
-          }}
-          className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
-        >
-          Layout da Página
-        </button>
+          <button
+            onClick={() => {
+              onSetActiveView('spreadsheet');
+              setActiveRibbonTab('formulas');
+            }}
+            className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
+          >
+            Layout da Página
+          </button>
 
-        <button
-          onClick={() => {
-            onSetActiveView('spreadsheet');
-            setActiveRibbonTab('formulas');
-          }}
-          className={`px-2.5 h-full flex items-center cursor-pointer ${
-            activeRibbonTab === 'formulas'
-              ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
-              : 'hover:bg-[#ebebeb] text-[#242424]'
-          }`}
-        >
-          Fórmulas
-        </button>
+          <button
+            onClick={() => {
+              onSetActiveView('spreadsheet');
+              setActiveRibbonTab('formulas');
+              setIsRibbonCollapsed(prev => activeRibbonTab === 'formulas' ? !prev : false);
+            }}
+            className={`px-2.5 h-full flex items-center cursor-pointer ${
+              activeRibbonTab === 'formulas'
+                ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
+                : 'hover:bg-[#ebebeb] text-[#242424]'
+            }`}
+          >
+            Fórmulas
+          </button>
 
-        <button
-          onClick={() => {
-            onSetActiveView('powerquery');
-            setActiveRibbonTab('data');
-          }}
-          className={`px-2.5 h-full flex items-center cursor-pointer ${
-            activeRibbonTab === 'data' || activeView === 'powerquery'
-              ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
-              : 'hover:bg-[#ebebeb] text-[#242424]'
-          }`}
-        >
-          Dados
-        </button>
+          <button
+            onClick={() => {
+              onSetActiveView('powerquery');
+              setActiveRibbonTab('data');
+            }}
+            className={`px-2.5 h-full flex items-center cursor-pointer ${
+              activeRibbonTab === 'data' || activeView === 'powerquery'
+                ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
+                : 'hover:bg-[#ebebeb] text-[#242424]'
+            }`}
+          >
+            Dados
+          </button>
 
-        <button
-          onClick={() => onOpenQuickAnalysis()}
-          className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
-        >
-          Revisão
-        </button>
+          <button
+            onClick={() => onOpenQuickAnalysis()}
+            className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
+          >
+            Revisão
+          </button>
 
-        <button
-          onClick={() => {
-            onSetActiveView('powerbi');
-            setActiveRibbonTab('view');
-          }}
-          className={`px-2.5 h-full flex items-center cursor-pointer ${
-            activeRibbonTab === 'view' || activeView === 'powerbi'
-              ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
-              : 'hover:bg-[#ebebeb] text-[#242424]'
-          }`}
-        >
-          Exibir
-        </button>
+          <button
+            onClick={() => {
+              onSetActiveView('powerbi');
+              setActiveRibbonTab('view');
+            }}
+            className={`px-2.5 h-full flex items-center cursor-pointer ${
+              activeRibbonTab === 'view' || activeView === 'powerbi'
+                ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
+                : 'hover:bg-[#ebebeb] text-[#242424]'
+            }`}
+          >
+            Exibir
+          </button>
 
-        <button
-          onClick={onOpenShortcutsModal}
-          className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
-        >
-          Ajuda
-        </button>
+          <button
+            onClick={onOpenShortcutsModal}
+            className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
+          >
+            Ajuda
+          </button>
 
+          <button
+            onClick={() => onOpenTextToColumns()}
+            className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
+          >
+            Desenhar
+          </button>
+        </div>
+
+        {/* Right: Ribbon Collapse/Expand Toggle Chevron */}
         <button
-          onClick={() => onOpenTextToColumns()}
-          className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
+          onClick={() => setIsRibbonCollapsed(!isRibbonCollapsed)}
+          title={isRibbonCollapsed ? "Exibir Faixa de Opções" : "Ocultar Faixa de Opções"}
+          className="p-1 rounded hover:bg-[#ebebeb] text-[#707070] hover:text-[#242424] cursor-pointer transition-colors"
         >
-          Desenhar
+          <ChevronDown className={`size-3.5 transition-transform duration-200 ${isRibbonCollapsed ? '' : 'rotate-180'}`} />
         </button>
       </div>
 
+      {/* 3. RIBBON TOOLBAR BODY (Simplified Single-Line Office 365 Toolbar) */}
+      {!isRibbonCollapsed && (
+        <div className="h-9 px-3 py-1 flex items-center gap-2 overflow-x-auto scrollbar-none bg-[#f5f5f5] text-xs text-[#242424] border-b border-[#e0e0e0] animate-in slide-in-from-top-1 duration-150">
 
-      {/* 3. RIBBON TOOLBAR BODY */}
-
-      <div className="h-16 px-3 py-1 flex items-center gap-3 overflow-x-auto scrollbar-none bg-white text-xs text-slate-700">
         {/* PÁGINA INICIAL */}
         {activeRibbonTab === 'home' && (
           <>
@@ -846,6 +862,8 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 };
+

@@ -6,10 +6,10 @@ export function createEmptySheet(id: string, name: string, rows = 100, cols = 26
   const rowHeights: { [row: number]: number } = {};
 
   for (let c = 0; c < cols; c++) {
-    colWidths[c] = c === 0 ? 65 : c === 1 ? 140 : c === 2 ? 160 : c === 5 ? 190 : 125;
+    colWidths[c] = c === 0 ? 70 : c === 1 ? 120 : c === 2 ? 140 : c === 5 ? 170 : 100;
   }
   for (let r = 0; r < rows; r++) {
-    rowHeights[r] = 28;
+    rowHeights[r] = 22;
   }
 
   return {
@@ -25,23 +25,24 @@ export function createEmptySheet(id: string, name: string, rows = 100, cols = 26
   };
 }
 
-export function createSalesSampleSheet(id = 'sheet-sales', name = 'Vendas & Faturamento'): Sheet {
+export function createSalesSampleSheet(id = 'sheet-sales', name = 'Consolidado contingencias CHAT e VOZ'): Sheet {
   const sheet = createEmptySheet(id, name, 60, 20);
 
   sheet.colWidths = {
     0: 75,   // A: ID
-    1: 130,  // B: Data
-    2: 160,  // C: Vendedor
-    3: 130,  // D: Região
-    4: 140,  // E: Categoria
-    5: 200,  // F: Produto
-    6: 75,   // G: Qtd
-    7: 125,  // H: Preço Unit.
-    8: 95,   // I: Desconto %
-    9: 145,  // J: Total Líquido
-    10: 135, // K: Comissão
-    11: 120, // L: Status
+    1: 110,  // B: Data
+    2: 140,  // C: Vendedor
+    3: 110,  // D: Região
+    4: 120,  // E: Categoria
+    5: 160,  // F: Produto
+    6: 65,   // G: Qtd
+    7: 110,  // H: Preço Unit.
+    8: 90,   // I: Desconto %
+    9: 130,  // J: Total Líquido
+    10: 110, // K: Comissão
+    11: 100, // L: Status
   };
+
 
   const headers = [
     'ID Venda',
