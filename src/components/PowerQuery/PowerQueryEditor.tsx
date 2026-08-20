@@ -28,6 +28,13 @@ import {
   Check,
   Zap,
 } from 'lucide-react';
+import brandEmblem from '../../assets/brand_emblem.jpg';
+import {
+  BespokeQueryIcon,
+  BespokeMergeIcon,
+  BespokeSparkIcon,
+  BespokeExportIcon,
+} from '../Icons/BespokeIcons';
 import { Sheet, CellFormat } from '../../types/spreadsheet';
 import { QueryStep, ColumnProfile, QueryStepType } from '../../types/powerquery';
 import { profileSheetColumns } from '../../engine/dataProfiler';
@@ -50,6 +57,7 @@ interface PowerQueryEditorProps {
   onApplyChangesToSheet: (updatedSheet: Sheet) => void;
   onClose: () => void;
 }
+
 
 export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
   sheet,
@@ -690,17 +698,27 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
   const activeStepMFormula = activeStep?.params?.formulaM || `= Table.TransformColumnTypes(#"${activeStep?.name || 'Fonte'}", {})`;
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-slate-900 text-slate-100 font-sans select-none z-40">
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#080a14] text-slate-100 font-sans select-none z-40">
       {/* 1. TOP POWER QUERY APPLICATION TITLE BAR */}
-      <div className="h-11 px-4 flex items-center justify-between bg-[#0b0f19] border-b border-white/10 text-white shrink-0">
+      <div className="h-12 px-4 flex items-center justify-between bg-[#070913] bg-blueprint-texture border-b border-white/10 text-white shrink-0">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="size-6 rounded-md bg-gradient-to-br from-indigo-500 to-purple-700 flex items-center justify-center shadow-[0_0_12px_rgba(99,102,241,0.4)]">
-              <Database className="size-3.5 text-white" />
+          <div className="flex items-center gap-2.5">
+            {/* 3D Brand Emblem */}
+            <div className="relative size-7 rounded-lg overflow-hidden border border-indigo-400/30 shadow-[0_0_12px_rgba(99,102,241,0.4)] emblem-glint group cursor-pointer">
+              <img
+                src={brandEmblem}
+                alt="Vertex Emblem"
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+              />
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-xs tracking-tight text-white font-mono">POWER QUERY</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400 font-mono font-medium border border-indigo-500/20">STUDIO</span>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5 leading-none">
+                <span className="font-extrabold text-xs tracking-tight text-white font-mono">POWER QUERY</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono font-bold border border-indigo-500/30">
+                  STUDIO
+                </span>
+              </div>
+              <span className="text-[9px] text-slate-400 font-mono mt-0.5">Neural Data Pipeline</span>
             </div>
           </div>
 
@@ -709,7 +727,9 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
           <div className="flex items-center gap-1.5 text-xs text-slate-300">
             <span className="text-slate-400">Consulta:</span>
             <strong className="text-white font-mono">{workingSheet.name}</strong>
-            <span className="text-[10px] text-slate-500 font-mono">({workingSheet.rowCount - 1} linhas × {workingSheet.colCount} cols)</span>
+            <span className="text-[10px] text-slate-400 font-mono bg-white/5 px-1.5 py-0.5 rounded border border-white/10">
+              {workingSheet.rowCount - 1} lin × {workingSheet.colCount} col
+            </span>
           </div>
         </div>
 
@@ -719,7 +739,7 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
               onApplyChangesToSheet(workingSheet);
               onClose();
             }}
-            className="flex items-center gap-1.5 px-3.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all cursor-pointer shadow-[0_0_12px_rgba(99,102,241,0.35)]"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-all cursor-pointer shadow-[0_0_14px_rgba(99,102,241,0.4)]"
           >
             <Check className="size-3.5" />
             <span>Fechar & Aplicar</span>
@@ -727,15 +747,15 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
 
           <button
             onClick={() => exportSheetToExcel(workingSheet, `${workingSheet.name}_PowerQuery`)}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white font-semibold text-xs border border-white/10 transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white font-semibold text-xs border border-white/10 transition-all cursor-pointer"
           >
-            <Download className="size-3.5" />
+            <BespokeExportIcon size={14} />
             <span>Exportar XLSX</span>
           </button>
 
           <button
             onClick={onClose}
-            className="px-3 py-1 rounded-md bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white font-medium text-xs border border-white/10 transition-colors cursor-pointer"
+            className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white font-medium text-xs border border-white/10 transition-colors cursor-pointer"
           >
             Voltar
           </button>
@@ -743,9 +763,9 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
       </div>
 
       {/* 2. POWER QUERY DESKTOP RIBBON BAR */}
-      <div className="bg-white border-b border-slate-200">
+      <div className="bg-[#0f1422] border-b border-white/10">
         {/* Ribbon Tabs Switcher */}
-        <div className="flex items-center px-4 border-b border-white/5 bg-[#111827] gap-1 text-xs text-slate-400">
+        <div className="flex items-center px-4 border-b border-white/5 bg-[#0b0e1a] gap-1 text-xs text-slate-400">
           <button
             onClick={() => setActiveTab('home')}
             className={`px-3 py-1.5 font-bold border-b-2 transition-all cursor-pointer ${
@@ -779,6 +799,7 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
             Exibir
           </button>
         </div>
+
 
         {/* Ribbon Actions Area */}
         <div className="h-16 px-4 py-1.5 flex items-center gap-4 overflow-x-auto bg-white">

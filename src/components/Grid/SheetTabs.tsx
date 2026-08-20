@@ -55,7 +55,7 @@ export const SheetTabs: React.FC<SheetTabsProps> = ({
   };
 
   return (
-    <footer className="h-9 bg-[#0b0f19] border-t border-white/10 flex items-center justify-between px-3 text-xs select-none z-20 shadow-xs">
+    <footer className="h-9 bg-[#07090e] bg-enterprise-mesh border-t border-white/10 flex items-center justify-between px-3 text-xs select-none z-20 shadow-xs">
       {/* Sheet Tabs */}
       <div className="flex items-center gap-1 overflow-x-auto max-w-[55%] scrollbar-none py-0.5">
         {sheets.map(sheet => {
@@ -68,11 +68,11 @@ export const SheetTabs: React.FC<SheetTabsProps> = ({
               onDoubleClick={() => handleStartRename(sheet)}
               className={`group relative flex items-center gap-2 px-3 py-1 rounded-md transition-all cursor-pointer text-xs font-semibold ${
                 isActive
-                  ? 'bg-white/10 text-white font-bold border border-white/15 shadow-2xs'
+                  ? 'bg-white/15 text-white font-bold border border-white/20 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
               }`}
             >
-              {isActive && <div className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />}
+              {isActive && <div className="size-1.5 rounded-full bg-emerald-400 led-live-green" />}
               {editingSheetId === sheet.id ? (
                 <input
                   autoFocus
@@ -163,12 +163,13 @@ export const SheetTabs: React.FC<SheetTabsProps> = ({
           </div>
         )}
 
-        <div className="flex items-center gap-1 text-emerald-400 text-[10px] font-semibold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">
-          <CheckCircle className="size-3 text-emerald-400" />
+        <div className="flex items-center gap-1.5 text-emerald-400 text-[10px] font-semibold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">
+          <span className="size-1.5 rounded-full bg-emerald-400 led-live-green" />
           <span>Pronto</span>
         </div>
       </div>
     </footer>
   );
 };
+
 

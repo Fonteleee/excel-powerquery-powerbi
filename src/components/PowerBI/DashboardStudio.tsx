@@ -24,6 +24,12 @@ import {
   Pie,
   Cell,
 } from 'recharts';
+import brandEmblem from '../../assets/brand_emblem.jpg';
+import {
+  BespokeAnalyticsIcon,
+  BespokeExportIcon,
+  BespokeSparkIcon,
+} from '../Icons/BespokeIcons';
 import { Sheet } from '../../types/spreadsheet';
 import { PivotConfig, AggregationType } from '../../types/analytics';
 import { computePivotTable } from '../../engine/pivotEngine';
@@ -35,6 +41,7 @@ interface DashboardStudioProps {
   sheet: Sheet;
   onClose: () => void;
 }
+
 
 export const DashboardStudio: React.FC<DashboardStudioProps> = ({ sheet, onClose }) => {
   const [activeTab, setActiveTab] = useState<'kpi_charts' | 'pivot_table' | 'ai_assistant'>('kpi_charts');
@@ -260,50 +267,60 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ sheet, onClose
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#0b0f19] text-slate-100 select-none overflow-hidden font-sans">
+    <div className="h-full flex flex-col bg-[#06080e] bg-cockpit-texture text-slate-100 select-none overflow-hidden font-sans">
       {/* 1. TOP HEADER */}
-      <div className="h-11 px-4 bg-[#0b0f19] border-b border-white/10 flex items-center justify-between shadow-xs z-10">
+      <div className="h-12 px-4 bg-[#070913]/95 backdrop-blur-md border-b border-white/10 flex items-center justify-between shadow-xs z-10">
         <div className="flex items-center gap-3">
           <button
             onClick={onClose}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-medium border border-white/10 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-medium border border-white/10 transition-colors cursor-pointer"
           >
             <ArrowLeft className="size-3.5" />
             <span>Voltar para Planilha</span>
           </button>
-          <div className="h-4 w-px bg-white/10" />
-          <div className="flex items-center gap-2">
-            <div className="size-6 rounded-md bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-white font-mono font-bold text-xs shadow-[0_0_12px_rgba(245,158,11,0.35)]">
-              BI
+          <div className="h-5 w-px bg-white/10" />
+          <div className="flex items-center gap-2.5">
+            {/* 3D Brand Emblem */}
+            <div className="relative size-7 rounded-lg overflow-hidden border border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.4)] emblem-glint group cursor-pointer">
+              <img
+                src={brandEmblem}
+                alt="Vertex Emblem"
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+              />
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold text-white font-mono">POWER BI STUDIO</span>
-              <span className="text-[10px] text-slate-400 font-mono ml-1">({sheet.name})</span>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5 leading-none">
+                <span className="text-xs font-extrabold text-white font-mono">POWER BI</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono font-bold border border-amber-500/30">
+                  COCKPIT
+                </span>
+              </div>
+              <span className="text-[9px] text-slate-400 font-mono mt-0.5">({sheet.name})</span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center bg-[#131b2e] p-0.5 rounded-lg border border-white/10 shadow-inner">
+        <div className="flex items-center bg-[#111827]/90 p-1 rounded-xl border border-white/15 shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)]">
           <button
             onClick={() => setActiveTab('kpi_charts')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === 'kpi_charts' ? 'bg-amber-600 text-white shadow-sm font-bold' : 'text-slate-400 hover:text-white'
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'kpi_charts' ? 'bg-amber-600 text-white shadow-[0_0_12px_rgba(245,158,11,0.4)] font-bold' : 'text-slate-400 hover:text-white'
             }`}
           >
             <BarChart2 className="size-3.5" /> Dashboard
           </button>
           <button
             onClick={() => setActiveTab('pivot_table')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === 'pivot_table' ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'text-slate-400 hover:text-white'
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'pivot_table' ? 'bg-emerald-600 text-white shadow-[0_0_12px_rgba(16,185,129,0.4)] font-bold' : 'text-slate-400 hover:text-white'
             }`}
           >
             <Table className="size-3.5" /> Matriz
           </button>
           <button
             onClick={() => setActiveTab('ai_assistant')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === 'ai_assistant' ? 'bg-purple-600 text-white shadow-sm font-bold' : 'text-slate-400 hover:text-white'
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'ai_assistant' ? 'bg-purple-600 text-white shadow-[0_0_12px_rgba(168,85,247,0.4)] font-bold' : 'text-slate-400 hover:text-white'
             }`}
           >
             <Sparkles className="size-3.5" /> IA
@@ -312,11 +329,12 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ sheet, onClose
 
         <button
           onClick={() => exportPivotReportToExcel(sheet, pivotResult, kpis, `PowerBI_${sheet.name}`)}
-          className="flex items-center gap-1.5 px-3.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer shadow-[0_0_12px_rgba(16,185,129,0.3)]"
         >
-          <Download className="size-3.5" /> Exportar XLSX
+          <BespokeExportIcon size={14} /> Exportar XLSX
         </button>
       </div>
+
 
       {/* 2. FIELD WELLS */}
       <div className="h-12 px-4 bg-[#111827] border-b border-white/5 flex items-center justify-between gap-4 text-xs text-slate-300">

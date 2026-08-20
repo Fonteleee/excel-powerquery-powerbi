@@ -29,9 +29,18 @@ import {
 } from 'lucide-react';
 
 
+import brandEmblem from '../../assets/brand_emblem.jpg';
+import {
+  BespokeGridIcon,
+  BespokeQueryIcon,
+  BespokeAnalyticsIcon,
+  BespokeExportIcon,
+  BespokeSparkIcon,
+} from '../Icons/BespokeIcons';
 import { Sheet, CellRange, CellFormat } from '../../types/spreadsheet';
 import { cellPosToKey, recalculateSheet } from '../../engine/formulaParser';
 import { exportSheetToExcel } from '../../utils/excelExporter';
+
 
 interface RibbonBarProps {
   sheet: Sheet;
@@ -176,29 +185,40 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
 
   return (
     <div className="bg-[#0b0f19] border-b border-white/10 flex flex-col select-none z-20 shadow-xs">
-      {/* 1. TOP TITLE BAR (Executive Obsidian Header) */}
-      <div className="h-11 px-3 flex items-center justify-between border-b border-white/10 bg-[#0b0f19]">
-        {/* Left: Brand + Document Name */}
+      {/* 1. TOP TITLE BAR (Bespoke Executive Obsidian Header with 3D Faceted Glass Emblem) */}
+      <div className="h-12 px-3.5 flex items-center justify-between border-b border-white/10 bg-[#07090e] bg-enterprise-mesh">
+        {/* Left: 3D Faceted Emblem + Engine Branding + Document Name */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="size-6 rounded-md bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center shadow-[0_0_12px_rgba(16,185,129,0.35)]">
-              <FileSpreadsheet className="size-3.5 text-white" />
+          <div className="flex items-center gap-2.5">
+            {/* 3D Geometric Faceted Glass Emblem */}
+            <div className="relative size-8 rounded-lg overflow-hidden border border-white/20 shadow-[0_0_16px_rgba(16,185,129,0.35)] emblem-glint group cursor-pointer">
+              <img
+                src={brandEmblem}
+                alt="Vertex Emblem"
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+              />
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-xs tracking-tight text-white font-mono">VERTEX</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-mono font-medium border border-emerald-500/20">ENTERPRISE</span>
+
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5 leading-none">
+                <span className="font-extrabold text-xs tracking-wider text-white font-mono">VERTEX</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono font-bold border border-emerald-500/30">
+                  STUDIO PRO
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 font-mono mt-0.5">Enterprise Suite</span>
             </div>
           </div>
 
-          <div className="h-4 w-px bg-white/10 mx-0.5" />
+          <div className="h-5 w-px bg-white/10 mx-1" />
 
           {/* Quick Undo / Redo */}
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center gap-1">
             <button
               onClick={onUndo}
               disabled={!canUndo}
               title="Desfazer (Ctrl+Z)"
-              className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-colors cursor-pointer"
+              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-colors cursor-pointer"
             >
               <Undo2 className="size-3.5" />
             </button>
@@ -206,35 +226,36 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
               onClick={onRedo}
               disabled={!canRedo}
               title="Refazer (Ctrl+Y)"
-              className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-colors cursor-pointer"
+              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-colors cursor-pointer"
             >
               <Redo2 className="size-3.5" />
             </button>
           </div>
 
-          <div className="h-4 w-px bg-white/10 mx-0.5" />
+          <div className="h-5 w-px bg-white/10 mx-1" />
 
-          <div className="flex items-center gap-1.5 text-xs text-slate-300">
-            <span className="font-medium text-slate-200">{sheet.name}</span>
-            <span className="text-[10px] text-slate-500 font-mono">({sheet.rowCount} × {sheet.colCount})</span>
+          <div className="flex items-center gap-2 text-xs text-slate-300">
+            <span className="font-semibold text-white font-mono">{sheet.name}</span>
+            <span className="text-[10px] text-slate-400 font-mono bg-white/5 px-1.5 py-0.5 rounded border border-white/10">
+              {sheet.rowCount} lin × {sheet.colCount} col
+            </span>
           </div>
         </div>
 
-
-        {/* Center: Machined Capsule Module Switcher */}
-        <div className="flex items-center p-0.5 rounded-lg bg-[#131b2e] border border-white/10 shadow-inner">
+        {/* Center: Machined Capsule Module Switcher with Bespoke Dual-Tone Icons */}
+        <div className="flex items-center p-1 rounded-xl bg-[#111827]/90 border border-white/15 shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)]">
           <button
             onClick={() => {
               onSetActiveView('spreadsheet');
               setActiveRibbonTab('home');
             }}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               activeView === 'spreadsheet'
-                ? 'bg-emerald-600 text-white shadow-sm font-bold'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                ? 'bg-emerald-600 text-white shadow-[0_0_12px_rgba(16,185,129,0.4)] font-bold'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
-            <FileSpreadsheet className="size-3.5" />
+            <BespokeGridIcon size={15} />
             <span>Planilha</span>
           </button>
 
@@ -243,13 +264,13 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
               onSetActiveView('powerquery');
               setActiveRibbonTab('data');
             }}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               activeView === 'powerquery'
-                ? 'bg-indigo-600 text-white shadow-sm font-bold'
+                ? 'bg-indigo-600 text-white shadow-[0_0_12px_rgba(99,102,241,0.4)] font-bold'
                 : 'text-slate-400 hover:text-indigo-300 hover:bg-white/5'
             }`}
           >
-            <Database className="size-3.5" />
+            <BespokeQueryIcon size={15} />
             <span>Power Query</span>
           </button>
 
@@ -258,71 +279,44 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
               onSetActiveView('powerbi');
               setActiveRibbonTab('view');
             }}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               activeView === 'powerbi'
-                ? 'bg-amber-600 text-white shadow-sm font-bold'
+                ? 'bg-amber-600 text-white shadow-[0_0_12px_rgba(245,158,11,0.4)] font-bold'
                 : 'text-slate-400 hover:text-amber-300 hover:bg-white/5'
             }`}
           >
-            <LayoutDashboard className="size-3.5" />
-            <span>Power BI Studio</span>
+            <BespokeAnalyticsIcon size={15} />
+            <span>Power BI</span>
           </button>
         </div>
 
-        {/* Right: Status, Undo/Redo & Actions */}
+        {/* Right: Engine Status, Import & Export Actions */}
         <div className="flex items-center gap-2">
-          <div className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-mono">
-            <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Engine Conectada</span>
+          <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-[11px] font-mono text-slate-300">
+            <span className="size-2 rounded-full bg-emerald-400 led-live-green" />
+            <span className="text-slate-400">60fps Engine</span>
           </div>
-
-          <div className="flex items-center gap-0.5 bg-white/5 rounded-md p-0.5 border border-white/10">
-            <button
-              onClick={onUndo}
-              disabled={!canUndo}
-              title="Desfazer (Ctrl+Z)"
-              className="p-1 rounded text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
-            >
-              <Undo2 className="size-3.5" />
-            </button>
-            <button
-              onClick={onRedo}
-              disabled={!canRedo}
-              title="Refazer (Ctrl+Y)"
-              className="p-1 rounded text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
-            >
-              <Redo2 className="size-3.5" />
-            </button>
-          </div>
-
-          <button
-            onClick={onOpenShortcutsModal}
-            title="Guia de Atalhos (Ctrl+Q, Ctrl+E, Ctrl+Shift+L...)"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-medium border border-white/10 transition-colors cursor-pointer"
-          >
-            <Keyboard className="size-3 text-slate-400" />
-            <span className="hidden sm:inline">⌘K Atalhos</span>
-          </button>
 
           <button
             onClick={onOpenImportExport}
             title="Importar Dados CSV"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-medium border border-white/10 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-medium border border-white/10 transition-colors cursor-pointer"
           >
-            <Upload className="size-3 text-slate-400" />
-            <span>Importar</span>
+            <Upload className="size-3.5 text-slate-400" />
+            <span>Importar CSV</span>
           </button>
 
           <button
             onClick={() => exportSheetToExcel(sheet, sheet.name)}
             title="Exportar para Excel (.xlsx)"
-            className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-all cursor-pointer shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer shadow-[0_0_12px_rgba(16,185,129,0.3)]"
           >
-            <Download className="size-3.5" />
+            <BespokeExportIcon size={14} />
             <span>Exportar XLSX</span>
           </button>
         </div>
       </div>
+
 
       {/* 2. RIBBON TABS HEADER */}
       <div className="h-8 px-4 flex items-center gap-1 bg-[#111827] border-b border-white/5 text-xs font-medium text-slate-400">

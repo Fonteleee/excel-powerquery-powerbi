@@ -125,3 +125,82 @@ button:active {
   border-width: 0.5px;
 }
 
+/* Bespoke Hardware Wallpapers & Ambient Textures */
+.bg-enterprise-mesh {
+  background-image: 
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(16, 185, 129, 0.15), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(59, 130, 246, 0.1), transparent 60%),
+    url('/src/assets/enterprise_mesh_bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.bg-cockpit-texture {
+  background-image: 
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(245, 158, 11, 0.15), transparent 70%),
+    radial-gradient(ellipse 50% 50% at 10% 80%, rgba(234, 88, 12, 0.1), transparent 60%),
+    url('/src/assets/cockpit_ambient_bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.bg-blueprint-texture {
+  background-image: 
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.18), transparent 70%),
+    radial-gradient(ellipse 50% 50% at 90% 80%, rgba(168, 85, 247, 0.12), transparent 60%),
+    url('/src/assets/powerquery_blueprint_bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Machined Bezel Card */
+.machined-card {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 10px 30px -10px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.15),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Glowing Pulsing Hardware LEDs */
+@keyframes led-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.9)); }
+  50% { opacity: 0.65; transform: scale(0.95); filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.4)); }
+}
+
+.led-live-green {
+  animation: led-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes glint-sweep {
+  0% { transform: translateX(-100%) rotate(45deg); }
+  100% { transform: translateX(200%) rotate(45deg); }
+}
+
+.emblem-glint {
+  position: relative;
+  overflow: hidden;
+}
+
+.emblem-glint::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    60deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.25) 50%,
+    transparent 60%
+  );
+  animation: glint-sweep 6s ease-in-out infinite;
+}
+
