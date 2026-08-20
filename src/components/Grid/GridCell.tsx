@@ -207,16 +207,21 @@ const GridCellComponent: React.FC<GridCellProps> = ({
       onMouseEnter={e => onMouseEnter(e, row, col)}
       onDoubleClick={() => onDoubleClick(row, col)}
       style={cellStyle}
-      className={`relative px-2 py-1 text-xs border-r border-b border-slate-200/90 transition-colors font-mono select-none overflow-visible ${
+      className={`relative px-2 py-1 text-xs border-r border-b border-slate-200/90 transition-colors select-none overflow-visible ${
         isSelected
-          ? 'cell-selected'
+          ? 'cell-selected z-20 ring-2 ring-emerald-600 shadow-[0_0_8px_rgba(5,150,105,0.3)]'
           : isMultiSelected
-          ? 'cell-multi-selected'
+          ? 'cell-multi-selected z-15'
           : isInRange
-          ? 'cell-in-range'
-          : 'hover:bg-slate-50/80'
+          ? 'cell-in-range bg-emerald-500/10'
+          : 'hover:bg-slate-50/90'
       } ${isError ? 'text-rose-600 font-semibold bg-rose-50' : ''}`}
     >
+      {/* Precision Excel Autofill Corner Handle Pip */}
+      {isSelected && !isEditing && (
+        <div className="absolute -bottom-1 -right-1 size-2 bg-emerald-600 border border-white rounded-2xs shadow-[0_0_6px_rgba(5,150,105,0.7)] pointer-events-none z-30" />
+      )}
+
       {/* Data Bar background fill */}
       {dataBarPercent > 0 && (
         <div
@@ -243,7 +248,7 @@ const GridCellComponent: React.FC<GridCellProps> = ({
             onChange={e => onEditChange(e.target.value)}
             onKeyDown={onEditKeyDown}
             onBlur={onEditBlur}
-            className="w-full h-full px-2 bg-white text-slate-900 text-xs font-mono border-2 border-emerald-600 focus:outline-hidden shadow-lg"
+            className="w-full h-full px-2 bg-white text-slate-950 text-xs font-mono border-2 border-emerald-600 focus:outline-hidden shadow-[0_4px_16px_rgba(0,0,0,0.25)] rounded-xs"
           />
           {editValue.startsWith('=') && (
             <FormulaAutocomplete
@@ -257,12 +262,15 @@ const GridCellComponent: React.FC<GridCellProps> = ({
         <div className={`relative z-1 truncate w-full flex items-center gap-1 ${
           cellStyle.textAlign === 'center' ? 'justify-center' : cellStyle.textAlign === 'right' ? 'justify-end' : 'justify-start'
         }`}>
-          <span className="truncate">{displayFormatted}</span>
+          <span className={`truncate ${typeof cellVal === 'number' || /^\d{2}:\d{2}/.test(String(cellVal)) ? 'font-mono tabular-nums font-semibold' : 'font-sans'}`}>
+            {displayFormatted}
+          </span>
         </div>
       )}
     </td>
   );
 };
+
 
 
 export const GridCell = React.memo(GridCellComponent, (prev, next) => {

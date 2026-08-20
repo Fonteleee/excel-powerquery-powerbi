@@ -1161,18 +1161,31 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       onContextMenu={handleContextMenu}
-      className="relative flex-1 overflow-auto bg-slate-200 select-none scrollbar-thin focus:outline-hidden"
+      className="relative flex-1 overflow-auto bg-[#e5e9f0] select-none scrollbar-thin focus:outline-hidden"
       tabIndex={0}
     >
-      <table className="border-collapse table-fixed w-max text-xs font-mono bg-white">
+      <table className="border-collapse table-fixed w-max text-xs bg-white shadow-xs">
         {/* Table Column Header: Top Left corner + A, B, C... */}
-        <thead className="sticky top-0 z-20 bg-slate-100 shadow-2xs">
+        <thead className="sticky top-0 z-20 bg-[#f8fafc] shadow-xs">
           <tr>
-            {/* Top-left corner cell */}
-            <th className="sticky left-0 z-30 w-12 h-7 bg-slate-200/90 border-r border-b border-slate-300 text-slate-400 font-normal text-center select-none">
-              <span className="text-[10px] font-mono font-bold">#</span>
+            {/* Top-left corner origin cell */}
+            <th
+              title="Selecionar Toda a Planilha (Ctrl+T)"
+              onClick={() => {
+                onSelectCell({ row: 0, col: 0 });
+                onSelectRange({
+                  startRow: 0,
+                  startCol: 0,
+                  endRow: sheet.rowCount - 1,
+                  endCol: sheet.colCount - 1,
+                });
+              }}
+              className="sticky left-0 z-30 w-12 h-7 bg-[#0b0f19] border-r border-b border-white/10 text-emerald-400 font-normal text-center select-none cursor-pointer hover:bg-[#131b2e] transition-colors"
+            >
+              <div className="flex items-center justify-center">
+                <div className="size-2 rounded-2xs bg-emerald-500/80 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
+              </div>
             </th>
-
 
             {Array.from({ length: renderedCols }).map((_, colIdx) => {
               const colLabel = colIndexToLabel(colIdx);
@@ -1187,16 +1200,16 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                 <th
                   key={colIdx}
                   style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
-                  className={`relative h-7 border-r border-b border-slate-300 text-xs transition-colors cursor-pointer select-none ${
+                  className={`relative h-7 border-r border-b border-slate-300/90 text-xs transition-colors cursor-pointer select-none ${
                     isColSelected
-                      ? 'bg-emerald-100 text-emerald-950 font-bold border-b-2 border-b-emerald-600 shadow-inner'
-                      : 'bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200/90 hover:text-slate-950'
+                      ? 'bg-emerald-100 text-emerald-950 font-bold border-b-2 border-b-emerald-600 shadow-[inset_0_1px_3px_rgba(5,150,105,0.15)]'
+                      : 'bg-[#f8fafc] text-slate-700 font-semibold hover:bg-slate-200/90 hover:text-slate-950'
                   }`}
                   onMouseDown={e => handleColHeaderMouseDown(e, colIdx)}
                   onMouseEnter={() => handleColHeaderMouseEnter(colIdx)}
                 >
                   <div className="flex items-center justify-between px-2 font-mono">
-                    <span className="truncate">{colLabel}</span>
+                    <span className="truncate tracking-wide text-[11px] font-bold">{colLabel}</span>
 
                     {/* Filter Button */}
                     <button
@@ -1205,7 +1218,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                         setOpenFilterCol(openFilterCol === colIdx ? null : colIdx);
                       }}
                       title={`Filtrar / Classificar Coluna ${colLabel}`}
-                      className={`p-0.5 rounded transition-all cursor-pointer ${
+                      className={`p-0.5 rounded-xs transition-all cursor-pointer ${
                         isColFiltered
                           ? 'bg-emerald-600 text-white shadow-2xs'
                           : 'text-slate-400 hover:text-emerald-700 hover:bg-slate-200'
@@ -1262,15 +1275,15 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
               <tr key={rowIdx} style={{ height: `${height}px` }}>
                 {/* Sticky Row Number (Left column) */}
                 <th
-                  className={`sticky left-0 z-10 w-12 border-r border-b border-slate-300 text-xs font-mono select-none transition-colors cursor-pointer ${
+                  className={`sticky left-0 z-10 w-12 border-r border-b border-slate-300/90 text-xs font-mono select-none transition-colors cursor-pointer ${
                     isRowSelected
-                      ? 'bg-emerald-100 text-emerald-950 font-bold border-r-2 border-r-emerald-600 shadow-inner'
-                      : 'bg-slate-100 text-slate-500 font-medium hover:bg-slate-200 hover:text-slate-900'
+                      ? 'bg-emerald-100 text-emerald-950 font-bold border-r-2 border-r-emerald-600 shadow-[inset_1px_0_3px_rgba(5,150,105,0.15)]'
+                      : 'bg-[#f8fafc] text-slate-500 font-medium hover:bg-slate-200 hover:text-slate-900'
                   }`}
                   onMouseDown={e => handleRowHeaderMouseDown(e, rowIdx)}
                   onMouseEnter={() => handleRowHeaderMouseEnter(rowIdx)}
                 >
-                  <div className="relative h-full flex items-center justify-center">
+                  <div className="relative h-full flex items-center justify-center font-mono text-[11px]">
                     {rowIdx + 1}
                     <div
                       onMouseDown={e => handleRowResizeMouseDown(e, rowIdx)}
@@ -1278,6 +1291,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                     />
                   </div>
                 </th>
+
 
                 {/* Cells in row */}
                 {Array.from({ length: renderedCols }).map((_, colIdx) => {
