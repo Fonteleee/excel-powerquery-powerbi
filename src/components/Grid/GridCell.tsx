@@ -207,19 +207,19 @@ const GridCellComponent: React.FC<GridCellProps> = ({
       onMouseEnter={e => onMouseEnter(e, row, col)}
       onDoubleClick={() => onDoubleClick(row, col)}
       style={cellStyle}
-      className={`relative px-2 py-1 text-xs border-r border-b border-slate-200/90 transition-colors select-none overflow-visible ${
+      className={`relative px-1.5 py-0.5 text-xs font-sans border-r border-b border-[#e1dfdd] transition-colors select-none overflow-visible ${
         isSelected
-          ? 'cell-selected z-20 ring-2 ring-emerald-600 shadow-[0_0_8px_rgba(5,150,105,0.3)]'
+          ? 'cell-selected z-20 outline-2 outline-[#107c41] -outline-offset-2'
           : isMultiSelected
           ? 'cell-multi-selected z-15'
           : isInRange
-          ? 'cell-in-range bg-emerald-500/10'
-          : 'hover:bg-slate-50/90'
+          ? 'cell-in-range bg-[#e8f5e9]/50'
+          : 'hover:bg-[#f3f2f1]/60 bg-white'
       } ${isError ? 'text-rose-600 font-semibold bg-rose-50' : ''}`}
     >
-      {/* Precision Excel Autofill Corner Handle Pip */}
+      {/* Excel Online Autofill Corner Handle Pip */}
       {isSelected && !isEditing && (
-        <div className="absolute -bottom-1 -right-1 size-2 bg-emerald-600 border border-white rounded-2xs shadow-[0_0_6px_rgba(5,150,105,0.7)] pointer-events-none z-30" />
+        <div className="absolute -bottom-0.75 -right-0.75 size-1.5 bg-[#107c41] border border-white z-30 pointer-events-none shadow-2xs" />
       )}
 
       {/* Data Bar background fill */}
@@ -235,7 +235,7 @@ const GridCellComponent: React.FC<GridCellProps> = ({
 
       {/* Traffic light icon if matched */}
       {matchedRule?.type === 'icon_set' && (
-        <span className="inline-block size-2 rounded-full mr-1.5 align-middle bg-emerald-600 shadow-xs" />
+        <span className="inline-block size-2 rounded-full mr-1.5 align-middle bg-[#107c41] shadow-2xs" />
       )}
 
       {/* Editing Input with Autocomplete */}
@@ -248,7 +248,7 @@ const GridCellComponent: React.FC<GridCellProps> = ({
             onChange={e => onEditChange(e.target.value)}
             onKeyDown={onEditKeyDown}
             onBlur={onEditBlur}
-            className="w-full h-full px-2 bg-white text-slate-950 text-xs font-mono border-2 border-emerald-600 focus:outline-hidden shadow-[0_4px_16px_rgba(0,0,0,0.25)] rounded-xs"
+            className="w-full h-full px-1.5 bg-white text-[#201f1e] text-xs font-sans border-2 border-[#107c41] focus:outline-hidden shadow-md"
           />
           {editValue.startsWith('=') && (
             <FormulaAutocomplete
@@ -259,10 +259,10 @@ const GridCellComponent: React.FC<GridCellProps> = ({
           )}
         </div>
       ) : (
-        <div className={`relative z-1 truncate w-full flex items-center gap-1 ${
+        <div className={`relative z-1 truncate w-full flex items-center ${
           cellStyle.textAlign === 'center' ? 'justify-center' : cellStyle.textAlign === 'right' ? 'justify-end' : 'justify-start'
         }`}>
-          <span className={`truncate ${typeof cellVal === 'number' || /^\d{2}:\d{2}/.test(String(cellVal)) ? 'font-mono tabular-nums font-semibold' : 'font-sans'}`}>
+          <span className={`truncate ${typeof cellVal === 'number' || /^\d{2}:\d{2}/.test(String(cellVal)) ? 'font-mono tabular-nums' : 'font-sans'}`}>
             {displayFormatted}
           </span>
         </div>
@@ -270,6 +270,7 @@ const GridCellComponent: React.FC<GridCellProps> = ({
     </td>
   );
 };
+
 
 
 

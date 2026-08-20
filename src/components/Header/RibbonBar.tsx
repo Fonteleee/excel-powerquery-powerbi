@@ -26,7 +26,9 @@ import {
   Keyboard,
   Filter,
   Trash2,
+  Check,
 } from 'lucide-react';
+
 
 
 import brandEmblem from '../../assets/brand_emblem.jpg';
@@ -184,41 +186,50 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
   ];
 
   return (
-    <div className="bg-[#ffffff] border-b border-slate-200 flex flex-col select-none z-20 shadow-xs">
-      {/* 1. TOP TITLE BAR (Luxury Light Header with 3D Faceted Glass Emblem) */}
-      <div className="h-12 px-3.5 flex items-center justify-between border-b border-slate-200 bg-[#ffffff]">
-        {/* Left: 3D Faceted Emblem + Engine Branding + Document Name */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2.5">
-            {/* 3D Geometric Faceted Glass Emblem */}
-            <div className="relative size-8 rounded-lg overflow-hidden border border-slate-200 shadow-xs emblem-glint group cursor-pointer">
-              <img
-                src={brandEmblem}
-                alt="Vertex Emblem"
-                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-              />
+    <div className="bg-[#ffffff] border-b border-[#edebe9] flex flex-col select-none z-20 font-sans">
+      {/* 1. EXCEL ONLINE TOP SUITE BAR */}
+      <div className="h-10 px-3 flex items-center justify-between border-b border-[#edebe9] bg-[#ffffff]">
+        {/* Left: Office Waffle + Excel Icon + Name + Saved status */}
+        <div className="flex items-center gap-2.5">
+          {/* Office 365 9-Dots Waffle Menu */}
+          <button
+            title="Inicializador de Aplicativos"
+            className="p-1.5 rounded hover:bg-[#f3f2f1] text-[#605e5c] hover:text-[#201f1e] cursor-pointer"
+          >
+            <div className="grid grid-cols-3 gap-0.5 size-3.5">
+              {Array.from({ length: 9 }).map((_, i) => (
+                <div key={i} className="size-0.75 bg-[#605e5c] rounded-2xs" />
+              ))}
             </div>
+          </button>
 
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1.5 leading-none">
-                <span className="font-extrabold text-xs tracking-wider text-slate-900 font-mono">VERTEX</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-mono font-bold border border-emerald-200">
-                  STUDIO PRO
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-500 font-mono mt-0.5">Enterprise Suite</span>
-            </div>
+          {/* Excel Green Square App Icon */}
+          <div className="size-6 bg-[#107c41] rounded flex items-center justify-center text-white font-bold text-xs shadow-xs">
+            X
           </div>
 
-          <div className="h-5 w-px bg-slate-200 mx-1" />
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-xs text-[#201f1e]">Excel</span>
+            <span className="text-[#8a8886]">|</span>
+            <span
+              title="Clique para renomear a pasta de trabalho"
+              className="font-semibold text-xs text-[#201f1e] hover:bg-[#f3f2f1] px-1.5 py-0.5 rounded cursor-pointer"
+            >
+              {sheet.name}.xlsx
+            </span>
+            <span className="text-[11px] text-[#605e5c] flex items-center gap-1 ml-1">
+              <Check className="size-3 text-[#107c41]" />
+              <span>Salvo</span>
+            </span>
+          </div>
 
           {/* Quick Undo / Redo */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 ml-2">
             <button
               onClick={onUndo}
               disabled={!canUndo}
               title="Desfazer (Ctrl+Z)"
-              className="p-1.5 rounded-md text-slate-600 hover:text-slate-950 hover:bg-slate-100 disabled:opacity-30 transition-colors cursor-pointer"
+              className="p-1 rounded hover:bg-[#f3f2f1] text-[#605e5c] hover:text-[#201f1e] disabled:opacity-30 cursor-pointer"
             >
               <Undo2 className="size-3.5" />
             </button>
@@ -226,109 +237,100 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
               onClick={onRedo}
               disabled={!canRedo}
               title="Refazer (Ctrl+Y)"
-              className="p-1.5 rounded-md text-slate-600 hover:text-slate-950 hover:bg-slate-100 disabled:opacity-30 transition-colors cursor-pointer"
+              className="p-1 rounded hover:bg-[#f3f2f1] text-[#605e5c] hover:text-[#201f1e] disabled:opacity-30 cursor-pointer"
             >
               <Redo2 className="size-3.5" />
             </button>
           </div>
-
-          <div className="h-5 w-px bg-slate-200 mx-1" />
-
-          <div className="flex items-center gap-2 text-xs text-slate-700">
-            <span className="font-bold text-slate-900 font-mono">{sheet.name}</span>
-            <span className="text-[10px] text-slate-500 font-mono bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-              {sheet.rowCount} lin × {sheet.colCount} col
-            </span>
-          </div>
         </div>
 
-        {/* Center: Machined Capsule Module Switcher with Bespoke Dual-Tone Icons */}
-        <div className="flex items-center p-1 rounded-xl bg-slate-100 border border-slate-200 shadow-inner">
-          <button
-            onClick={() => {
-              onSetActiveView('spreadsheet');
-              setActiveRibbonTab('home');
-            }}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              activeView === 'spreadsheet'
-                ? 'bg-emerald-600 text-white shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
-            }`}
-          >
-            <BespokeGridIcon size={15} />
-            <span>Planilha</span>
-          </button>
-
-          <button
-            onClick={() => {
-              onSetActiveView('powerquery');
-              setActiveRibbonTab('data');
-            }}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              activeView === 'powerquery'
-                ? 'bg-indigo-600 text-white shadow-xs font-bold'
-                : 'text-slate-600 hover:text-indigo-700 hover:bg-white/80'
-            }`}
-          >
-            <BespokeQueryIcon size={15} />
-            <span>Power Query</span>
-          </button>
-
-          <button
-            onClick={() => {
-              onSetActiveView('powerbi');
-              setActiveRibbonTab('view');
-            }}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              activeView === 'powerbi'
-                ? 'bg-amber-600 text-white shadow-xs font-bold'
-                : 'text-slate-600 hover:text-amber-700 hover:bg-white/80'
-            }`}
-          >
-            <BespokeAnalyticsIcon size={15} />
-            <span>Power BI</span>
-          </button>
+        {/* Center: Excel Online Search / Command Palette Box (Alt + Q) */}
+        <div
+          onClick={onOpenFindReplace}
+          title="Pesquisar ou inserir comandos (Alt+Q)"
+          className="hidden md:flex items-center gap-2 px-3 py-1 bg-[#f3f2f1] hover:bg-[#edebe9] border border-transparent hover:border-[#e1dfdd] rounded-md text-xs text-[#605e5c] w-80 cursor-pointer transition-colors"
+        >
+          <Search className="size-3.5 text-[#605e5c]" />
+          <span className="truncate">Pesquisar (Alt + Q)</span>
         </div>
 
-        {/* Right: Engine Status, Import & Export Actions */}
+        {/* Right: Module Switcher (Planilha / Power Query / Power BI) + Exportar */}
         <div className="flex items-center gap-2">
-          <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-[11px] font-mono text-emerald-800 font-semibold">
-            <span className="size-2 rounded-full bg-emerald-500 led-live-green" />
-            <span>60fps Engine</span>
+          {/* Module Switcher Tabs */}
+          <div className="flex items-center p-0.5 bg-[#f3f2f1] rounded border border-[#edebe9]">
+            <button
+              onClick={() => {
+                onSetActiveView('spreadsheet');
+                setActiveRibbonTab('home');
+              }}
+              className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
+                activeView === 'spreadsheet'
+                  ? 'bg-white text-[#107c41] shadow-2xs font-bold'
+                  : 'text-[#605e5c] hover:text-[#201f1e]'
+              }`}
+            >
+              Planilha
+            </button>
+            <button
+              onClick={() => {
+                onSetActiveView('powerquery');
+                setActiveRibbonTab('data');
+              }}
+              className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
+                activeView === 'powerquery'
+                  ? 'bg-white text-[#4338ca] shadow-2xs font-bold'
+                  : 'text-[#605e5c] hover:text-[#4338ca]'
+              }`}
+            >
+              Power Query
+            </button>
+            <button
+              onClick={() => {
+                onSetActiveView('powerbi');
+                setActiveRibbonTab('view');
+              }}
+              className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
+                activeView === 'powerbi'
+                  ? 'bg-white text-[#b45309] shadow-2xs font-bold'
+                  : 'text-[#605e5c] hover:text-[#b45309]'
+              }`}
+            >
+              Power BI
+            </button>
           </div>
-
-          <button
-            onClick={onOpenImportExport}
-            title="Importar Dados CSV"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 text-xs font-semibold border border-slate-200 transition-colors cursor-pointer"
-          >
-            <Upload className="size-3.5 text-slate-500" />
-            <span>Importar CSV</span>
-          </button>
 
           <button
             onClick={() => exportSheetToExcel(sheet, sheet.name)}
             title="Exportar para Excel (.xlsx)"
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer shadow-xs"
+            className="flex items-center gap-1.5 px-3 py-1 rounded bg-[#107c41] hover:bg-[#0e6b37] text-white text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
           >
-            <BespokeExportIcon size={14} />
+            <Download className="size-3.5" />
             <span>Exportar XLSX</span>
           </button>
         </div>
       </div>
 
-
-      {/* 2. RIBBON TABS HEADER */}
-      <div className="h-8 px-4 flex items-center gap-1 bg-[#f8fafc] border-b border-slate-200 text-xs font-semibold text-slate-600">
+      {/* 2. RIBBON TABS (Excel Online Tabs Bar) */}
+      <div className="h-7 px-2 flex items-center gap-0.5 bg-[#ffffff] border-b border-[#edebe9] text-xs font-medium text-[#323130]">
         <button
           onClick={() => {
             onSetActiveView('spreadsheet');
             setActiveRibbonTab('home');
           }}
-          className={`px-3.5 h-full flex items-center transition-all cursor-pointer ${
+          className="px-2.5 h-full flex items-center hover:bg-[#f3f2f1] text-[#323130] rounded-t cursor-pointer"
+        >
+          Arquivo
+        </button>
+
+        <button
+          onClick={() => {
+            onSetActiveView('spreadsheet');
+            setActiveRibbonTab('home');
+          }}
+          className={`px-3 h-full flex items-center cursor-pointer ${
             activeRibbonTab === 'home' && activeView === 'spreadsheet'
-              ? 'text-emerald-700 font-bold border-b-2 border-emerald-600 bg-white'
-              : 'hover:text-slate-900 hover:bg-slate-200/50'
+              ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
+              : 'hover:bg-[#f3f2f1] text-[#323130]'
           }`}
         >
           Página Inicial
@@ -339,10 +341,10 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
             onSetActiveView('spreadsheet');
             setActiveRibbonTab('insert');
           }}
-          className={`px-3.5 h-full flex items-center transition-all cursor-pointer ${
+          className={`px-3 h-full flex items-center cursor-pointer ${
             activeRibbonTab === 'insert'
-              ? 'text-emerald-700 font-bold border-b-2 border-emerald-600 bg-white'
-              : 'hover:text-slate-900 hover:bg-slate-200/50'
+              ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
+              : 'hover:bg-[#f3f2f1] text-[#323130]'
           }`}
         >
           Inserir
@@ -353,10 +355,10 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
             onSetActiveView('spreadsheet');
             setActiveRibbonTab('formulas');
           }}
-          className={`px-3.5 h-full flex items-center transition-all cursor-pointer ${
+          className={`px-3 h-full flex items-center cursor-pointer ${
             activeRibbonTab === 'formulas'
-              ? 'text-emerald-700 font-bold border-b-2 border-emerald-600 bg-white'
-              : 'hover:text-slate-900 hover:bg-slate-200/50'
+              ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
+              : 'hover:bg-[#f3f2f1] text-[#323130]'
           }`}
         >
           Fórmulas
@@ -367,10 +369,10 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
             onSetActiveView('powerquery');
             setActiveRibbonTab('data');
           }}
-          className={`px-3.5 h-full flex items-center transition-all cursor-pointer ${
+          className={`px-3 h-full flex items-center cursor-pointer ${
             activeRibbonTab === 'data' || activeView === 'powerquery'
-              ? 'text-indigo-700 font-bold border-b-2 border-indigo-600 bg-white'
-              : 'hover:text-slate-900 hover:bg-slate-200/50'
+              ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
+              : 'hover:bg-[#f3f2f1] text-[#323130]'
           }`}
         >
           Dados & Power Query
@@ -381,17 +383,25 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
             onSetActiveView('powerbi');
             setActiveRibbonTab('view');
           }}
-          className={`px-3.5 h-full flex items-center transition-all cursor-pointer ${
+          className={`px-3 h-full flex items-center cursor-pointer ${
             activeRibbonTab === 'view' || activeView === 'powerbi'
-              ? 'text-amber-700 font-bold border-b-2 border-amber-600 bg-white'
-              : 'hover:text-slate-900 hover:bg-slate-200/50'
+              ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
+              : 'hover:bg-[#f3f2f1] text-[#323130]'
           }`}
         >
           Exibir & Power BI
         </button>
+
+        <button
+          onClick={onOpenShortcutsModal}
+          className="px-3 h-full flex items-center hover:bg-[#f3f2f1] text-[#323130] cursor-pointer"
+        >
+          Ajuda & Atalhos
+        </button>
       </div>
 
       {/* 3. RIBBON TOOLBAR BODY */}
+
       <div className="h-16 px-3 py-1 flex items-center gap-3 overflow-x-auto scrollbar-none bg-white text-xs text-slate-700">
         {/* PÁGINA INICIAL */}
         {activeRibbonTab === 'home' && (

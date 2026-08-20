@@ -55,9 +55,18 @@ export const SheetTabs: React.FC<SheetTabsProps> = ({
   };
 
   return (
-    <footer className="h-9 bg-[#ffffff] border-t border-slate-200 flex items-center justify-between px-3 text-xs select-none z-20 shadow-xs">
-      {/* Sheet Tabs */}
-      <div className="flex items-center gap-1 overflow-x-auto max-w-[55%] scrollbar-none py-0.5">
+    <footer className="h-7.5 bg-[#f3f2f1] border-t border-[#edebe9] flex items-center justify-between px-2 text-xs font-sans select-none z-20">
+      {/* Left: Sheet Navigation & Sheet Tabs */}
+      <div className="flex items-center gap-0.5 overflow-x-auto max-w-[55%] scrollbar-none h-full">
+        {/* Add New Sheet Button */}
+        <button
+          onClick={onAddSheet}
+          title="Nova Planilha (+)"
+          className="p-1 rounded hover:bg-[#edebe9] text-[#605e5c] hover:text-[#201f1e] transition-colors cursor-pointer mr-1"
+        >
+          <Plus className="size-3.5" />
+        </button>
+
         {sheets.map(sheet => {
           const isActive = sheet.id === activeSheetId;
 
@@ -66,13 +75,12 @@ export const SheetTabs: React.FC<SheetTabsProps> = ({
               key={sheet.id}
               onClick={() => onSelectSheet(sheet.id)}
               onDoubleClick={() => handleStartRename(sheet)}
-              className={`group relative flex items-center gap-2 px-3 py-1 rounded-md transition-all cursor-pointer text-xs font-semibold ${
+              className={`group relative flex items-center gap-1.5 px-3 h-full transition-all cursor-pointer text-xs ${
                 isActive
-                  ? 'bg-slate-100 text-slate-950 font-bold border border-slate-300 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'bg-white text-[#107c41] font-semibold border-b-2 border-b-[#107c41] border-x border-[#edebe9] shadow-2xs'
+                  : 'text-[#201f1e] hover:bg-[#edebe9] border-r border-[#edebe9]'
               }`}
             >
-              {isActive && <div className="size-1.5 rounded-full bg-emerald-600 shadow-[0_0_6px_rgba(16,124,65,0.7)]" />}
               {editingSheetId === sheet.id ? (
                 <input
                   autoFocus
@@ -84,10 +92,10 @@ export const SheetTabs: React.FC<SheetTabsProps> = ({
                     if (e.key === 'Enter') handleCommitRename(sheet.id);
                     if (e.key === 'Escape') setEditingSheetId(null);
                   }}
-                  className="w-24 px-1.5 py-0.5 bg-white border border-emerald-600 rounded text-xs text-slate-900 focus:outline-hidden font-medium"
+                  className="w-20 px-1 py-0.5 bg-white border border-[#107c41] rounded-xs text-xs text-[#201f1e] focus:outline-hidden font-medium"
                 />
               ) : (
-                <span className="truncate max-w-[140px] tracking-tight">{sheet.name}</span>
+                <span className="truncate max-w-[140px]">{sheet.name}</span>
               )}
 
               {sheets.length > 1 && isActive && (
@@ -97,7 +105,7 @@ export const SheetTabs: React.FC<SheetTabsProps> = ({
                     onDeleteSheet(sheet.id);
                   }}
                   title="Excluir aba"
-                  className="opacity-0 group-hover:opacity-100 hover:text-rose-600 p-0.5 rounded hover:bg-slate-200 transition-all cursor-pointer"
+                  className="opacity-0 group-hover:opacity-100 hover:text-rose-600 p-0.5 rounded hover:bg-[#edebe9] transition-all cursor-pointer"
                 >
                   <X className="size-3" />
                 </button>
@@ -105,72 +113,53 @@ export const SheetTabs: React.FC<SheetTabsProps> = ({
             </div>
           );
         })}
-
-        {/* Add New Sheet Button */}
-        <button
-          onClick={onAddSheet}
-          title="Nova Planilha"
-          className="p-1 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors ml-1 cursor-pointer"
-        >
-          <Plus className="size-3.5" />
-        </button>
       </div>
 
-      {/* Real-time Status Metrics Bar (Linear / Apple Pro aesthetic) */}
-      <div className="flex items-center gap-2.5 text-[11px] font-mono text-slate-600">
-        <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 font-semibold">
-          <span className="text-slate-400">Ref:</span>
-          <span className="text-emerald-800 font-mono font-bold">{rangeText}</span>
-        </div>
+      {/* Right: Excel Online Real-Time Status Bar */}
+      <div className="flex items-center gap-3 text-xs text-[#605e5c] font-sans">
+        <span className="text-[11px] text-[#605e5c]">Pronto</span>
 
         {count > 0 && (
-          <div className="flex items-center gap-2 px-2.5 py-0.5 rounded bg-slate-50 border border-slate-200 tabular-nums">
-            <span className="text-slate-500 text-[10px]">
-              CONTAGEM: <strong className="text-slate-900 font-bold">{count}</strong>
+          <div className="flex items-center gap-2.5 text-xs text-[#201f1e] tabular-nums">
+            {numbers.length > 0 && (
+              <>
+                <span>
+                  MÉDIA:{' '}
+                  <strong>
+                    {avg.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </strong>
+                </span>
+                <span className="text-[#c8c6c4]">|</span>
+              </>
+            )}
+
+            <span>
+              CONTAGEM: <strong>{count}</strong>
             </span>
 
             {numbers.length > 0 && (
               <>
-                <span className="w-px h-3 bg-slate-200" />
-                <span className="text-slate-500 text-[10px]">
-                  MÉDIA:{' '}
-                  <strong className="text-sky-700 font-bold">
-                    {avg.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </strong>
-                </span>
-
-                <span className="w-px h-3 bg-slate-200" />
-                <span className="text-slate-500 text-[10px]">
+                <span className="text-[#c8c6c4]">|</span>
+                <span>
                   SOMA:{' '}
-                  <strong className="text-emerald-800 font-bold">
+                  <strong>
                     {sum.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </strong>
                 </span>
-
-                {numbers.length > 1 && (
-                  <>
-                    <span className="w-px h-3 bg-slate-200" />
-                    <span className="text-slate-500 text-[10px] hidden lg:inline">
-                      MÍN/MÁX:{' '}
-                      <strong className="text-slate-700 font-bold">
-                        {min.toLocaleString('pt-BR')} / {max.toLocaleString('pt-BR')}
-                      </strong>
-                    </span>
-                  </>
-                )}
               </>
             )}
           </div>
         )}
 
-        <div className="flex items-center gap-1.5 text-emerald-800 text-[10px] font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-mono">
-          <span className="size-1.5 rounded-full bg-emerald-600 led-live-green" />
-          <span>Pronto</span>
+        {/* Zoom Level */}
+        <div className="hidden sm:flex items-center gap-1 text-[11px] text-[#605e5c] pl-2 border-l border-[#edebe9]">
+          <span>100%</span>
         </div>
       </div>
     </footer>
   );
 };
+
 
 
 

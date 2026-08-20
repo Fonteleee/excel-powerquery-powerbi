@@ -1168,7 +1168,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         {/* Table Column Header: Top Left corner + A, B, C... */}
         <thead className="sticky top-0 z-20 bg-[#f8fafc] shadow-xs">
           <tr>
-            {/* Top-left corner origin cell */}
+            {/* Top-left corner origin cell (Excel Online style) */}
             <th
               title="Selecionar Toda a Planilha (Ctrl+T)"
               onClick={() => {
@@ -1180,10 +1180,14 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                   endCol: sheet.colCount - 1,
                 });
               }}
-              className="sticky left-0 z-30 w-12 h-7 bg-[#0b0f19] border-r border-b border-white/10 text-emerald-400 font-normal text-center select-none cursor-pointer hover:bg-[#131b2e] transition-colors"
+              className="sticky left-0 z-30 w-10 h-6 bg-[#f3f2f1] border-r border-b border-[#d1d5db] select-none cursor-pointer hover:bg-[#edebe9] transition-colors"
             >
-              <div className="flex items-center justify-center">
-                <div className="size-2 rounded-2xs bg-emerald-500/80 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
+              <div className="relative w-full h-full">
+                {/* Excel Online bottom-right corner triangle */}
+                <div
+                  className="absolute bottom-1 right-1 border-solid border-transparent border-r-[#8a8886] border-b-[#8a8886]"
+                  style={{ borderWidth: '0 0 6px 6px' }}
+                />
               </div>
             </th>
 
@@ -1200,32 +1204,34 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                 <th
                   key={colIdx}
                   style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
-                  className={`relative h-7 border-r border-b border-slate-300/90 text-xs transition-colors cursor-pointer select-none ${
+                  className={`relative h-6 border-r border-b border-[#d1d5db] text-xs font-sans font-normal transition-colors cursor-pointer select-none ${
                     isColSelected
-                      ? 'bg-emerald-100 text-emerald-950 font-bold border-b-2 border-b-emerald-600 shadow-[inset_0_1px_3px_rgba(5,150,105,0.15)]'
-                      : 'bg-[#f8fafc] text-slate-700 font-semibold hover:bg-slate-200/90 hover:text-slate-950'
+                      ? 'bg-[#e1dfdd] text-[#107c41] font-semibold border-b-2 border-b-[#107c41]'
+                      : 'bg-[#f3f2f1] text-[#201f1e] hover:bg-[#edebe9]'
                   }`}
                   onMouseDown={e => handleColHeaderMouseDown(e, colIdx)}
                   onMouseEnter={() => handleColHeaderMouseEnter(colIdx)}
                 >
-                  <div className="flex items-center justify-between px-2 font-mono">
-                    <span className="truncate tracking-wide text-[11px] font-bold">{colLabel}</span>
+                  <div className="flex items-center justify-center px-1 font-sans relative">
+                    <span className="truncate text-xs">{colLabel}</span>
 
                     {/* Filter Button */}
-                    <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        setOpenFilterCol(openFilterCol === colIdx ? null : colIdx);
-                      }}
-                      title={`Filtrar / Classificar Coluna ${colLabel}`}
-                      className={`p-0.5 rounded-xs transition-all cursor-pointer ${
-                        isColFiltered
-                          ? 'bg-emerald-600 text-white shadow-2xs'
-                          : 'text-slate-400 hover:text-emerald-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      <FilterIcon className="size-2.5" />
-                    </button>
+                    {sheet.filterEnabled && (
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          setOpenFilterCol(openFilterCol === colIdx ? null : colIdx);
+                        }}
+                        title={`Filtrar / Classificar Coluna ${colLabel}`}
+                        className={`absolute right-1 p-0.5 rounded-xs transition-all cursor-pointer ${
+                          isColFiltered
+                            ? 'bg-[#107c41] text-white shadow-2xs'
+                            : 'text-[#605e5c] hover:text-[#107c41] hover:bg-[#e1dfdd]'
+                        }`}
+                      >
+                        <FilterIcon className="size-2.5" />
+                      </button>
+                    )}
                   </div>
 
                   {/* Column Filter Dropdown */}
@@ -1246,9 +1252,9 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                   <div
                     onMouseDown={e => handleColResizeMouseDown(e, colIdx)}
                     onDoubleClick={() => handleColAutoFit(colIdx)}
-                    className="absolute right-0 top-0 bottom-0 w-2 hover:bg-emerald-600 cursor-col-resize z-20 group"
+                    className="absolute right-0 top-0 bottom-0 w-2 hover:bg-[#107c41] cursor-col-resize z-20 group"
                   >
-                    <div className="w-0.5 h-full bg-slate-300 mx-auto group-hover:bg-emerald-600" />
+                    <div className="w-px h-full bg-[#d1d5db] mx-auto group-hover:bg-[#107c41]" />
                   </div>
                 </th>
               );
@@ -1269,28 +1275,29 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
             if (rowIdx === undefined) return null;
             const isRowSelected =
               rowIdx >= selectedRange.startRow && rowIdx <= selectedRange.endRow;
-            const height = sheet.rowHeights[rowIdx] || 28;
+            const height = sheet.rowHeights[rowIdx] || 24;
 
             return (
               <tr key={rowIdx} style={{ height: `${height}px` }}>
-                {/* Sticky Row Number (Left column) */}
+                {/* Sticky Row Number (Left column) - Excel Online Style */}
                 <th
-                  className={`sticky left-0 z-10 w-12 border-r border-b border-slate-300/90 text-xs font-mono select-none transition-colors cursor-pointer ${
+                  className={`sticky left-0 z-10 w-10 border-r border-b border-[#d1d5db] text-xs font-sans font-normal select-none transition-colors cursor-pointer ${
                     isRowSelected
-                      ? 'bg-emerald-100 text-emerald-950 font-bold border-r-2 border-r-emerald-600 shadow-[inset_1px_0_3px_rgba(5,150,105,0.15)]'
-                      : 'bg-[#f8fafc] text-slate-500 font-medium hover:bg-slate-200 hover:text-slate-900'
+                      ? 'bg-[#e1dfdd] text-[#107c41] font-semibold border-r-2 border-r-[#107c41]'
+                      : 'bg-[#f3f2f1] text-[#605e5c] hover:bg-[#edebe9]'
                   }`}
                   onMouseDown={e => handleRowHeaderMouseDown(e, rowIdx)}
                   onMouseEnter={() => handleRowHeaderMouseEnter(rowIdx)}
                 >
-                  <div className="relative h-full flex items-center justify-center font-mono text-[11px]">
+                  <div className="relative h-full flex items-center justify-center font-sans text-xs">
                     {rowIdx + 1}
                     <div
                       onMouseDown={e => handleRowResizeMouseDown(e, rowIdx)}
-                      className="absolute bottom-0 left-0 right-0 h-1.5 hover:bg-emerald-600 cursor-row-resize z-20"
+                      className="absolute bottom-0 left-0 right-0 h-1.5 hover:bg-[#107c41] cursor-row-resize z-20"
                     />
                   </div>
                 </th>
+
 
 
                 {/* Cells in row */}
