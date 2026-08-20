@@ -761,6 +761,9 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   const handleCellMouseDown = (e: React.MouseEvent, row: number, col: number) => {
     if (e.button !== 0) return;
     if (contextMenu?.isOpen) setContextMenu(null);
+    if (!isEditing) {
+      e.preventDefault(); // Prevents browser text drag interference
+    }
 
     const key = cellPosToKey(row, col);
 
@@ -781,7 +784,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       return;
     }
 
-    // Normal single click: reset multi-selection cleanly
+    // Normal single click or drag start: clear multi-selection & set anchor
     setIsCtrlSelecting(false);
     setMultiSelectedKeys(new Set());
     setSelectionAnchor({ row, col });
@@ -814,6 +817,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
           return next;
         });
       } else {
+        // Fluid rectangular range drag selection without CTRL
         onSelectRange({
           startRow: Math.min(selectionAnchor.row, row),
           startCol: Math.min(selectionAnchor.col, col),
@@ -827,6 +831,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   // Row header mouse drag selection handlers
   const handleRowHeaderMouseDown = (e: React.MouseEvent, rowIdx: number) => {
     if (e.button !== 0) return;
+    e.preventDefault();
     setIsRowSelecting(true);
     setRowSelectAnchor(rowIdx);
     setMultiSelectedKeys(new Set());
@@ -855,6 +860,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   // Column header mouse drag selection handlers
   const handleColHeaderMouseDown = (e: React.MouseEvent, colIdx: number) => {
     if (e.button !== 0) return;
+    e.preventDefault();
     setIsColSelecting(true);
     setColSelectAnchor(colIdx);
     setMultiSelectedKeys(new Set());
@@ -893,6 +899,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       setFillRange(null);
     }
   };
+
 
 
 
@@ -995,18 +1002,27 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     const handleGlobalMouseUp = () => {
       if (resizingCol !== null) setResizingCol(null);
       if (resizingRow !== null) setResizingRow(null);
-      if (isSelecting) setIsSelecting(false);
+      setIsSelecting(false);
+      setIsCtrlSelecting(false);
+      setIsRowSelecting(false);
+      setRowSelectAnchor(null);
+      setIsColSelecting(false);
+      setColSelectAnchor(null);
+      if (isDraggingFill && fillRange) {
+        applyFillHandleDrag(fillRange);
+        setIsDraggingFill(false);
+        setFillRange(null);
+      }
     };
 
-    if (resizingCol !== null || resizingRow !== null || isSelecting) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleGlobalMouseUp);
-      return () => {
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleGlobalMouseUp);
-      };
-    }
-  }, [resizingCol, resizingRow, resizeStartX, resizeStartY, resizeStartWidth, resizeStartHeight, isSelecting, sheet]);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [resizingCol, resizingRow, resizeStartX, resizeStartY, resizeStartWidth, resizeStartHeight, isSelecting, isRowSelecting, isColSelecting, isDraggingFill, fillRange, sheet]);
+
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -1206,9 +1222,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                   key={colIdx}
                   style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
                   className={`relative h-5.5 border-r border-b border-[#e1dfdd] text-xs font-sans font-normal transition-colors cursor-pointer select-none ${
-                    isColSelected
-                      ? 'bg-[#e1dfdd] text-[#107c41] font-semibold border-b-2 border-b-[#107c41]'
-                      : isColActive
+                    isColSelected || isColActive
                       ? 'bg-[#dff6dd] text-[#107c41] font-semibold border-b-2 border-b-[#107c41]'
                       : 'bg-[#f5f5f5] text-[#505050] hover:bg-[#ebebeb]'
                   }`}
@@ -1286,12 +1300,11 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                 {/* Sticky Row Number (Left column) - Exact Image 2 Style */}
                 <th
                   className={`sticky left-0 z-10 w-9 border-r border-b border-[#e1dfdd] text-xs font-sans font-normal select-none transition-colors cursor-pointer ${
-                    isRowSelected
-                      ? 'bg-[#e1dfdd] text-[#107c41] font-semibold border-r-2 border-r-[#107c41]'
-                      : isRowActive
+                    isRowSelected || isRowActive
                       ? 'bg-[#dff6dd] text-[#107c41] font-semibold border-r-2 border-r-[#107c41]'
                       : 'bg-[#f5f5f5] text-[#505050] hover:bg-[#ebebeb]'
                   }`}
+
                   onMouseDown={e => handleRowHeaderMouseDown(e, rowIdx)}
                   onMouseEnter={() => handleRowHeaderMouseEnter(rowIdx)}
                 >
