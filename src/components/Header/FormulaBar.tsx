@@ -56,16 +56,16 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
   };
 
   return (
-    <div className="h-9 bg-[#07090e] border-b border-white/10 flex items-center px-4 gap-2 select-none z-20 relative">
-      {/* Name Box (Address) - Phosphor Emerald Terminal */}
+    <div className="h-9 bg-[#ffffff] border-b border-slate-200 flex items-center px-4 gap-2 select-none z-20 relative">
+      {/* Name Box (Address) - Precision Light Box */}
       <div
         title={`Célula Ativa: ${addressText}`}
-        className="w-24 h-6 px-2 bg-[#111827] border border-emerald-500/30 rounded-md flex items-center justify-center font-mono text-xs font-bold text-emerald-400 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)] select-all"
+        className="w-24 h-6 px-2 bg-slate-50 border border-slate-300 rounded-md flex items-center justify-center font-mono text-xs font-bold text-emerald-800 shadow-2xs select-all"
       >
         <span className="font-mono tracking-wider">{addressText}</span>
       </div>
 
-      <div className="h-4 w-px bg-white/10 mx-0.5" />
+      <div className="h-4 w-px bg-slate-200 mx-0.5" />
 
       {/* Cancel / Commit buttons */}
       <div className="flex items-center gap-0.5">
@@ -76,7 +76,7 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
           }}
           title="Cancelar (Esc)"
           disabled={inputValue === (currentCell?.raw || '')}
-          className="p-1 rounded-md text-slate-400 hover:text-rose-400 hover:bg-white/10 disabled:opacity-20 transition-colors cursor-pointer"
+          className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-20 transition-colors cursor-pointer"
         >
           <X className="size-3.5" />
         </button>
@@ -87,7 +87,7 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
           }}
           title="Confirmar (Enter)"
           disabled={inputValue === (currentCell?.raw || '')}
-          className="p-1 rounded-md text-slate-400 hover:text-emerald-400 hover:bg-white/10 disabled:opacity-20 transition-colors cursor-pointer"
+          className="p-1 rounded-md text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 disabled:opacity-20 transition-colors cursor-pointer"
         >
           <Check className="size-3.5" />
         </button>
@@ -97,12 +97,12 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
       <button
         onClick={onOpenFormulaWizard}
         title="Assistente de Funções (fx)"
-        className="px-2.5 h-6 rounded-md bg-white/5 hover:bg-emerald-500/20 hover:text-emerald-300 border border-white/10 hover:border-emerald-500/40 transition-all flex items-center gap-1 cursor-pointer group shadow-2xs"
+        className="px-2.5 h-6 rounded-md bg-slate-50 hover:bg-emerald-50 hover:text-emerald-800 border border-slate-300 hover:border-emerald-500 transition-all flex items-center gap-1 cursor-pointer group shadow-2xs"
       >
-        <span className="font-serif italic font-bold text-xs text-slate-400 group-hover:text-emerald-400">fx</span>
+        <span className="font-serif italic font-bold text-xs text-slate-600 group-hover:text-emerald-700">fx</span>
       </button>
 
-      <div className="h-4 w-px bg-white/10 mx-0.5" />
+      <div className="h-4 w-px bg-slate-200 mx-0.5" />
 
       {/* Formula Input Container */}
       <div className="flex-1 relative flex items-center">
@@ -114,10 +114,10 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
           onChange={e => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Digite um valor ou fórmula iniciando com = (ex: =PROCX, =SOMA, =SOMARPRODUTO...)"
-          className={`w-full h-6 px-3 bg-[#111827]/80 border rounded-md text-xs font-mono text-white placeholder-slate-400 focus:outline-hidden transition-all shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)] ${
+          className={`w-full h-6 px-3 bg-white border rounded-md text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-hidden transition-all shadow-2xs ${
             isFormula
-              ? 'border-emerald-500/60 ring-1 ring-emerald-500/30 text-emerald-300 font-semibold'
-              : 'border-white/10 focus:border-white/20 focus:ring-1 focus:ring-white/10'
+              ? 'border-emerald-600 ring-1 ring-emerald-500/30 text-slate-950 font-medium'
+              : 'border-slate-300 focus:border-slate-400 focus:ring-1 focus:ring-slate-200'
           }`}
         />
 
@@ -125,7 +125,7 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
         {isFormula && evaluatedDisplay && !isFocused && (
           <div className="absolute right-2.5 flex items-center gap-1.5 pointer-events-none">
             <span className="text-[10px] text-slate-400 font-sans font-medium">Resultado:</span>
-            <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded border border-emerald-500/30 shadow-2xs">
+            <span className="text-xs font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shadow-2xs">
               {evaluatedDisplay}
             </span>
           </div>
@@ -142,5 +142,6 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
     </div>
   );
 };
+
 
 

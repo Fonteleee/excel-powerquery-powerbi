@@ -5,31 +5,31 @@
     --font-sans: 'Geist', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-mono: 'Geist Mono', 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
 
-    /* Semantic Surface Tones */
-    --surface-chrome: #0b0f19;
-    --surface-chrome-elevated: #131b2e;
-    --surface-border: rgba(255, 255, 255, 0.08);
-    --surface-border-subtle: rgba(255, 255, 255, 0.04);
+    /* Semantic Surface Tones (Luxury Light Architecture) */
+    --surface-chrome: #ffffff;
+    --surface-chrome-elevated: #f8fafc;
+    --surface-border: #e2e8f0;
+    --surface-border-subtle: #f1f5f9;
 
     /* Module Themes */
-    --excel-primary: #059669;
-    --excel-accent: #10b981;
-    --excel-glow: rgba(16, 185, 129, 0.15);
+    --excel-primary: #107c41;
+    --excel-accent: #15803d;
+    --excel-glow: rgba(16, 124, 65, 0.12);
 
-    --pq-primary: #4f46e5;
-    --pq-accent: #6366f1;
-    --pq-glow: rgba(99, 102, 241, 0.15);
+    --pq-primary: #4338ca;
+    --pq-accent: #4f46e5;
+    --pq-glow: rgba(79, 70, 229, 0.12);
 
-    --pbi-primary: #d97706;
-    --pbi-accent: #f59e0b;
-    --pbi-glow: rgba(245, 158, 11, 0.15);
+    --pbi-primary: #b45309;
+    --pbi-accent: #d97706;
+    --pbi-glow: rgba(217, 119, 6, 0.12);
   }
 
   body {
     font-family: var(--font-sans);
     user-select: none;
     -webkit-user-select: none;
-    background-color: #0b0f19;
+    background-color: #f8fafc;
     color: #0f172a;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -49,13 +49,13 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #f8fafc;
 }
 
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 9999px;
-  border: 1.5px solid #f1f5f9;
+  border: 1.5px solid #f8fafc;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -64,45 +64,45 @@
 
 /* Glassmorphism & Double-Bezel Hardware Archetypes */
 .glass-chrome {
-  background: rgba(11, 15, 25, 0.95);
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .glass-modal {
-  background: rgba(255, 255, 255, 0.98);
+  background: rgba(255, 255, 255, 0.99);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
 }
 
 .double-bezel {
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04), 0 1px 2px 0 rgba(0, 0, 0, 0.05), inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 1px 3px 0 rgba(0, 0, 0, 0.06), inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
 }
 
 .double-bezel-dark {
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 4px 12px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 1px #e2e8f0, 0 4px 12px rgba(15, 23, 42, 0.06), inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
 }
 
 /* Cell Selection Overlays */
 .cell-selected {
-  outline: 2px solid #059669;
+  outline: 2px solid #107c41;
   outline-offset: -2px;
   z-index: 10;
-  box-shadow: inset 0 0 0 9999px rgba(5, 150, 105, 0.09);
+  box-shadow: inset 0 0 0 9999px rgba(16, 124, 65, 0.08);
 }
 
 .cell-in-range {
-  box-shadow: inset 0 0 0 9999px rgba(5, 150, 105, 0.04);
+  box-shadow: inset 0 0 0 9999px rgba(16, 124, 65, 0.06);
 }
 
 .cell-multi-selected {
-  outline: 2px solid #059669 !important;
+  outline: 2px solid #107c41 !important;
   outline-offset: -2px;
   z-index: 10;
-  box-shadow: inset 0 0 0 9999px rgba(5, 150, 105, 0.12);
+  box-shadow: inset 0 0 0 9999px rgba(16, 124, 65, 0.12);
 }
 
 .cell-highlight-edit {
@@ -125,53 +125,42 @@ button:active {
   border-width: 0.5px;
 }
 
-/* Bespoke Hardware Wallpapers & Ambient Textures */
-.bg-enterprise-mesh {
+/* Executive Light Surface Textures */
+.bg-executive-light {
+  background-color: #f8fafc;
   background-image: 
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(16, 185, 129, 0.15), transparent 70%),
-    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(59, 130, 246, 0.1), transparent 60%),
-    url('/src/assets/enterprise_mesh_bg.jpg');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(16, 124, 65, 0.03), transparent 70%),
+    radial-gradient(ellipse 50% 30% at 90% 100%, rgba(59, 130, 246, 0.03), transparent 60%);
 }
 
-.bg-cockpit-texture {
+.bg-cockpit-light {
+  background-color: #f8fafc;
   background-image: 
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(245, 158, 11, 0.15), transparent 70%),
-    radial-gradient(ellipse 50% 50% at 10% 80%, rgba(234, 88, 12, 0.1), transparent 60%),
-    url('/src/assets/cockpit_ambient_bg.jpg');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(217, 119, 6, 0.04), transparent 70%),
+    radial-gradient(ellipse 50% 30% at 10% 100%, rgba(234, 88, 12, 0.03), transparent 60%);
 }
 
-.bg-blueprint-texture {
+.bg-blueprint-light {
+  background-color: #f8fafc;
   background-image: 
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.18), transparent 70%),
-    radial-gradient(ellipse 50% 50% at 90% 80%, rgba(168, 85, 247, 0.12), transparent 60%),
-    url('/src/assets/powerquery_blueprint_bg.jpg');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(79, 70, 229, 0.04), transparent 70%),
+    radial-gradient(ellipse 50% 30% at 90% 100%, rgba(168, 85, 247, 0.03), transparent 60%);
 }
 
-/* Machined Bezel Card */
+/* Machined Light Card */
 .machined-card {
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   box-shadow: 
-    0 10px 30px -10px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.15),
-    inset 0 -1px 0 0 rgba(0, 0, 0, 0.4);
+    0 4px 20px -2px rgba(15, 23, 42, 0.05),
+    0 1px 3px 0 rgba(15, 23, 42, 0.03),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
 }
 
 /* Glowing Pulsing Hardware LEDs */
 @keyframes led-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.9)); }
-  50% { opacity: 0.65; transform: scale(0.95); filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.4)); }
+  0%, 100% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.7)); }
+  50% { opacity: 0.65; transform: scale(0.95); filter: drop-shadow(0 0 1px rgba(16, 185, 129, 0.3)); }
 }
 
 .led-live-green {
@@ -198,9 +187,10 @@ button:active {
   background: linear-gradient(
     60deg,
     transparent 40%,
-    rgba(255, 255, 255, 0.25) 50%,
+    rgba(255, 255, 255, 0.4) 50%,
     transparent 60%
   );
   animation: glint-sweep 6s ease-in-out infinite;
 }
+
 

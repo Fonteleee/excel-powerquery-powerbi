@@ -56,43 +56,43 @@ export const QuickAnalysisModal: React.FC<QuickAnalysisModalProps> = ({
   const previewCount = values.filter(v => v !== null && v !== undefined && v !== '').length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl bg-[#0f172a] border border-white/15 rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col text-white">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-2xl bg-white border border-slate-200 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden flex flex-col text-slate-900">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#090d16]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 shadow-xs">
+            <div className="p-2 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-2xs">
               <Sparkles className="size-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-white tracking-tight">Lente de Análise Rápida</h3>
-                <span className="px-2 py-0.5 text-xs font-mono font-bold rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <h3 className="text-base font-bold text-slate-900 tracking-tight">Lente de Análise Rápida</h3>
+                <span className="px-2 py-0.5 text-xs font-mono font-bold rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
                   CTRL + Q
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Intervalo: <span className="font-mono text-emerald-400 font-bold">{rangeAddress}</span> ({numericValues.length} números detectados)
+              <p className="text-xs text-slate-500 mt-0.5">
+                Intervalo: <span className="font-mono text-emerald-800 font-bold">{rangeAddress}</span> ({numericValues.length} números detectados)
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-200 transition-colors cursor-pointer"
           >
             <X className="size-5" />
           </button>
         </div>
 
         {/* Tabs Bar */}
-        <div className="flex border-b border-white/10 bg-[#111827] px-4">
+        <div className="flex border-b border-slate-200 bg-slate-100 px-4">
           <button
             onClick={() => setActiveTab('totals')}
             className={`flex items-center gap-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
               activeTab === 'totals'
-                ? 'border-emerald-400 text-emerald-400 font-bold bg-white/5'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-emerald-600 text-emerald-800 font-bold bg-white shadow-2xs'
+                : 'border-transparent text-slate-600 hover:text-slate-950'
             }`}
           >
             <Calculator className="size-4" />
@@ -102,8 +102,8 @@ export const QuickAnalysisModal: React.FC<QuickAnalysisModalProps> = ({
             onClick={() => setActiveTab('formatting')}
             className={`flex items-center gap-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
               activeTab === 'formatting'
-                ? 'border-emerald-400 text-emerald-400 font-bold bg-white/5'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-emerald-600 text-emerald-800 font-bold bg-white shadow-2xs'
+                : 'border-transparent text-slate-600 hover:text-slate-950'
             }`}
           >
             <Palette className="size-4" />
@@ -113,8 +113,8 @@ export const QuickAnalysisModal: React.FC<QuickAnalysisModalProps> = ({
             onClick={() => setActiveTab('charts')}
             className={`flex items-center gap-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
               activeTab === 'charts'
-                ? 'border-emerald-400 text-emerald-400 font-bold bg-white/5'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-emerald-600 text-emerald-800 font-bold bg-white shadow-2xs'
+                : 'border-transparent text-slate-600 hover:text-slate-950'
             }`}
           >
             <BarChart2 className="size-4" />
@@ -124,8 +124,8 @@ export const QuickAnalysisModal: React.FC<QuickAnalysisModalProps> = ({
             onClick={() => setActiveTab('tables')}
             className={`flex items-center gap-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
               activeTab === 'tables'
-                ? 'border-emerald-400 text-emerald-400 font-bold bg-white/5'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-emerald-600 text-emerald-800 font-bold bg-white shadow-2xs'
+                : 'border-transparent text-slate-600 hover:text-slate-950'
             }`}
           >
             <Table className="size-4" />
@@ -134,7 +134,8 @@ export const QuickAnalysisModal: React.FC<QuickAnalysisModalProps> = ({
         </div>
 
         {/* Tab Content */}
-        <div className="p-6 max-h-[420px] overflow-y-auto bg-[#0f172a] text-slate-200">
+        <div className="p-6 max-h-[420px] overflow-y-auto bg-white text-slate-800">
+
 
           {/* TOTAIS & CÁLCULOS */}
           {activeTab === 'totals' && (

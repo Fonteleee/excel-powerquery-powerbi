@@ -184,14 +184,14 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
   ];
 
   return (
-    <div className="bg-[#0b0f19] border-b border-white/10 flex flex-col select-none z-20 shadow-xs">
-      {/* 1. TOP TITLE BAR (Bespoke Executive Obsidian Header with 3D Faceted Glass Emblem) */}
-      <div className="h-12 px-3.5 flex items-center justify-between border-b border-white/10 bg-[#07090e] bg-enterprise-mesh">
+    <div className="bg-[#ffffff] border-b border-slate-200 flex flex-col select-none z-20 shadow-xs">
+      {/* 1. TOP TITLE BAR (Luxury Light Header with 3D Faceted Glass Emblem) */}
+      <div className="h-12 px-3.5 flex items-center justify-between border-b border-slate-200 bg-[#ffffff]">
         {/* Left: 3D Faceted Emblem + Engine Branding + Document Name */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2.5">
             {/* 3D Geometric Faceted Glass Emblem */}
-            <div className="relative size-8 rounded-lg overflow-hidden border border-white/20 shadow-[0_0_16px_rgba(16,185,129,0.35)] emblem-glint group cursor-pointer">
+            <div className="relative size-8 rounded-lg overflow-hidden border border-slate-200 shadow-xs emblem-glint group cursor-pointer">
               <img
                 src={brandEmblem}
                 alt="Vertex Emblem"
@@ -201,16 +201,16 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
 
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5 leading-none">
-                <span className="font-extrabold text-xs tracking-wider text-white font-mono">VERTEX</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono font-bold border border-emerald-500/30">
+                <span className="font-extrabold text-xs tracking-wider text-slate-900 font-mono">VERTEX</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-mono font-bold border border-emerald-200">
                   STUDIO PRO
                 </span>
               </div>
-              <span className="text-[10px] text-slate-400 font-mono mt-0.5">Enterprise Suite</span>
+              <span className="text-[10px] text-slate-500 font-mono mt-0.5">Enterprise Suite</span>
             </div>
           </div>
 
-          <div className="h-5 w-px bg-white/10 mx-1" />
+          <div className="h-5 w-px bg-slate-200 mx-1" />
 
           {/* Quick Undo / Redo */}
           <div className="flex items-center gap-1">
@@ -218,7 +218,7 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
               onClick={onUndo}
               disabled={!canUndo}
               title="Desfazer (Ctrl+Z)"
-              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-colors cursor-pointer"
+              className="p-1.5 rounded-md text-slate-600 hover:text-slate-950 hover:bg-slate-100 disabled:opacity-30 transition-colors cursor-pointer"
             >
               <Undo2 className="size-3.5" />
             </button>
@@ -226,24 +226,24 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
               onClick={onRedo}
               disabled={!canRedo}
               title="Refazer (Ctrl+Y)"
-              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-colors cursor-pointer"
+              className="p-1.5 rounded-md text-slate-600 hover:text-slate-950 hover:bg-slate-100 disabled:opacity-30 transition-colors cursor-pointer"
             >
               <Redo2 className="size-3.5" />
             </button>
           </div>
 
-          <div className="h-5 w-px bg-white/10 mx-1" />
+          <div className="h-5 w-px bg-slate-200 mx-1" />
 
-          <div className="flex items-center gap-2 text-xs text-slate-300">
-            <span className="font-semibold text-white font-mono">{sheet.name}</span>
-            <span className="text-[10px] text-slate-400 font-mono bg-white/5 px-1.5 py-0.5 rounded border border-white/10">
+          <div className="flex items-center gap-2 text-xs text-slate-700">
+            <span className="font-bold text-slate-900 font-mono">{sheet.name}</span>
+            <span className="text-[10px] text-slate-500 font-mono bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
               {sheet.rowCount} lin × {sheet.colCount} col
             </span>
           </div>
         </div>
 
         {/* Center: Machined Capsule Module Switcher with Bespoke Dual-Tone Icons */}
-        <div className="flex items-center p-1 rounded-xl bg-[#111827]/90 border border-white/15 shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)]">
+        <div className="flex items-center p-1 rounded-xl bg-slate-100 border border-slate-200 shadow-inner">
           <button
             onClick={() => {
               onSetActiveView('spreadsheet');
@@ -251,8 +251,8 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
             }}
             className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               activeView === 'spreadsheet'
-                ? 'bg-emerald-600 text-white shadow-[0_0_12px_rgba(16,185,129,0.4)] font-bold'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
+                ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
             }`}
           >
             <BespokeGridIcon size={15} />
@@ -266,8 +266,8 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
             }}
             className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               activeView === 'powerquery'
-                ? 'bg-indigo-600 text-white shadow-[0_0_12px_rgba(99,102,241,0.4)] font-bold'
-                : 'text-slate-400 hover:text-indigo-300 hover:bg-white/5'
+                ? 'bg-indigo-600 text-white shadow-xs font-bold'
+                : 'text-slate-600 hover:text-indigo-700 hover:bg-white/80'
             }`}
           >
             <BespokeQueryIcon size={15} />
@@ -281,8 +281,8 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
             }}
             className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               activeView === 'powerbi'
-                ? 'bg-amber-600 text-white shadow-[0_0_12px_rgba(245,158,11,0.4)] font-bold'
-                : 'text-slate-400 hover:text-amber-300 hover:bg-white/5'
+                ? 'bg-amber-600 text-white shadow-xs font-bold'
+                : 'text-slate-600 hover:text-amber-700 hover:bg-white/80'
             }`}
           >
             <BespokeAnalyticsIcon size={15} />
@@ -292,24 +292,24 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
 
         {/* Right: Engine Status, Import & Export Actions */}
         <div className="flex items-center gap-2">
-          <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-[11px] font-mono text-slate-300">
-            <span className="size-2 rounded-full bg-emerald-400 led-live-green" />
-            <span className="text-slate-400">60fps Engine</span>
+          <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-[11px] font-mono text-emerald-800 font-semibold">
+            <span className="size-2 rounded-full bg-emerald-500 led-live-green" />
+            <span>60fps Engine</span>
           </div>
 
           <button
             onClick={onOpenImportExport}
             title="Importar Dados CSV"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-medium border border-white/10 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 text-xs font-semibold border border-slate-200 transition-colors cursor-pointer"
           >
-            <Upload className="size-3.5 text-slate-400" />
+            <Upload className="size-3.5 text-slate-500" />
             <span>Importar CSV</span>
           </button>
 
           <button
             onClick={() => exportSheetToExcel(sheet, sheet.name)}
             title="Exportar para Excel (.xlsx)"
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer shadow-xs"
           >
             <BespokeExportIcon size={14} />
             <span>Exportar XLSX</span>
@@ -319,16 +319,16 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
 
 
       {/* 2. RIBBON TABS HEADER */}
-      <div className="h-8 px-4 flex items-center gap-1 bg-[#111827] border-b border-white/5 text-xs font-medium text-slate-400">
+      <div className="h-8 px-4 flex items-center gap-1 bg-[#f8fafc] border-b border-slate-200 text-xs font-semibold text-slate-600">
         <button
           onClick={() => {
             onSetActiveView('spreadsheet');
             setActiveRibbonTab('home');
           }}
-          className={`px-3 h-full flex items-center transition-all cursor-pointer ${
+          className={`px-3.5 h-full flex items-center transition-all cursor-pointer ${
             activeRibbonTab === 'home' && activeView === 'spreadsheet'
-              ? 'text-emerald-400 font-bold border-b-2 border-emerald-400 bg-white/5'
-              : 'hover:text-slate-200 hover:bg-white/5'
+              ? 'text-emerald-700 font-bold border-b-2 border-emerald-600 bg-white'
+              : 'hover:text-slate-900 hover:bg-slate-200/50'
           }`}
         >
           Página Inicial
@@ -339,10 +339,10 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
             onSetActiveView('spreadsheet');
             setActiveRibbonTab('insert');
           }}
-          className={`px-3 h-full flex items-center transition-all cursor-pointer ${
+          className={`px-3.5 h-full flex items-center transition-all cursor-pointer ${
             activeRibbonTab === 'insert'
-              ? 'text-emerald-400 font-bold border-b-2 border-emerald-400 bg-white/5'
-              : 'hover:text-slate-200 hover:bg-white/5'
+              ? 'text-emerald-700 font-bold border-b-2 border-emerald-600 bg-white'
+              : 'hover:text-slate-900 hover:bg-slate-200/50'
           }`}
         >
           Inserir
@@ -353,10 +353,10 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
             onSetActiveView('spreadsheet');
             setActiveRibbonTab('formulas');
           }}
-          className={`px-3 h-full flex items-center transition-all cursor-pointer ${
+          className={`px-3.5 h-full flex items-center transition-all cursor-pointer ${
             activeRibbonTab === 'formulas'
-              ? 'text-emerald-400 font-bold border-b-2 border-emerald-400 bg-white/5'
-              : 'hover:text-slate-200 hover:bg-white/5'
+              ? 'text-emerald-700 font-bold border-b-2 border-emerald-600 bg-white'
+              : 'hover:text-slate-900 hover:bg-slate-200/50'
           }`}
         >
           Fórmulas
@@ -367,10 +367,10 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
             onSetActiveView('powerquery');
             setActiveRibbonTab('data');
           }}
-          className={`px-3 h-full flex items-center gap-1 transition-all cursor-pointer ${
+          className={`px-3.5 h-full flex items-center transition-all cursor-pointer ${
             activeRibbonTab === 'data' || activeView === 'powerquery'
-              ? 'text-indigo-400 font-bold border-b-2 border-indigo-400 bg-white/5'
-              : 'hover:text-indigo-300 hover:bg-white/5'
+              ? 'text-indigo-700 font-bold border-b-2 border-indigo-600 bg-white'
+              : 'hover:text-slate-900 hover:bg-slate-200/50'
           }`}
         >
           Dados & Power Query
@@ -381,10 +381,10 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
             onSetActiveView('powerbi');
             setActiveRibbonTab('view');
           }}
-          className={`px-3 h-full flex items-center gap-1 transition-all cursor-pointer ${
+          className={`px-3.5 h-full flex items-center transition-all cursor-pointer ${
             activeRibbonTab === 'view' || activeView === 'powerbi'
-              ? 'text-amber-400 font-bold border-b-2 border-amber-400 bg-white/5'
-              : 'hover:text-amber-300 hover:bg-white/5'
+              ? 'text-amber-700 font-bold border-b-2 border-amber-600 bg-white'
+              : 'hover:text-slate-900 hover:bg-slate-200/50'
           }`}
         >
           Exibir & Power BI

@@ -698,13 +698,14 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
   const activeStepMFormula = activeStep?.params?.formulaM || `= Table.TransformColumnTypes(#"${activeStep?.name || 'Fonte'}", {})`;
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#080a14] text-slate-100 font-sans select-none z-40">
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#f8fafc] text-slate-900 font-sans select-none z-40">
       {/* 1. TOP POWER QUERY APPLICATION TITLE BAR */}
-      <div className="h-12 px-4 flex items-center justify-between bg-[#070913] bg-blueprint-texture border-b border-white/10 text-white shrink-0">
+      <div className="h-12 px-4 flex items-center justify-between bg-[#ffffff] border-b border-slate-200 text-slate-900 shrink-0 shadow-xs">
+
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2.5">
             {/* 3D Brand Emblem */}
-            <div className="relative size-7 rounded-lg overflow-hidden border border-indigo-400/30 shadow-[0_0_12px_rgba(99,102,241,0.4)] emblem-glint group cursor-pointer">
+            <div className="relative size-7 rounded-lg overflow-hidden border border-indigo-200 shadow-xs emblem-glint group cursor-pointer">
               <img
                 src={brandEmblem}
                 alt="Vertex Emblem"
@@ -713,21 +714,21 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5 leading-none">
-                <span className="font-extrabold text-xs tracking-tight text-white font-mono">POWER QUERY</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono font-bold border border-indigo-500/30">
+                <span className="font-extrabold text-xs tracking-tight text-slate-900 font-mono">POWER QUERY</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono font-bold border border-indigo-200">
                   STUDIO
                 </span>
               </div>
-              <span className="text-[9px] text-slate-400 font-mono mt-0.5">Neural Data Pipeline</span>
+              <span className="text-[9px] text-slate-500 font-mono mt-0.5">Neural Data Pipeline</span>
             </div>
           </div>
 
-          <div className="h-4 w-px bg-white/10 mx-0.5" />
+          <div className="h-4 w-px bg-slate-200 mx-0.5" />
 
-          <div className="flex items-center gap-1.5 text-xs text-slate-300">
-            <span className="text-slate-400">Consulta:</span>
-            <strong className="text-white font-mono">{workingSheet.name}</strong>
-            <span className="text-[10px] text-slate-400 font-mono bg-white/5 px-1.5 py-0.5 rounded border border-white/10">
+          <div className="flex items-center gap-1.5 text-xs text-slate-700">
+            <span className="text-slate-500">Consulta:</span>
+            <strong className="text-slate-900 font-mono font-bold">{workingSheet.name}</strong>
+            <span className="text-[10px] text-slate-500 font-mono bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
               {workingSheet.rowCount - 1} lin × {workingSheet.colCount} col
             </span>
           </div>
@@ -739,7 +740,7 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
               onApplyChangesToSheet(workingSheet);
               onClose();
             }}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-all cursor-pointer shadow-[0_0_14px_rgba(99,102,241,0.4)]"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-all cursor-pointer shadow-xs"
           >
             <Check className="size-3.5" />
             <span>Fechar & Aplicar</span>
@@ -747,7 +748,7 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
 
           <button
             onClick={() => exportSheetToExcel(workingSheet, `${workingSheet.name}_PowerQuery`)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white font-semibold text-xs border border-white/10 transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 font-semibold text-xs border border-slate-200 transition-all cursor-pointer"
           >
             <BespokeExportIcon size={14} />
             <span>Exportar XLSX</span>
@@ -755,7 +756,7 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
 
           <button
             onClick={onClose}
-            className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white font-medium text-xs border border-white/10 transition-colors cursor-pointer"
+            className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 font-medium text-xs border border-slate-200 transition-colors cursor-pointer"
           >
             Voltar
           </button>
@@ -763,45 +764,45 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
       </div>
 
       {/* 2. POWER QUERY DESKTOP RIBBON BAR */}
-      <div className="bg-[#0f1422] border-b border-white/10">
+      <div className="bg-[#ffffff] border-b border-slate-200">
         {/* Ribbon Tabs Switcher */}
-        <div className="flex items-center px-4 border-b border-white/5 bg-[#0b0e1a] gap-1 text-xs text-slate-400">
+        <div className="flex items-center px-4 border-b border-slate-200 bg-[#f8fafc] gap-1 text-xs text-slate-600">
           <button
             onClick={() => setActiveTab('home')}
-            className={`px-3 py-1.5 font-bold border-b-2 transition-all cursor-pointer ${
-              activeTab === 'home' ? 'border-indigo-400 text-indigo-400 bg-white/5' : 'border-transparent hover:text-slate-200 hover:bg-white/5'
+            className={`px-3.5 py-1.5 font-bold border-b-2 transition-all cursor-pointer ${
+              activeTab === 'home' ? 'border-indigo-600 text-indigo-700 bg-white' : 'border-transparent hover:text-slate-900 hover:bg-slate-200/50'
             }`}
           >
             Página Inicial
           </button>
           <button
             onClick={() => setActiveTab('transform')}
-            className={`px-3 py-1.5 font-bold border-b-2 transition-all cursor-pointer ${
-              activeTab === 'transform' ? 'border-indigo-400 text-indigo-400 bg-white/5' : 'border-transparent hover:text-slate-200 hover:bg-white/5'
+            className={`px-3.5 py-1.5 font-bold border-b-2 transition-all cursor-pointer ${
+              activeTab === 'transform' ? 'border-indigo-600 text-indigo-700 bg-white' : 'border-transparent hover:text-slate-900 hover:bg-slate-200/50'
             }`}
           >
             Transformar
           </button>
           <button
             onClick={() => setActiveTab('add_column')}
-            className={`px-3 py-1.5 font-bold border-b-2 transition-all cursor-pointer ${
-              activeTab === 'add_column' ? 'border-indigo-400 text-indigo-400 bg-white/5' : 'border-transparent hover:text-slate-200 hover:bg-white/5'
+            className={`px-3.5 py-1.5 font-bold border-b-2 transition-all cursor-pointer ${
+              activeTab === 'add_column' ? 'border-indigo-600 text-indigo-700 bg-white' : 'border-transparent hover:text-slate-900 hover:bg-slate-200/50'
             }`}
           >
             Adicionar Coluna
           </button>
           <button
             onClick={() => setActiveTab('view')}
-            className={`px-3 py-1.5 font-bold border-b-2 transition-all cursor-pointer ${
-              activeTab === 'view' ? 'border-indigo-400 text-indigo-400 bg-white/5' : 'border-transparent hover:text-slate-200 hover:bg-white/5'
+            className={`px-3.5 py-1.5 font-bold border-b-2 transition-all cursor-pointer ${
+              activeTab === 'view' ? 'border-indigo-600 text-indigo-700 bg-white' : 'border-transparent hover:text-slate-900 hover:bg-slate-200/50'
             }`}
           >
             Exibir
           </button>
         </div>
 
-
         {/* Ribbon Actions Area */}
+
         <div className="h-16 px-4 py-1.5 flex items-center gap-4 overflow-x-auto bg-white">
           {/* TAB 1: PÁGINA INICIAL */}
           {activeTab === 'home' && (
