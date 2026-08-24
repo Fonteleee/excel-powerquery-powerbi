@@ -22,6 +22,7 @@ import { SpreadsheetGrid } from './components/Grid/SpreadsheetGrid';
 import { SheetTabs } from './components/Grid/SheetTabs';
 import { PowerQueryEditor } from './components/PowerQuery/PowerQueryEditor';
 import { DashboardStudio } from './components/PowerBI/DashboardStudio';
+import { CopilotPanel } from './components/Copilot/CopilotPanel';
 
 // Modals
 import { QuickAnalysisModal } from './components/Modals/QuickAnalysisModal';
@@ -31,6 +32,7 @@ import { ConditionalFormatModal } from './components/Modals/ConditionalFormatMod
 import { ImportExportModal } from './components/Modals/ImportExportModal';
 import { ShortcutsModal } from './components/Modals/ShortcutsModal';
 import { FindReplaceModal } from './components/Modals/FindReplaceModal';
+import { GeminiApiKeyModal } from './components/Modals/GeminiApiKeyModal';
 import { AutoFormatNotificationToast } from './components/Common/AutoFormatNotificationToast';
 import { autoRecognizeAndFormatSheet, DataRecognitionReport } from './utils/dataRecognizer';
 
@@ -53,13 +55,16 @@ export function App() {
     endCol: 6,
   });
 
-
   // History stack for Undo / Redo
   const [historyPast, setHistoryPast] = useState<Sheet[][]>([]);
   const [historyFuture, setHistoryFuture] = useState<Sheet[][]>([]);
 
   // Navigation View: 'spreadsheet' | 'powerquery' | 'powerbi'
   const [activeView, setActiveView] = useState<'spreadsheet' | 'powerquery' | 'powerbi'>('spreadsheet');
+
+  // Copilot AI state
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
 
   // Modals state
   const [isQuickAnalysisOpen, setIsQuickAnalysisOpen] = useState(false);
@@ -70,6 +75,7 @@ export function App() {
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isFindReplaceOpen, setIsFindReplaceOpen] = useState(false);
   const [recognitionReport, setRecognitionReport] = useState<DataRecognitionReport | null>(null);
+
 
   const activeSheet = sheets.find(s => s.id === activeSheetId) || sheets[0];
 
@@ -317,11 +323,25 @@ export function App() {
     setSheets(prev => prev.map(s => (s.id === id ? { ...s, name: newName } : s)));
   };
 
-  return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-slate-50 text-slate-900 font-sans">
-      {/* SPREADSHEET MAIN VIEW */}
-      {activeView === 'spreadsheet' && (
+  const handleInsertFormulaFromCopilot = (formula: string) => {
+    const key = cellPosToKey(activeCell.row, activeCell.col);
+    const updatedData = {
+      ...activeSheet.data,
+      [key]: {
+        ...activeSheet.data[key],
+        raw: formula,
+        value: null,
+      },
+    };
+    const recalculated = recalculateSheet({ ...activeSheet, data: updatedData });
+    handleUpdateSheet(recalculated);
+    confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
+  };
 
+  return (
+    <div className="flex flex-col h-screen w-screen bg-[#f5f5f5] text-[#242424] overflow-hidden font-sans">
+      {/* SPREADSHEET MAIN WORKSPACE */}
+      {activeView === 'spreadsheet' && (
         <>
           {/* Top Application Ribbon */}
           <RibbonBar
@@ -342,6 +362,8 @@ export function App() {
             onOpenShortcutsModal={() => setIsShortcutsOpen(true)}
             onOpenFindReplace={() => setIsFindReplaceOpen(true)}
             onInsertFormulaTemplate={handleInsertFormulaTemplate}
+            isCopilotOpen={isCopilotOpen}
+            onToggleCopilot={() => setIsCopilotOpen(prev => !prev)}
           />
 
           {/* Formula Bar */}
@@ -353,23 +375,34 @@ export function App() {
             onOpenFormulaWizard={() => setIsFormulaWizardOpen(true)}
           />
 
-          {/* Interactive Grid */}
-          <SpreadsheetGrid
-            sheet={activeSheet}
-            activeCell={activeCell}
-            selectedRange={selectedRange}
-            onUpdateSheet={handleUpdateSheet}
-            onSelectCell={setActiveCell}
-            onSelectRange={setSelectedRange}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            onOpenQuickAnalysis={() => setIsQuickAnalysisOpen(true)}
-            onOpenFormulaWizard={() => setIsFormulaWizardOpen(true)}
-            onOpenTextToColumns={() => setIsTextToColumnsOpen(true)}
-            onOpenConditionalModal={() => setIsConditionalModalOpen(true)}
-            onOpenCharts={() => setActiveView('powerbi')}
-            onOpenFindReplace={() => setIsFindReplaceOpen(true)}
-          />
+          {/* Grid + Copilot Container */}
+          <div className="flex-1 flex overflow-hidden relative">
+            <SpreadsheetGrid
+              sheet={activeSheet}
+              activeCell={activeCell}
+              selectedRange={selectedRange}
+              onUpdateSheet={handleUpdateSheet}
+              onSelectCell={setActiveCell}
+              onSelectRange={setSelectedRange}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              onOpenQuickAnalysis={() => setIsQuickAnalysisOpen(true)}
+              onOpenFormulaWizard={() => setIsFormulaWizardOpen(true)}
+              onOpenTextToColumns={() => setIsTextToColumnsOpen(true)}
+              onOpenConditionalModal={() => setIsConditionalModalOpen(true)}
+              onOpenCharts={() => setActiveView('powerbi')}
+              onOpenFindReplace={() => setIsFindReplaceOpen(true)}
+            />
+
+            <CopilotPanel
+              isOpen={isCopilotOpen}
+              onClose={() => setIsCopilotOpen(false)}
+              sheet={activeSheet}
+              activeCell={activeCell}
+              onInsertFormula={handleInsertFormulaFromCopilot}
+              onOpenSettings={() => setIsApiKeyModalOpen(true)}
+            />
+          </div>
 
           {/* Bottom Tabs Bar */}
           <SheetTabs
@@ -478,8 +511,14 @@ export function App() {
         isOpen={isShortcutsOpen}
         onClose={() => setIsShortcutsOpen(false)}
       />
+
+      <GeminiApiKeyModal
+        isOpen={isApiKeyModalOpen}
+        onClose={() => setIsApiKeyModalOpen(false)}
+      />
     </div>
   );
 }
+
 
 export default App;

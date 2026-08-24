@@ -8,6 +8,8 @@ import { computePivotTable } from '../engine/pivotEngine';
 import { profileSheetColumns } from '../engine/dataProfiler';
 import { parseCSVToAutoFormattedSheet, autoFormatTabularData } from '../utils/csvAutoFormatter';
 import { autoRecognizeAndFormatSheet } from '../utils/dataRecognizer';
+import { DataMaskingEngine } from '../utils/dataMasking';
+
 
 export function runComprehensiveValidation() {
 
@@ -451,8 +453,28 @@ Nuvem;Gov;Infraestrutura Pública`;
     detail: `Arraste de linhas 1 a 5: 5 linhas completas selecionadas. Tecla ESC colapsa para célula ativa`,
   });
 
+  // 31. Test Motor de Segurança e Anonimização de Dados para IA (Data Masking Engine)
+  const engine = new DataMaskingEngine();
+  const testInput = 'Calcule o total do cliente joao.silva@empresa.com com CPF 123.456.789-00 que comprou R$ 15.450,00';
+  const payload = engine.sanitizePayload(testInput);
+  const isEmailMasked = payload.sanitizedPrompt.includes('[EMAIL_1]') && !payload.sanitizedPrompt.includes('joao.silva@empresa.com');
+  const isCpfMasked = payload.sanitizedPrompt.includes('[CPF_1]') && !payload.sanitizedPrompt.includes('123.456.789-00');
+  const isCurrencyMasked = payload.sanitizedPrompt.includes('[VALOR_1]') && !payload.sanitizedPrompt.includes('R$ 15.450,00');
+  
+  // Test round-trip unmasking
+  const mockAiOutput = 'O cliente [EMAIL_1] com documento [CPF_1] gerou [VALOR_1] com a fórmula =SOMA(D2:D10)';
+  const unmasked = engine.unmaskText(mockAiOutput);
+  const isUnmaskedCorrectly = unmasked.includes('joao.silva@empresa.com') && unmasked.includes('123.456.789-00') && unmasked.includes('R$ 15.450,00');
+
+  results.push({
+    test: 'Segurança & IA: Motor de Anonimização (Data Masking) e Restauração Bidirecional',
+    status: isEmailMasked && isCpfMasked && isCurrencyMasked && isUnmaskedCorrectly ? 'PASS' : 'FAIL',
+    detail: `Emails, CPFs e Moedas mascarados em tokens e restaurados com 100% de integridade`,
+  });
+
   return results;
 };
+
 
 
 

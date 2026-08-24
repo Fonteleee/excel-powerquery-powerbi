@@ -62,7 +62,10 @@ interface RibbonBarProps {
   onOpenShortcutsModal: () => void;
   onOpenFindReplace: () => void;
   onInsertFormulaTemplate: (template: string) => void;
+  isCopilotOpen?: boolean;
+  onToggleCopilot?: () => void;
 }
+
 
 
 export const RibbonBar: React.FC<RibbonBarProps> = ({
@@ -83,7 +86,10 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
   onOpenShortcutsModal,
   onOpenFindReplace,
   onInsertFormulaTemplate,
+  isCopilotOpen = false,
+  onToggleCopilot,
 }) => {
+
 
   const [activeRibbonTab, setActiveRibbonTab] = useState<'home' | 'insert' | 'formulas' | 'data' | 'view'>('home');
   const [isRibbonCollapsed, setIsRibbonCollapsed] = useState(true);
@@ -295,6 +301,20 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
             </button>
           </div>
 
+          {/* Copilot AI Button (Office 365 / Gemini Pro) */}
+          <button
+            onClick={onToggleCopilot}
+            title="Abrir Excel Copilot AI (Google Gemini Pro)"
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer shadow-2xs ${
+              isCopilotOpen
+                ? 'bg-purple-700 text-white shadow-xs'
+                : 'bg-white border border-purple-300 text-purple-800 hover:bg-purple-50'
+            }`}
+          >
+            <Sparkles className={`size-3.5 ${isCopilotOpen ? 'text-white' : 'text-purple-600'}`} />
+            <span>Copilot</span>
+          </button>
+
           {/* Compartilhar / Exportar XLSX Button (Green) */}
           <button
             onClick={() => exportSheetToExcel(sheet, sheet.name)}
@@ -306,6 +326,7 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
           </button>
         </div>
       </div>
+
 
       {/* 2. RIBBON TABS (Exact Replica of Image 2 Tabs Bar) */}
       <div className="h-7 px-2 flex items-center justify-between bg-[#f5f5f5] text-xs font-normal text-[#242424] border-b border-[#e0e0e0]">
