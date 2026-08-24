@@ -278,7 +278,21 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   // Keyboard navigation & Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Guard: Ignore if user is typing into any input, textarea, select, modal, or sidebar
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+         target.tagName === 'TEXTAREA' ||
+         target.tagName === 'SELECT' ||
+         target.isContentEditable ||
+         target.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], aside, form, .modal-backdrop'))
+      ) {
+        return;
+      }
+
       if (isEditing) return;
+
 
       // ESCAPE: Limpar seleções ativas, multi-seleção e fechar menus
       if (e.key === 'Escape') {
