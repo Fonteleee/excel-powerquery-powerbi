@@ -21,6 +21,7 @@ import {
   getStoredApiKey,
   getStoredModel,
 } from '../../services/geminiService';
+import { CopilotChartCard, CopilotChartConfig } from './CopilotChartCard';
 
 interface CopilotPanelProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ interface CopilotPanelProps {
   activeCell: CellPosition;
   onInsertFormula: (formula: string) => void;
   onOpenSettings: () => void;
+  onOpenPowerBI?: () => void;
 }
 
 export const CopilotPanel: React.FC<CopilotPanelProps> = ({
@@ -38,12 +40,13 @@ export const CopilotPanel: React.FC<CopilotPanelProps> = ({
   activeCell,
   onInsertFormula,
   onOpenSettings,
+  onOpenPowerBI,
 }) => {
   const [messages, setMessages] = useState<CopilotMessage[]>([
     {
       id: 'welcome',
       role: 'assistant',
-      content: 'Olá! Sou o seu **Excel Copilot com Google Gemini**.\n\nPosso gerar fórmulas avançadas, criar transformações para o Power Query e analisar seus dados.\n\n🔒 **100% Seguro**: Todos os dados sensíveis são anonimizados no seu navegador antes do processamento.',
+      content: 'Olá! Sou o seu **Excel Copilot com Google Gemini**.\n\nPosso gerar fórmulas avançadas, criar **gráficos interativos imediatos**, montar etapas de Power Query e analisar seus dados.\n\n🔒 **100% Seguro**: Todos os dados sensíveis são anonimizados no seu navegador antes do processamento.',
       timestamp: new Date(),
     },
   ]);
@@ -100,6 +103,7 @@ export const CopilotPanel: React.FC<CopilotPanelProps> = ({
         timestamp: new Date(),
         suggestedFormula: result.suggestedFormula,
         suggestedMCode: result.suggestedMCode,
+        suggestedChart: result.suggestedChart,
         maskedItemsCount: result.maskedCount,
       };
       setMessages(prev => [...prev, assistantMsg]);
@@ -140,9 +144,9 @@ export const CopilotPanel: React.FC<CopilotPanelProps> = ({
       prompt: `Gere uma fórmula do Excel para somar ou calcular os valores principais da tabela atual.`,
     },
     {
-      label: 'Analisar e Gerar Insights',
+      label: 'Criar Gráfico de Vendas',
       icon: <BarChart2 className="size-3 text-blue-600" />,
-      prompt: `Analise as colunas da planilha "${sheet.name}" e aponte os 3 principais destaques e conclusões.`,
+      prompt: `Analise a planilha, calcule o total por categoria/vendedor e crie um gráfico avançado com os dados.`,
     },
     {
       label: 'Transformação Power Query',
@@ -152,7 +156,7 @@ export const CopilotPanel: React.FC<CopilotPanelProps> = ({
   ];
 
   return (
-    <aside className="w-80 sm:w-92 h-full bg-[#f9f9f9] border-l border-[#e0e0e0] flex flex-col z-30 select-none shadow-lg animate-in slide-in-from-right-2 duration-200 font-sans">
+    <aside className="w-80 sm:w-96 h-full bg-[#f9f9f9] border-l border-[#e0e0e0] flex flex-col z-30 select-none shadow-lg animate-in slide-in-from-right-2 duration-200 font-sans">
       {/* Header */}
       <div className="h-11 px-3.5 bg-[#f5f5f5] border-b border-[#e0e0e0] flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -162,7 +166,7 @@ export const CopilotPanel: React.FC<CopilotPanelProps> = ({
           <div>
             <h3 className="font-semibold text-xs text-[#242424] flex items-center gap-1.5">
               <span>Copilot</span>
-              <span className="text-[10px] bg-purple-100 text-purple-800 font-semibold px-1.5 py-0.2 rounded">Gemini Pro</span>
+              <span className="text-[10px] bg-purple-100 text-purple-800 font-semibold px-1.5 py-0.2 rounded">{currentModel}</span>
             </h3>
           </div>
         </div>
@@ -205,89 +209,107 @@ export const CopilotPanel: React.FC<CopilotPanelProps> = ({
 
       {/* Chat Messages Container */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin text-xs">
-        {messages.map(msg => (
-          <div
-            key={msg.id}
-            className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
-          >
+        {messages.map(msg => {
+          // Strip raw chart JSON block from displayed text so user gets clean narrative + visual card
+          const cleanContent = msg.content
+            .replace(/```chart[\s\S]*?```/gi, '')
+            .replace(/```(?:excel|formula|)\s*\n?=[^\n`]+\n?```/gi, '')
+            .trim();
+
+          return (
             <div
-              className={`max-w-[92%] rounded-lg px-3 py-2 leading-relaxed shadow-2xs ${
-                msg.role === 'user'
-                  ? 'bg-[#107c41] text-white rounded-br-none'
-                  : 'bg-white border border-[#e0e0e0] text-[#242424] rounded-bl-none'
-              }`}
+              key={msg.id}
+              className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
             >
-              <div className="whitespace-pre-wrap text-xs select-text">
-                {msg.content}
+              <div
+                className={`max-w-[96%] rounded-lg px-3 py-2 leading-relaxed shadow-2xs ${
+                  msg.role === 'user'
+                    ? 'bg-[#107c41] text-white rounded-br-none'
+                    : 'bg-white border border-[#e0e0e0] text-[#242424] rounded-bl-none'
+                }`}
+              >
+                {cleanContent && (
+                  <div className="whitespace-pre-wrap text-xs select-text">
+                    {cleanContent}
+                  </div>
+                )}
+
+                {/* Embedded Interactive Chart Card */}
+                {msg.suggestedChart && (
+                  <CopilotChartCard
+                    chart={msg.suggestedChart}
+                    onOpenPowerBI={onOpenPowerBI}
+                  />
+                )}
+
+                {/* Formula Action Card */}
+                {msg.suggestedFormula && (
+                  <div className="mt-2.5 p-2 bg-[#f5f5f5] border border-[#e0e0e0] rounded-md text-xs">
+                    <div className="flex items-center justify-between mb-1.5 text-[11px] text-[#707070] font-semibold">
+                      <span>Fórmula Sugerida:</span>
+                      <button
+                        onClick={() => handleCopy(msg.suggestedFormula!)}
+                        className="flex items-center gap-1 text-[#107c41] hover:underline cursor-pointer"
+                      >
+                        {copiedFormula === msg.suggestedFormula ? (
+                          <>
+                            <Check className="size-3" />
+                            <span>Copiado!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="size-3" />
+                            <span>Copiar</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <code className="block p-1.5 bg-white border border-[#e0e0e0] rounded font-mono text-[11px] text-[#107c41] font-bold select-all mb-2">
+                      {msg.suggestedFormula}
+                    </code>
+                    <button
+                      onClick={() => onInsertFormula(msg.suggestedFormula!)}
+                      className="w-full py-1 bg-[#107c41] hover:bg-[#0e6b37] text-white rounded text-xs font-semibold flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+                    >
+                      <span>Inserir na Célula Ativa</span>
+                      <ArrowRight className="size-3" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Power Query Code Card */}
+                {msg.suggestedMCode && (
+                  <div className="mt-2.5 p-2 bg-purple-50 border border-purple-200 rounded-md text-xs">
+                    <div className="flex items-center justify-between mb-1.5 text-[11px] text-purple-900 font-semibold">
+                      <span className="flex items-center gap-1">
+                        <Database className="size-3 text-purple-700" />
+                        <span>Código Power Query (M):</span>
+                      </span>
+                      <button
+                        onClick={() => handleCopy(msg.suggestedMCode!)}
+                        className="text-purple-700 hover:underline cursor-pointer"
+                      >
+                        Copiar Código
+                      </button>
+                    </div>
+                    <pre className="p-1.5 bg-white border border-purple-200 rounded font-mono text-[10px] text-purple-900 overflow-x-auto select-all">
+                      {msg.suggestedMCode}
+                    </pre>
+                  </div>
+                )}
               </div>
 
-              {/* Formula Action Card */}
-              {msg.suggestedFormula && (
-                <div className="mt-2.5 p-2 bg-[#f5f5f5] border border-[#e0e0e0] rounded-md text-xs">
-                  <div className="flex items-center justify-between mb-1.5 text-[11px] text-[#707070] font-semibold">
-                    <span>Fórmula Sugerida:</span>
-                    <button
-                      onClick={() => handleCopy(msg.suggestedFormula!)}
-                      className="flex items-center gap-1 text-[#107c41] hover:underline cursor-pointer"
-                    >
-                      {copiedFormula === msg.suggestedFormula ? (
-                        <>
-                          <Check className="size-3" />
-                          <span>Copiado!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="size-3" />
-                          <span>Copiar</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  <code className="block p-1.5 bg-white border border-[#e0e0e0] rounded font-mono text-[11px] text-[#107c41] font-bold select-all mb-2">
-                    {msg.suggestedFormula}
-                  </code>
-                  <button
-                    onClick={() => onInsertFormula(msg.suggestedFormula!)}
-                    className="w-full py-1 bg-[#107c41] hover:bg-[#0e6b37] text-white rounded text-xs font-semibold flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
-                  >
-                    <span>Inserir na Célula Ativa</span>
-                    <ArrowRight className="size-3" />
-                  </button>
-                </div>
-              )}
-
-              {/* Power Query Code Card */}
-              {msg.suggestedMCode && (
-                <div className="mt-2.5 p-2 bg-purple-50 border border-purple-200 rounded-md text-xs">
-                  <div className="flex items-center justify-between mb-1.5 text-[11px] text-purple-900 font-semibold">
-                    <span className="flex items-center gap-1">
-                      <Database className="size-3 text-purple-700" />
-                      <span>Código Power Query (M):</span>
-                    </span>
-                    <button
-                      onClick={() => handleCopy(msg.suggestedMCode!)}
-                      className="text-purple-700 hover:underline cursor-pointer"
-                    >
-                      Copiar Código
-                    </button>
-                  </div>
-                  <pre className="p-1.5 bg-white border border-purple-200 rounded font-mono text-[10px] text-purple-900 overflow-x-auto select-all">
-                    {msg.suggestedMCode}
-                  </pre>
-                </div>
-              )}
+              <span className="text-[10px] text-[#8a8886] mt-0.5 px-1">
+                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
             </div>
-
-            <span className="text-[10px] text-[#8a8886] mt-0.5 px-1">
-              {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          </div>
-        ))}
+          );
+        })}
 
         {isLoading && (
-          <div className="flex items-center gap-2 p-2 bg-white border border-[#e0e0e0] rounded-lg max-w-[85%] text-xs text-[#505050] shadow-2xs animate-pulse">
+          <div className="flex items-center gap-2 p-2.5 bg-white border border-[#e0e0e0] rounded-lg max-w-[85%] text-xs text-[#505050] shadow-2xs animate-pulse">
             <div className="size-3.5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
-            <span>Processando dados com anonimização...</span>
+            <span>Processando dados e gerando visualizações...</span>
           </div>
         )}
 
@@ -304,7 +326,7 @@ export const CopilotPanel: React.FC<CopilotPanelProps> = ({
             className="flex items-center gap-1 px-2 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded-md text-[11px] text-[#242424] transition-colors cursor-pointer disabled:opacity-40"
           >
             {q.icon}
-            <span className="truncate max-w-[130px]">{q.label}</span>
+            <span className="truncate max-w-[140px]">{q.label}</span>
           </button>
         ))}
       </div>
@@ -334,7 +356,7 @@ export const CopilotPanel: React.FC<CopilotPanelProps> = ({
               type="text"
               value={input}
               onChange={e => setInput(e.target.value)}
-              placeholder="Peça uma fórmula, análise ou código M..."
+              placeholder="Peça uma fórmula, gráfico ou código M..."
               disabled={isLoading}
               className="flex-1 h-8 px-2.5 bg-white border border-[#e0e0e0] focus:border-[#107c41] focus:outline-hidden rounded text-xs text-[#242424] placeholder:text-[#8a8886]"
             />

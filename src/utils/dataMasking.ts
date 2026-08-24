@@ -99,7 +99,7 @@ export class DataMaskingEngine {
   /**
    * Sanitizes spreadsheet structure and sample rows into a safe schema context
    */
-  public prepareSheetContext(sheet: Sheet, maxSampleRows = 5): string {
+  public prepareSheetContext(sheet: Sheet, maxSampleRows = 35): string {
     const colCount = Math.min(sheet.colCount, 20);
     const rowCount = Math.min(sheet.rowCount, 60);
 
@@ -132,14 +132,15 @@ export class DataMaskingEngine {
       }
     }
 
-    return `ESTRUTURA DA PLANILHA ("${sheet.name}"):
+    return `ESTRUTURA E DADOS DA PLANILHA ("${sheet.name}"):
 - Total de Linhas: ${sheet.rowCount}
 - Colunas Disponíveis:
   ${headers.join('\n  ')}
 
-AMOSTRA DE DADOS (DADOS PESSOAIS/CONFIDENCIAIS ANONIMIZADOS COM TOKENS [NOME_X]):
+TABELA DE DADOS (DADOS SENSÍVEIS ANONIMIZADOS COM TOKENS):
 ${sampleRows.join('\n')}`;
   }
+
 
   /**
    * Masks both the user question and the spreadsheet context

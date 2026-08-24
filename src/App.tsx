@@ -401,8 +401,10 @@ export function App() {
               activeCell={activeCell}
               onInsertFormula={handleInsertFormulaFromCopilot}
               onOpenSettings={() => setIsApiKeyModalOpen(true)}
+              onOpenPowerBI={() => setActiveView('powerbi')}
             />
           </div>
+
 
           {/* Bottom Tabs Bar */}
           <SheetTabs

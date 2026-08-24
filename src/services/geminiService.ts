@@ -1,5 +1,6 @@
 import { Sheet } from '../types/spreadsheet';
 import { globalMaskingEngine } from '../utils/dataMasking';
+import { CopilotChartConfig } from '../components/Copilot/CopilotChartCard';
 
 export interface CopilotMessage {
   id: string;
@@ -8,6 +9,7 @@ export interface CopilotMessage {
   timestamp: Date;
   suggestedFormula?: string;
   suggestedMCode?: string;
+  suggestedChart?: CopilotChartConfig;
   maskedItemsCount?: number;
 }
 
@@ -116,7 +118,7 @@ export async function askGeminiCopilot(
   userPrompt: string,
   sheet?: Sheet,
   conversationHistory: CopilotMessage[] = []
-): Promise<{ text: string; suggestedFormula?: string; suggestedMCode?: string; maskedCount: number }> {
+): Promise<{ text: string; suggestedFormula?: string; suggestedMCode?: string; suggestedChart?: CopilotChartConfig; maskedCount: number }> {
   const apiKey = getStoredApiKey();
   if (!apiKey) {
     throw new Error('Chave da API do Google Gemini não configurada. Clique no ícone de chave no Copilot para configurar.');
@@ -132,16 +134,42 @@ export async function askGeminiCopilot(
   const maskedPayload = globalMaskingEngine.sanitizePayload(userPrompt, sheet);
 
   const systemInstruction = `Você é o Microsoft Excel & Power BI Copilot Enterprise.
-Seu objetivo é ajudar o usuário com Fórmulas do Excel, Power Query (Linguagem M), Análise de Dados e Power BI.
+Seu objetivo é ajudar o usuário com Fórmulas do Excel, Gráficos Interativos Avançados, Power Query (Linguagem M) e Power BI.
 
 DIRETRIZES FUNDAMENTAIS:
-1. Ao sugerir uma fórmula do Excel, SEMPRE forneça o código exato em um bloco de código com language "excel" ou "formula", começando com "=" (ex: \`\`\`excel
+1. GERAÇÃO DE GRÁFICOS & ANÁLISE VISUAL:
+   - VOCÊ PODE E DEVE GERAR GRÁFICOS DIRETAMENTE!
+   - NUNCA diga que não pode criar gráficos ou que é um modelo de texto limitado.
+   - NUNCA inclua pensamentos internos ou auto-correções como "*(Auto-correção durante o rascunho)*".
+   - Quando o usuário pedir um gráfico ou análise visual, calcule os dados agregados da tabela e GERE OBRIGATORIAMENTE um bloco de código com a tag "chart" contendo um JSON válido no formato:
+\`\`\`chart
+{
+  "title": "Desempenho de Vendas por Vendedor",
+  "description": "Total Líquido vs Comissão gerada",
+  "type": "composed", // opções: "bar", "line", "area", "pie", "composed"
+  "xAxisKey": "vendedor",
+  "data": [
+    { "vendedor": "[VENDEDOR_1]", "total": 32300, "comissao": 1615 },
+    { "vendedor": "[VENDEDOR_2]", "total": 28400, "comissao": 1420 }
+  ],
+  "series": [
+    { "key": "total", "name": "Total Líquido (R$)", "color": "#107c41", "type": "bar" },
+    { "key": "comissao", "name": "Comissão (R$)", "color": "#f59e0b", "type": "line" }
+  ]
+}
+\`\`\`
+
+2. GERAÇÃO DE FÓRMULAS:
+   - Ao sugerir uma fórmula, forneça o código em bloco com tag "excel", começando com "=" (ex: \`\`\`excel
 =SOMA(C2:C10)
 \`\`\`).
-2. Utilize os nomes de fórmulas em Português do Brasil (SOMA, MÉDIA, PROCX, ÍNDICE, CORRESP, SE, SOMARPRODUTO, UNIRTEXTO, CONT.SE).
-3. Ao sugerir código Power Query, coloque no bloco \`\`\`powerquery ... \`\`\`.
-4. Os dados do usuário contêm tokens anonimizados (como [VENDEDOR_1], [VALOR_1], etc). Mantenha e use esses mesmos tokens nas fórmulas e explicações, pois o sistema local do usuário irá restaurar os dados originais automaticamente.
-5. Seja direto, didático, preciso e profissional.`;
+   - Use nomes de fórmulas em Português (SOMA, MÉDIA, PROCX, ÍNDICE, CORRESP, SE, SOMARPRODUTO, UNIRTEXTO).
+
+3. GERAÇÃO POWER QUERY:
+   - Use bloco com tag "powerquery" para código M.
+
+4. TOKENS DE PRIVACIDADE:
+   - Mantenha os tokens [VENDEDOR_X], [VALOR_X] nos JSONs e fórmulas, pois nosso sistema local restaura os dados reais automaticamente.`;
 
   const contents: any[] = [];
 
@@ -153,7 +181,7 @@ DIRETRIZES FUNDAMENTAIS:
     });
     contents.push({
       role: 'model',
-      parts: [{ text: 'Entendido. Tenho o contexto da estrutura da planilha e estou pronto para auxiliar com fórmulas, Power Query e análises mantendo os dados protegidos.' }],
+      parts: [{ text: 'Entendido. Tenho o contexto da planilha e estou pronto para gerar fórmulas, gráficos interativos, Power Query e análises com dados protegidos.' }],
     });
   }
 
@@ -198,7 +226,7 @@ DIRETRIZES FUNDAMENTAIS:
           contents,
           generationConfig: {
             temperature: 0.2,
-            maxOutputTokens: 2048,
+            maxOutputTokens: 2500,
           },
         }),
       });
@@ -225,9 +253,48 @@ DIRETRIZES FUNDAMENTAIS:
   }
 
   // 2. UNMASKING: Restore real values from tokens locally
-  const unmaskedText = globalMaskingEngine.unmaskText(rawResponseText);
+  let unmaskedText = globalMaskingEngine.unmaskText(rawResponseText);
 
-  // 3. Extract formula if present
+  // Clean any internal monologue tags if present
+  unmaskedText = unmaskedText.replace(/\*\(Auto-correção[^\)]*\)\*:\s*/gi, '');
+
+  // 3. Extract Chart JSON if present
+  let suggestedChart: CopilotChartConfig | undefined = undefined;
+  const chartMatch = unmaskedText.match(/```chart\s*\n?([\s\S]+?)\n?```/i);
+  if (chartMatch) {
+    try {
+      const chartJsonText = chartMatch[1].trim();
+      const parsed = JSON.parse(chartJsonText);
+      if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) {
+        // Unmask inside chart data items
+        const sanitizedData = parsed.data.map((item: any) => {
+          const newItem: any = {};
+          for (const key in item) {
+            if (typeof item[key] === 'string') {
+              newItem[key] = globalMaskingEngine.unmaskText(item[key]);
+            } else {
+              newItem[key] = item[key];
+            }
+          }
+          return newItem;
+        });
+
+        suggestedChart = {
+          title: globalMaskingEngine.unmaskText(parsed.title || 'Gráfico Interativo'),
+          description: parsed.description ? globalMaskingEngine.unmaskText(parsed.description) : undefined,
+          type: parsed.type || 'bar',
+          xAxisKey: parsed.xAxisKey || Object.keys(sanitizedData[0])[0],
+          yAxisLabel: parsed.yAxisLabel,
+          data: sanitizedData,
+          series: Array.isArray(parsed.series) ? parsed.series : [],
+        };
+      }
+    } catch (e) {
+      console.warn('Could not parse chart JSON from Copilot response', e);
+    }
+  }
+
+  // 4. Extract formula if present
   let suggestedFormula: string | undefined = undefined;
   const formulaMatch = unmaskedText.match(/```(?:excel|formula|)\s*\n?(=[^\n`]+)\n?```/i) ||
                        unmaskedText.match(/`(=[A-ZÀ-Ú_0-9\(\);,"'\s*+\-\/:]+)`/i);
@@ -235,7 +302,7 @@ DIRETRIZES FUNDAMENTAIS:
     suggestedFormula = formulaMatch[1].trim();
   }
 
-  // 4. Extract Power Query M code if present
+  // 5. Extract Power Query M code if present
   let suggestedMCode: string | undefined = undefined;
   const mMatch = unmaskedText.match(/```(?:powerquery|m|pq)\s*\n?([\s\S]+?)\n?```/i);
   if (mMatch) {
@@ -246,6 +313,7 @@ DIRETRIZES FUNDAMENTAIS:
     text: unmaskedText,
     suggestedFormula,
     suggestedMCode,
+    suggestedChart,
     maskedCount: maskedPayload.tokenCount,
   };
 }
