@@ -14,11 +14,12 @@ export interface CopilotMessage {
 const STORAGE_KEY = 'gemini_api_key';
 const MODEL_KEY = 'gemini_model_choice';
 
-export const CANDIDATE_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-1.5-pro',
+export const STATIC_CANDIDATE_MODELS = [
   'gemini-1.5-flash',
-  'gemini-2.0-flash-exp',
+  'gemini-1.5-pro',
+  'gemini-1.5-flash-latest',
+  'gemini-1.5-pro-latest',
+  'gemini-pro',
 ];
 
 export function getStoredApiKey(): string {
@@ -31,8 +32,8 @@ export function saveStoredApiKey(key: string): void {
 
 export function getStoredModel(): string {
   const stored = localStorage.getItem(MODEL_KEY);
-  if (!stored || stored === 'gemini-2.0-flash') {
-    return 'gemini-2.5-flash';
+  if (!stored || stored.includes('2.0') || stored.includes('2.5')) {
+    return 'gemini-1.5-flash';
   }
   return stored;
 }
@@ -41,14 +42,37 @@ export function saveStoredModel(model: string): void {
   localStorage.setItem(MODEL_KEY, model);
 }
 
+/**
+ * Dynamically queries Google ModelService.ListModels to discover all valid models for this API key
+ */
+export async function fetchValidGeminiModels(apiKey: string): Promise<string[]> {
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      const models = (data.models || [])
+        .filter((m: any) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+        .map((m: any) => m.name.replace(/^models\//, ''));
+      if (models.length > 0) {
+        return models;
+      }
+    }
+  } catch (e) {
+    console.warn('Could not list models dynamically, using static fallback list', e);
+  }
+  return STATIC_CANDIDATE_MODELS;
+}
+
 export async function testGeminiConnection(apiKey: string, preferredModel?: string): Promise<{ success: boolean; message: string; activeModel?: string }> {
   if (!apiKey || apiKey.trim().length < 10) {
     return { success: false, message: 'Chave de API inválida ou vazia.' };
   }
 
-  const modelsToTry = preferredModel
-    ? [preferredModel, ...CANDIDATE_MODELS.filter(m => m !== preferredModel)]
-    : CANDIDATE_MODELS;
+  const validModels = await fetchValidGeminiModels(apiKey);
+  const modelsToTry = preferredModel && validModels.includes(preferredModel)
+    ? [preferredModel, ...validModels.filter(m => m !== preferredModel)]
+    : validModels;
 
   let lastError = '';
 
@@ -63,7 +87,7 @@ export async function testGeminiConnection(apiKey: string, preferredModel?: stri
         body: JSON.stringify({
           contents: [
             {
-              parts: [{ text: 'Responda apenas com a palavra OK.' }],
+              parts: [{ text: 'Responda apenas OK.' }],
             },
           ],
         }),
@@ -73,7 +97,7 @@ export async function testGeminiConnection(apiKey: string, preferredModel?: stri
         saveStoredModel(model);
         return {
           success: true,
-          message: `Conexão estabelecida com sucesso usando o modelo ${model}!`,
+          message: `Conexão estabelecida com sucesso usando o modelo oficial ${model}!`,
           activeModel: model,
         };
       }
@@ -98,8 +122,11 @@ export async function askGeminiCopilot(
     throw new Error('Chave da API do Google Gemini não configurada. Clique no ícone de chave no Copilot para configurar.');
   }
 
+  const validModels = await fetchValidGeminiModels(apiKey);
   const preferredModel = getStoredModel();
-  const modelsToTry = [preferredModel, ...CANDIDATE_MODELS.filter(m => m !== preferredModel)];
+  const modelsToTry = validModels.includes(preferredModel)
+    ? [preferredModel, ...validModels.filter(m => m !== preferredModel)]
+    : validModels;
 
   // 1. DATA MASKING: Sanitize all sensitive text locally before transmitting
   const maskedPayload = globalMaskingEngine.sanitizePayload(userPrompt, sheet);

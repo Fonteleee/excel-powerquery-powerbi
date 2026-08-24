@@ -31,7 +31,7 @@ export const GeminiApiKeyModal: React.FC<GeminiApiKeyModalProps> = ({
   onSaved,
 }) => {
   const [apiKey, setApiKey] = useState('');
-  const [model, setModel] = useState('gemini-2.0-flash');
+  const [model, setModel] = useState('gemini-1.5-flash');
   const [showKey, setShowKey] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -57,6 +57,9 @@ export const GeminiApiKeyModal: React.FC<GeminiApiKeyModalProps> = ({
     setIsTesting(true);
     setTestResult(null);
     const res = await testGeminiConnection(apiKey, model);
+    if (res.activeModel) {
+      setModel(res.activeModel);
+    }
     setTestResult(res);
     setIsTesting(false);
   };
@@ -104,11 +107,12 @@ export const GeminiApiKeyModal: React.FC<GeminiApiKeyModalProps> = ({
               onChange={e => setModel(e.target.value)}
               className="w-full h-8 px-2.5 bg-white border border-[#e0e0e0] rounded text-xs text-[#242424] focus:outline-hidden focus:border-[#107c41] cursor-pointer"
             >
-              <option value="gemini-2.5-flash">Google Gemini 2.5 Flash (Mais Recente, Ultra Rápido & Inteligente - Recomendado)</option>
+              <option value="gemini-1.5-flash">Google Gemini 1.5 Flash (Oficial, Rápido & Inteligente - Recomendado)</option>
               <option value="gemini-1.5-pro">Google Gemini 1.5 Pro (Raciocínio Profundo para Grandes Bases)</option>
-              <option value="gemini-1.5-flash">Google Gemini 1.5 Flash (Leve & Estável)</option>
+              <option value="gemini-pro">Google Gemini 1.0 Pro (Estável)</option>
             </select>
           </div>
+
 
 
           {/* API Key Input */}
