@@ -104,11 +104,12 @@ export const GeminiApiKeyModal: React.FC<GeminiApiKeyModalProps> = ({
               onChange={e => setModel(e.target.value)}
               className="w-full h-8 px-2.5 bg-white border border-[#e0e0e0] rounded text-xs text-[#242424] focus:outline-hidden focus:border-[#107c41] cursor-pointer"
             >
-              <option value="gemini-2.0-flash">Google Gemini 2.0 Flash (Ultra Rápido & Inteligente - Recomendado)</option>
+              <option value="gemini-2.5-flash">Google Gemini 2.5 Flash (Mais Recente, Ultra Rápido & Inteligente - Recomendado)</option>
               <option value="gemini-1.5-pro">Google Gemini 1.5 Pro (Raciocínio Profundo para Grandes Bases)</option>
-              <option value="gemini-1.5-flash">Google Gemini 1.5 Flash (Leve & Econômico)</option>
+              <option value="gemini-1.5-flash">Google Gemini 1.5 Flash (Leve & Estável)</option>
             </select>
           </div>
+
 
           {/* API Key Input */}
           <div>

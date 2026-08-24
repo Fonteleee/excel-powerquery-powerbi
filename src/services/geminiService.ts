@@ -14,6 +14,13 @@ export interface CopilotMessage {
 const STORAGE_KEY = 'gemini_api_key';
 const MODEL_KEY = 'gemini_model_choice';
 
+export const CANDIDATE_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-1.5-pro',
+  'gemini-1.5-flash',
+  'gemini-2.0-flash-exp',
+];
+
 export function getStoredApiKey(): string {
   return localStorage.getItem(STORAGE_KEY) || '';
 }
@@ -23,49 +30,62 @@ export function saveStoredApiKey(key: string): void {
 }
 
 export function getStoredModel(): string {
-  return localStorage.getItem(MODEL_KEY) || 'gemini-2.0-flash';
+  const stored = localStorage.getItem(MODEL_KEY);
+  if (!stored || stored === 'gemini-2.0-flash') {
+    return 'gemini-2.5-flash';
+  }
+  return stored;
 }
 
 export function saveStoredModel(model: string): void {
   localStorage.setItem(MODEL_KEY, model);
 }
 
-export async function testGeminiConnection(apiKey: string, model = 'gemini-2.0-flash'): Promise<{ success: boolean; message: string }> {
+export async function testGeminiConnection(apiKey: string, preferredModel?: string): Promise<{ success: boolean; message: string; activeModel?: string }> {
   if (!apiKey || apiKey.trim().length < 10) {
     return { success: false, message: 'Chave de API inválida ou vazia.' };
   }
 
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey.trim()}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: 'Responda apenas com a palavra OK.' }],
-          },
-        ],
-      }),
-    });
+  const modelsToTry = preferredModel
+    ? [preferredModel, ...CANDIDATE_MODELS.filter(m => m !== preferredModel)]
+    : CANDIDATE_MODELS;
 
-    if (!response.ok) {
+  let lastError = '';
+
+  for (const model of modelsToTry) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey.trim()}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: 'Responda apenas com a palavra OK.' }],
+            },
+          ],
+        }),
+      });
+
+      if (response.ok) {
+        saveStoredModel(model);
+        return {
+          success: true,
+          message: `Conexão estabelecida com sucesso usando o modelo ${model}!`,
+          activeModel: model,
+        };
+      }
+
       const errData = await response.json().catch(() => ({}));
-      const msg = errData?.error?.message || `Erro HTTP ${response.status}: ${response.statusText}`;
-      return { success: false, message: msg };
+      lastError = errData?.error?.message || `Erro ${response.status}: ${response.statusText}`;
+    } catch (err: any) {
+      lastError = err?.message || 'Falha de conexão.';
     }
-
-    const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    if (text) {
-      return { success: true, message: 'Conexão com Google Gemini Pro estabelecida com sucesso!' };
-    }
-    return { success: false, message: 'Nenhuma resposta retornada pelo modelo.' };
-  } catch (err: any) {
-    return { success: false, message: err?.message || 'Falha de rede ao conectar com a API do Google Gemini.' };
   }
+
+  return { success: false, message: lastError || 'Nenhum modelo Gemini respondeu com sucesso.' };
 }
 
 export async function askGeminiCopilot(
@@ -78,7 +98,8 @@ export async function askGeminiCopilot(
     throw new Error('Chave da API do Google Gemini não configurada. Clique no ícone de chave no Copilot para configurar.');
   }
 
-  const model = getStoredModel();
+  const preferredModel = getStoredModel();
+  const modelsToTry = [preferredModel, ...CANDIDATE_MODELS.filter(m => m !== preferredModel)];
 
   // 1. DATA MASKING: Sanitize all sensitive text locally before transmitting
   const maskedPayload = globalMaskingEngine.sanitizePayload(userPrompt, sheet);
@@ -130,33 +151,51 @@ DIRETRIZES FUNDAMENTAIS:
     parts: [{ text: maskedPayload.sanitizedPrompt }],
   });
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  let rawResponseText = '';
+  let successfulModel = preferredModel;
+  let lastError = '';
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      systemInstruction: {
-        parts: [{ text: systemInstruction }],
-      },
-      contents,
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 2048,
-      },
-    }),
-  });
+  for (const model of modelsToTry) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    const msg = errData?.error?.message || `Erro ${response.status}: ${response.statusText}`;
-    throw new Error(msg);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: systemInstruction }],
+          },
+          contents,
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 2048,
+          },
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        rawResponseText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        if (rawResponseText) {
+          successfulModel = model;
+          saveStoredModel(model);
+          break;
+        }
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        lastError = errData?.error?.message || `Erro ${response.status}: ${response.statusText}`;
+      }
+    } catch (err: any) {
+      lastError = err?.message || 'Falha na requisição.';
+    }
   }
 
-  const data = await response.json();
-  const rawResponseText = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Desculpe, não consegui processar a resposta.';
+  if (!rawResponseText) {
+    throw new Error(lastError || 'Não foi possível obter resposta dos modelos Gemini disponíveis.');
+  }
 
   // 2. UNMASKING: Restore real values from tokens locally
   const unmaskedText = globalMaskingEngine.unmaskText(rawResponseText);
