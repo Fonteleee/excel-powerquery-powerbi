@@ -1,5 +1,7 @@
 import { evaluateFormula, recalculateSheet, cellPosToKey, parseNumberSafely, formatCellValue, getCellValue, FORMULA_CATALOG } from '../engine/formulaParser';
+import { Sheet } from '../types/spreadsheet';
 import { createEmptySheet, createSalesSampleSheet } from '../data/sampleDatasets';
+
 import { executeMergeQueries } from '../engine/mergeQueriesEngine';
 
 
@@ -472,8 +474,61 @@ Nuvem;Gov;Infraestrutura Pública`;
     detail: `Emails, CPFs e Moedas mascarados em tokens e restaurados com 100% de integridade`,
   });
 
+  // 32. Test Fórmulas entre Abas (Cross-Sheet References: PROCX, ÍNDICE+CORRESP, PROCV, SOMA)
+  const acompSheet: Sheet = {
+    id: 'sheet-acomp',
+    name: 'Acompanhamento de Pagamentos',
+    rowCount: 20,
+    colCount: 10,
+    colWidths: {},
+    rowHeights: {},
+    mergedRegions: [],
+    conditionalRules: [],
+    data: {
+      [cellPosToKey(0, 0)]: { raw: 'ID', value: 'ID' },
+      [cellPosToKey(0, 1)]: { raw: 'Item', value: 'Item' },
+      [cellPosToKey(0, 2)]: { raw: 'Qtd', value: 10 },
+      [cellPosToKey(1, 0)]: { raw: 'P1', value: 'P1' },
+      [cellPosToKey(1, 1)]: { raw: 'Notebook', value: 'Notebook' },
+      [cellPosToKey(1, 2)]: { raw: '2', value: 2 },
+      [cellPosToKey(2, 0)]: { raw: 'P2', value: 'P2' },
+      [cellPosToKey(2, 1)]: { raw: 'Mouse', value: 'Mouse' },
+      [cellPosToKey(2, 2)]: { raw: '5', value: 5 },
+      [cellPosToKey(3, 0)]: { raw: 'P3', value: 'P3' },
+      [cellPosToKey(3, 1)]: { raw: 'Teclado', value: 'Teclado' },
+      [cellPosToKey(3, 2)]: { raw: '3', value: 3 },
+    }
+  };
+
+  const p2Sheet: Sheet = {
+    id: 'sheet-p2',
+    name: 'Planilha 2',
+    rowCount: 20,
+    colCount: 10,
+    colWidths: {},
+    rowHeights: {},
+    mergedRegions: [],
+    conditionalRules: [],
+    data: {
+      [cellPosToKey(1, 0)]: { raw: 'P2', value: 'P2' },
+    }
+  };
+
+
+  const crossSheets = [acompSheet, p2Sheet];
+  const rProcx = evaluateFormula("=PROCX(A2, 'Acompanhamento de Pagamentos'!A2:A4, 'Acompanhamento de Pagamentos'!B2:B4, \"Não Encontrado\")", p2Sheet, crossSheets);
+  const rIndice = evaluateFormula("=ÍNDICE('Acompanhamento de Pagamentos'!B2:C4, CORRESP(\"Teclado\", 'Acompanhamento de Pagamentos'!B2:B4, 0), 2)", p2Sheet, crossSheets);
+  const rSoma = evaluateFormula("=SOMA('Acompanhamento de Pagamentos'!C2:C4)", p2Sheet, crossSheets);
+
+  results.push({
+    test: 'Fórmulas entre Abas / Cross-Sheet (PROCX, ÍNDICE+CORRESP, SOMA)',
+    status: rProcx === 'Mouse' && rIndice === 3 && rSoma === 10 ? 'PASS' : 'FAIL',
+    detail: `PROCX: ${rProcx} (esperado: Mouse), ÍNDICE: ${rIndice} (esperado: 3), SOMA: ${rSoma} (esperado: 10)`,
+  });
+
   return results;
 };
+
 
 
 

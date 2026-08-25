@@ -105,11 +105,15 @@ export function App() {
     setSheets(next);
   }, [historyFuture, sheets]);
 
-  // Update active sheet
+  // Update active sheet and recalculate all sheets with full workbook context
   const handleUpdateSheet = useCallback((updatedSheet: Sheet) => {
     pushHistory(sheets);
-    setSheets(prev => prev.map(s => (s.id === updatedSheet.id ? updatedSheet : s)));
+    setSheets(prev => {
+      const nextSheets = prev.map(s => (s.id === updatedSheet.id ? updatedSheet : s));
+      return nextSheets.map(s => recalculateSheet(s, nextSheets));
+    });
   }, [sheets, pushHistory]);
+
 
   // Auto recognize types and format active sheet
   const handleAutoRecognize = useCallback(() => {

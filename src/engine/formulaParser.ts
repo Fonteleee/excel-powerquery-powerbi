@@ -414,8 +414,43 @@ export function parseNumberSafely(val: any, allowTimeAsSeconds = false): number 
   return null;
 }
 
+// Resolve a range argument which might be local ("A1:B10") or cross-sheet ("'Acompanhamento'!A1:B10", "Acompanhamento!B:B", "'Planilha 2'!C5")
+export function resolveRangeAndValues(
+  arg: string,
+  currentSheet: Sheet,
+  allSheets: Sheet[] = [currentSheet]
+): { targetSheet: Sheet; range: CellRange; flatValues: any[]; matrixValues: any[][] } | null {
+  const trimmed = arg.trim();
+  let targetSheet = currentSheet;
+  let address = trimmed;
+
+  if (trimmed.includes('!')) {
+    const exclamationIdx = trimmed.indexOf('!');
+    const rawSheetName = trimmed.substring(0, exclamationIdx).trim().replace(/^'|'$/g, '');
+    address = trimmed.substring(exclamationIdx + 1).trim();
+
+    const clean = rawSheetName.toUpperCase().replace(/\.+$/, '');
+    const found = allSheets.find(s => {
+      const sName = s.name.toUpperCase();
+      return sName === rawSheetName.toUpperCase() || sName.startsWith(clean) || clean.startsWith(sName);
+    });
+    if (found) {
+      targetSheet = found;
+    }
+  }
+
+  const range = parseRangeAddress(address, targetSheet.rowCount);
+  if (!range) return null;
+
+  const flatValues = getFlatRangeValues(targetSheet, range);
+  const matrixValues = getRangeValues(targetSheet, range);
+
+  return { targetSheet, range, flatValues, matrixValues };
+}
+
 // Evaluate formula
 export function evaluateFormula(
+
   formula: string,
   sheet: Sheet,
   allSheets: Sheet[] = [sheet],
@@ -549,13 +584,22 @@ function evaluateExpression(
   if (expr.toUpperCase() === 'VERDADEIRO' || expr.toUpperCase() === 'TRUE') return true;
   if (expr.toUpperCase() === 'FALSO' || expr.toUpperCase() === 'FALSE') return false;
 
-  // Handle sheet qualified reference "Sheet2!A1" or "Sheet2!A1:B10"
+  // Handle sheet qualified reference "Sheet2!A1" or "'Acompanhamento de Pagamentos'!A1:B10" or "Acompanhamento!B5"
+
   if (expr.includes('!')) {
-    const [sheetName, cellRef] = expr.split('!');
-    const cleanSheetName = sheetName.replace(/^'|'$/g, '');
-    const targetSheet = allSheets.find(s => s.name.toUpperCase() === cleanSheetName.toUpperCase()) || sheet;
+    const exclamationIdx = expr.indexOf('!');
+    const rawSheetName = expr.substring(0, exclamationIdx).trim().replace(/^'|'$/g, '');
+    const cellRef = expr.substring(exclamationIdx + 1).trim();
+
+    const clean = rawSheetName.toUpperCase().replace(/\.+$/, '');
+    const targetSheet = allSheets.find(s => {
+      const sName = s.name.toUpperCase();
+      return sName === rawSheetName.toUpperCase() || sName.startsWith(clean) || clean.startsWith(sName);
+    }) || sheet;
+
     return evaluateExpression(cellRef, targetSheet, allSheets, callStack);
   }
+
 
   // Handle cell range "A1:B10"
   const range = parseRangeAddress(expr, sheet.rowCount);
@@ -604,15 +648,15 @@ function executeFunction(
     if (args.length < 3) throw new Error('#N/D');
     const lookupVal = evaluateExpression(args[0], sheet, allSheets, callStack);
     
-    // Evaluate lookup array
-    const lookupRange = parseRangeAddress(args[1], sheet.rowCount);
-    const returnRange = parseRangeAddress(args[2], sheet.rowCount);
+    // Evaluate lookup array (supports cross-sheet 'Acompanhamento'!A:A)
+    const lookupRes = resolveRangeAndValues(args[1], sheet, allSheets);
+    const returnRes = resolveRangeAndValues(args[2], sheet, allSheets);
     const ifNotFound = args[3] !== undefined ? evaluateExpression(args[3], sheet, allSheets, callStack) : '#N/D';
 
-    if (!lookupRange || !returnRange) throw new Error('#VALOR!');
+    if (!lookupRes || !returnRes) throw new Error('#VALOR!');
 
-    const lookupItems = getFlatRangeValues(sheet, lookupRange);
-    const returnItems = getFlatRangeValues(sheet, returnRange);
+    const lookupItems = lookupRes.flatValues;
+    const returnItems = returnRes.flatValues;
 
     let matchIndex = -1;
     const lookupStr = String(lookupVal).trim().toLowerCase();
@@ -630,6 +674,28 @@ function executeFunction(
       return returnItems[matchIndex];
     }
     return ifNotFound;
+  }
+
+  // PROCV / VLOOKUP
+  if (func === 'PROCV' || func === 'VLOOKUP') {
+    if (args.length < 3) throw new Error('#VALOR!');
+    const lookupVal = evaluateExpression(args[0], sheet, allSheets, callStack);
+    const tableRes = resolveRangeAndValues(args[1], sheet, allSheets);
+    if (!tableRes) throw new Error('#VALOR!');
+    const colIdx = Number(evaluateExpression(args[2], sheet, allSheets, callStack));
+    if (isNaN(colIdx) || colIdx < 1 || colIdx > (tableRes.range.endCol - tableRes.range.startCol + 1)) {
+      throw new Error('#REF!');
+    }
+
+    const matrix = tableRes.matrixValues;
+    const lookupStr = String(lookupVal).trim().toLowerCase();
+    for (let r = 0; r < matrix.length; r++) {
+      const firstColVal = matrix[r][0];
+      if (firstColVal !== null && firstColVal !== undefined && (String(firstColVal).trim().toLowerCase() === lookupStr || firstColVal === lookupVal)) {
+        return matrix[r][colIdx - 1];
+      }
+    }
+    throw new Error('#N/D');
   }
 
   // SEERRO / IFERROR
@@ -652,32 +718,32 @@ function executeFunction(
   // ÍNDICE / INDEX
   if (func === 'ÍNDICE' || func === 'INDICE' || func === 'INDEX') {
     if (args.length < 2) throw new Error('#VALOR!');
-    const range = parseRangeAddress(args[0], sheet.rowCount);
-    if (!range) throw new Error('#REF!');
+    const resolved = resolveRangeAndValues(args[0], sheet, allSheets);
+    if (!resolved) throw new Error('#REF!');
     const rowNum = Number(evaluateExpression(args[1], sheet, allSheets, callStack));
     const colNum = args[2] ? Number(evaluateExpression(args[2], sheet, allSheets, callStack)) : 1;
 
     if (isNaN(rowNum) || rowNum < 1) throw new Error('#REF!');
-    const targetRow = range.startRow + (rowNum - 1);
-    const targetCol = range.startCol + (colNum - 1);
+    const targetRow = resolved.range.startRow + (rowNum - 1);
+    const targetCol = resolved.range.startCol + (colNum - 1);
 
-    if (targetRow > range.endRow || targetCol > range.endCol) throw new Error('#REF!');
-    return getCellValue(sheet, targetRow, targetCol);
+    if (targetRow > resolved.range.endRow || targetCol > resolved.range.endCol) throw new Error('#REF!');
+    return getCellValue(resolved.targetSheet, targetRow, targetCol);
   }
 
   // CORRESP / MATCH
   if (func === 'CORRESP' || func === 'MATCH') {
     if (args.length < 2) throw new Error('#VALOR!');
     const lookupVal = evaluateExpression(args[0], sheet, allSheets, callStack);
-    const range = parseRangeAddress(args[1], sheet.rowCount);
-    if (!range) throw new Error('#VALOR!');
+    const resolved = resolveRangeAndValues(args[1], sheet, allSheets);
+    if (!resolved) throw new Error('#VALOR!');
 
-    const items = getFlatRangeValues(sheet, range);
+    const items = resolved.flatValues;
     const lookupStr = String(lookupVal).trim().toLowerCase();
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      if (item !== null && (String(item).trim().toLowerCase() === lookupStr || item === lookupVal)) {
+      if (item !== null && item !== undefined && (String(item).trim().toLowerCase() === lookupStr || item === lookupVal)) {
         return i + 1; // 1-based index
       }
     }
@@ -689,9 +755,9 @@ function executeFunction(
     if (args.length === 0) return 0;
     const arrays: number[][] = [];
     for (const arg of args) {
-      const range = parseRangeAddress(arg, sheet.rowCount);
-      if (range) {
-        const vals = getFlatRangeValues(sheet, range).map(v => {
+      const resolved = resolveRangeAndValues(arg, sheet, allSheets);
+      if (resolved) {
+        const vals = resolved.flatValues.map(v => {
           const n = parseNumberSafely(v);
           return n !== null ? n : 0;
         });
@@ -718,12 +784,12 @@ function executeFunction(
   // MÉDIA.PONDERADA / WEIGHTED.AVERAGE
   if (func === 'MÉDIA.PONDERADA' || func === 'MEDIA.PONDERADA' || func === 'WEIGHTED.AVERAGE') {
     if (args.length < 2) throw new Error('#VALOR!');
-    const valRange = parseRangeAddress(args[0], sheet.rowCount);
-    const weightRange = parseRangeAddress(args[1], sheet.rowCount);
+    const valRes = resolveRangeAndValues(args[0], sheet, allSheets);
+    const weightRes = resolveRangeAndValues(args[1], sheet, allSheets);
 
-    if (!valRange || !weightRange) throw new Error('#VALOR!');
-    const vals = getFlatRangeValues(sheet, valRange).map(v => parseNumberSafely(v) ?? 0);
-    const weights = getFlatRangeValues(sheet, weightRange).map(w => parseNumberSafely(w) ?? 0);
+    if (!valRes || !weightRes) throw new Error('#VALOR!');
+    const vals = valRes.flatValues.map(v => parseNumberSafely(v) ?? 0);
+    const weights = weightRes.flatValues.map(w => parseNumberSafely(w) ?? 0);
 
     let sumProd = 0;
     let sumWeight = 0;
@@ -746,9 +812,9 @@ function executeFunction(
 
     const textItems: string[] = [];
     for (let i = 2; i < args.length; i++) {
-      const range = parseRangeAddress(args[i], sheet.rowCount);
-      if (range) {
-        const flat = getFlatRangeValues(sheet, range);
+      const resolved = resolveRangeAndValues(args[i], sheet, allSheets);
+      if (resolved) {
+        const flat = resolved.flatValues;
         for (const f of flat) {
           if (f === null || f === undefined || f === '') {
             if (!ignoreEmpty) textItems.push('');
@@ -772,9 +838,9 @@ function executeFunction(
   if (func === 'CONCATENAR' || func === 'CONCAT') {
     const texts: string[] = [];
     for (const arg of args) {
-      const range = parseRangeAddress(arg, sheet.rowCount);
-      if (range) {
-        getFlatRangeValues(sheet, range).forEach(v => {
+      const resolved = resolveRangeAndValues(arg, sheet, allSheets);
+      if (resolved) {
+        resolved.flatValues.forEach(v => {
           if (v !== null && v !== undefined) texts.push(String(v));
         });
       } else {
@@ -789,9 +855,9 @@ function executeFunction(
   if (func === 'SOMA' || func === 'SUM') {
     let sum = 0;
     for (const arg of args) {
-      const range = parseRangeAddress(arg, sheet.rowCount);
-      if (range) {
-        getFlatRangeValues(sheet, range).forEach(v => {
+      const resolved = resolveRangeAndValues(arg, sheet, allSheets);
+      if (resolved) {
+        resolved.flatValues.forEach(v => {
           const n = parseNumberSafely(v);
           if (n !== null) sum += n;
         });
@@ -809,9 +875,9 @@ function executeFunction(
     let sum = 0;
     let count = 0;
     for (const arg of args) {
-      const range = parseRangeAddress(arg, sheet.rowCount);
-      if (range) {
-        getFlatRangeValues(sheet, range).forEach(v => {
+      const resolved = resolveRangeAndValues(arg, sheet, allSheets);
+      if (resolved) {
+        resolved.flatValues.forEach(v => {
           const n = parseNumberSafely(v);
           if (n !== null) {
             sum += n;
@@ -834,12 +900,12 @@ function executeFunction(
   // CONT.SE / COUNTIF
   if (func === 'CONT.SE' || func === 'CONTAR.SE' || func === 'COUNTIF') {
     if (args.length < 2) throw new Error('#VALOR!');
-    const range = parseRangeAddress(args[0], sheet.rowCount);
-    if (!range) throw new Error('#VALOR!');
+    const resolved = resolveRangeAndValues(args[0], sheet, allSheets);
+    if (!resolved) throw new Error('#VALOR!');
     const criteriaRaw = evaluateExpression(args[1], sheet, allSheets, callStack);
     const criteriaStr = String(criteriaRaw).trim();
 
-    const vals = getFlatRangeValues(sheet, range);
+    const vals = resolved.flatValues;
     let count = 0;
 
     for (const v of vals) {
@@ -871,13 +937,55 @@ function executeFunction(
     return count;
   }
 
+  // SOMASE / SUMIF
+  if (func === 'SOMASE' || func === 'SUMIF') {
+    if (args.length < 2) throw new Error('#VALOR!');
+    const rangeRes = resolveRangeAndValues(args[0], sheet, allSheets);
+    if (!rangeRes) throw new Error('#VALOR!');
+    const criteriaRaw = evaluateExpression(args[1], sheet, allSheets, callStack);
+    const criteriaStr = String(criteriaRaw).trim();
+
+    const sumRes = args[2] ? resolveRangeAndValues(args[2], sheet, allSheets) : rangeRes;
+    const rangeVals = rangeRes.flatValues;
+    const sumVals = sumRes ? sumRes.flatValues : rangeVals;
+
+    let total = 0;
+    for (let i = 0; i < rangeVals.length; i++) {
+      const v = rangeVals[i];
+      if (v === null || v === undefined) continue;
+      let match = false;
+
+      if (criteriaStr.startsWith('>=')) {
+        match = Number(v) >= parseFloat(criteriaStr.substring(2));
+      } else if (criteriaStr.startsWith('<=')) {
+        match = Number(v) <= parseFloat(criteriaStr.substring(2));
+      } else if (criteriaStr.startsWith('<>')) {
+        match = String(v).toLowerCase() !== criteriaStr.substring(2).toLowerCase();
+      } else if (criteriaStr.startsWith('>')) {
+        match = Number(v) > parseFloat(criteriaStr.substring(1));
+      } else if (criteriaStr.startsWith('<')) {
+        match = Number(v) < parseFloat(criteriaStr.substring(1));
+      } else if (criteriaStr.startsWith('=')) {
+        match = String(v).toLowerCase() === criteriaStr.substring(1).toLowerCase();
+      } else {
+        match = String(v).toLowerCase() === criteriaStr.toLowerCase() || v === criteriaRaw;
+      }
+
+      if (match && sumVals[i] !== undefined) {
+        const n = parseNumberSafely(sumVals[i]);
+        if (n !== null) total += n;
+      }
+    }
+    return total;
+  }
+
   // CONT.VALORES / COUNTA
   if (func === 'CONT.VALORES' || func === 'CONTAR.VALORES' || func === 'COUNTA') {
     let count = 0;
     for (const arg of args) {
-      const range = parseRangeAddress(arg, sheet.rowCount);
-      if (range) {
-        getFlatRangeValues(sheet, range).forEach(v => {
+      const resolved = resolveRangeAndValues(arg, sheet, allSheets);
+      if (resolved) {
+        resolved.flatValues.forEach(v => {
           if (v !== null && v !== undefined && v !== '') count++;
         });
       } else {
@@ -892,9 +1000,9 @@ function executeFunction(
   if (func === 'MÁXIMO' || func === 'MAXIMO' || func === 'MAX') {
     let max = -Infinity;
     for (const arg of args) {
-      const range = parseRangeAddress(arg, sheet.rowCount);
-      if (range) {
-        getFlatRangeValues(sheet, range).forEach(v => {
+      const resolved = resolveRangeAndValues(arg, sheet, allSheets);
+      if (resolved) {
+        resolved.flatValues.forEach(v => {
           const n = parseNumberSafely(v);
           if (n !== null && n > max) max = n;
         });
@@ -910,9 +1018,9 @@ function executeFunction(
   if (func === 'MÍNIMO' || func === 'MINIMO' || func === 'MIN') {
     let min = Infinity;
     for (const arg of args) {
-      const range = parseRangeAddress(arg, sheet.rowCount);
-      if (range) {
-        getFlatRangeValues(sheet, range).forEach(v => {
+      const resolved = resolveRangeAndValues(arg, sheet, allSheets);
+      if (resolved) {
+        resolved.flatValues.forEach(v => {
           const n = parseNumberSafely(v);
           if (n !== null && n < min) min = n;
         });
@@ -923,6 +1031,7 @@ function executeFunction(
     }
     return min === Infinity ? 0 : min;
   }
+
 
   // SE / IF
   if (func === 'SE' || func === 'IF') {
