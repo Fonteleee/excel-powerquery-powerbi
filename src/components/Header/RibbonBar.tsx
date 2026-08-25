@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import {
+  Undo,
+  Redo,
   Bold,
   Italic,
   Underline,
@@ -7,42 +9,41 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  Palette,
-  Sparkles,
-  Split,
-  BarChart2,
-  FileSpreadsheet,
-  Download,
-  Upload,
-  Undo2,
-  Redo2,
-  Merge,
-  Search,
   ChevronDown,
-  Database,
-  LayoutDashboard,
-  Type,
-  Grid,
-  Keyboard,
-  Filter,
+  DollarSign,
+  Percent,
+  Search,
+  Plus,
   Trash2,
+  Filter,
+  ArrowUpDown,
+  Type,
+  PaintBucket,
+  Table,
+  Sparkles,
+  Download,
+  Grid,
+  FileSpreadsheet,
+  HelpCircle,
+  BarChart3,
+  PieChart as PieIcon,
+  LineChart as LineIcon,
+  Calculator,
+  Layers,
+  Database,
+  Eye,
+  FileText,
+  Upload,
+  RefreshCw,
+  FolderOpen,
   Check,
+  X,
+  Keyboard,
+  ExternalLink,
 } from 'lucide-react';
-
-
-
-import brandEmblem from '../../assets/brand_emblem.jpg';
-import {
-  BespokeGridIcon,
-  BespokeQueryIcon,
-  BespokeAnalyticsIcon,
-  BespokeExportIcon,
-  BespokeSparkIcon,
-} from '../Icons/BespokeIcons';
 import { Sheet, CellRange, CellFormat } from '../../types/spreadsheet';
 import { cellPosToKey, recalculateSheet } from '../../engine/formulaParser';
 import { exportSheetToExcel } from '../../utils/excelExporter';
-
 
 interface RibbonBarProps {
   sheet: Sheet;
@@ -64,9 +65,17 @@ interface RibbonBarProps {
   onInsertFormulaTemplate: (template: string) => void;
   isCopilotOpen?: boolean;
   onToggleCopilot?: () => void;
+  onNewWorkbook?: () => void;
+  onLoadSampleSales?: () => void;
+  onLoadSampleHR?: () => void;
+  onLoadSampleBudget?: () => void;
+  showGridlines?: boolean;
+  onToggleGridlines?: () => void;
+  showFormulaBar?: boolean;
+  onToggleFormulaBar?: () => void;
+  zoomLevel?: number;
+  onSetZoomLevel?: (zoom: number) => void;
 }
-
-
 
 export const RibbonBar: React.FC<RibbonBarProps> = ({
   sheet,
@@ -88,13 +97,21 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
   onInsertFormulaTemplate,
   isCopilotOpen = false,
   onToggleCopilot,
+  onNewWorkbook,
+  onLoadSampleSales,
+  onLoadSampleHR,
+  onLoadSampleBudget,
+  showGridlines = true,
+  onToggleGridlines,
+  showFormulaBar = true,
+  onToggleFormulaBar,
+  zoomLevel = 100,
+  onSetZoomLevel,
 }) => {
-
-
-  const [activeRibbonTab, setActiveRibbonTab] = useState<'home' | 'insert' | 'formulas' | 'data' | 'view'>('home');
-  const [isRibbonCollapsed, setIsRibbonCollapsed] = useState(true);
+  const [activeRibbonTab, setActiveRibbonTab] = useState<'home' | 'insert' | 'formulas' | 'data' | 'view' | 'help'>('home');
+  const [isRibbonCollapsed, setIsRibbonCollapsed] = useState(false);
+  const [showFileMenu, setShowFileMenu] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState<'text' | 'bg' | null>(null);
-
 
   // Apply format to all cells in selected range
   const applyFormat = (formatPatch: Partial<CellFormat>) => {
@@ -127,8 +144,7 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
     );
 
     if (isAlreadyMerged) {
-      // Unmerge
-      const newMerged = sheet.mergedRegions.filter(
+      const updatedRegions = sheet.mergedRegions.filter(
         m =>
           !(
             m.startRow === selectedRange.startRow &&
@@ -137,17 +153,13 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
             m.endCol === selectedRange.endCol
           )
       );
-      onUpdateSheet({ ...sheet, mergedRegions: newMerged });
+      onUpdateSheet({ ...sheet, mergedRegions: updatedRegions });
     } else {
-      // Merge and center
+      if (selectedRange.startRow === selectedRange.endRow && selectedRange.startCol === selectedRange.endCol) {
+        return;
+      }
+      const newRegion = { id: `merge-${Date.now()}`, ...selectedRange };
       applyFormat({ align: 'center' });
-      const newRegion = {
-        id: `merge-${Date.now()}`,
-        startRow: selectedRange.startRow,
-        startCol: selectedRange.startCol,
-        endRow: selectedRange.endRow,
-        endCol: selectedRange.endCol,
-      };
       onUpdateSheet({
         ...sheet,
         mergedRegions: [...sheet.mergedRegions, newRegion],
@@ -155,28 +167,40 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
     }
   };
 
-  // Delete entire selected rows completely
-  const handleDeleteSelectedRows = () => {
+  // Border helper
+  const handleApplyBorders = (type: 'all' | 'thick' | 'none') => {
+    if (type === 'none') {
+      applyFormat({ border: undefined });
+    } else if (type === 'thick') {
+      applyFormat({ border: { top: true, bottom: true, left: true, right: true, color: '#107c41', style: 'thick' } });
+    } else {
+      applyFormat({ border: { top: true, bottom: true, left: true, right: true, color: '#d4d4d4', style: 'solid' } });
+    }
+  };
+
+
+  // Delete selected rows
+  const handleDeleteRow = () => {
+    const updatedData = { ...sheet.data };
     const rStart = selectedRange.startRow;
     const rEnd = selectedRange.endRow;
-    const countToDelete = rEnd - rStart + 1;
-
-    const updatedData: { [key: string]: any } = {};
+    const count = rEnd - rStart + 1;
 
     for (let r = 0; r < sheet.rowCount; r++) {
-      if (r >= rStart && r <= rEnd) continue; // Skip deleted rows
-
-      const targetR = r > rEnd ? r - countToDelete : r;
+      if (r >= rStart && r <= rEnd) continue;
+      const targetR = r > rEnd ? r - count : r;
       for (let c = 0; c < sheet.colCount; c++) {
         const srcKey = cellPosToKey(r, c);
         const destKey = cellPosToKey(targetR, c);
         if (sheet.data[srcKey]) {
           updatedData[destKey] = sheet.data[srcKey];
+        } else {
+          delete updatedData[destKey];
         }
       }
     }
 
-    const newRowCount = Math.max(10, sheet.rowCount - countToDelete);
+    const newRowCount = Math.max(10, sheet.rowCount - count);
     const recalculated = recalculateSheet({
       ...sheet,
       data: updatedData,
@@ -185,79 +209,85 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
     onUpdateSheet(recalculated);
   };
 
-  // Colors palette
+  // Insert blank row
+  const handleInsertRow = () => {
+    const updatedData = { ...sheet.data };
+    const insertAt = selectedRange.startRow;
+
+    for (let r = sheet.rowCount - 1; r >= insertAt; r--) {
+      for (let c = 0; c < sheet.colCount; c++) {
+        const srcKey = cellPosToKey(r, c);
+        const destKey = cellPosToKey(r + 1, c);
+        if (sheet.data[srcKey]) {
+          updatedData[destKey] = sheet.data[srcKey];
+          delete updatedData[srcKey];
+        }
+      }
+    }
+
+    const recalculated = recalculateSheet({
+      ...sheet,
+      data: updatedData,
+      rowCount: sheet.rowCount + 1,
+    });
+    onUpdateSheet(recalculated);
+  };
+
   const colors = [
-    '#000000', '#334155', '#64748b', '#94a3b8', '#cbd5e1', '#ffffff',
-    '#107c41', '#16a34a', '#dcfce7', '#0284c7', '#0369a1', '#e0f2fe',
-    '#d97706', '#b45309', '#fef3c7', '#dc2626', '#b91c1c', '#fee2e2',
-    '#7c3aed', '#6d28d9', '#f3e8ff', '#db2777', '#be185d', '#fce7f3',
+    '#000000', '#434343', '#666666', '#999999', '#b7b7b7', '#cccccc', '#d9d9d9', '#efefef', '#f3f3f3', '#ffffff',
+    '#980000', '#ff0000', '#ff9900', '#ffff00', '#00ff00', '#00ffff', '#4a86e8', '#0000ff', '#9900ff', '#ff00ff',
+    '#e6b8af', '#f4cccc', '#fce5cd', '#fff2cc', '#d9ead3', '#d0e0e3', '#c9daf8', '#cfe2f3', '#d9d2e9', '#ead1dc',
+    '#dd7e6b', '#ea9999', '#f9cb9c', '#ffe599', '#b6d7a8', '#a2c4c9', '#a4c2f4', '#9fc5e8', '#b4a7d6', '#d5a6bd',
+    '#107c41', '#0e6b37', '#0b532c', '#043419', '#1e293b', '#334155', '#475569', '#64748b', '#0284c7', '#0369a1',
   ];
 
   return (
-    <div className="bg-[#f5f5f5] border-b border-[#e0e0e0] flex flex-col select-none z-20 font-sans">
-      {/* 1. EXCEL ONLINE TOP SUITE BAR (Exact Replica of Image 2) */}
-      <div className="h-11 px-3 flex items-center justify-between bg-[#f5f5f5]">
-        {/* Left: 9-Dot Waffle + Excel Icon + Document Title + Cloud Sync */}
+    <div className="flex flex-col bg-[#f5f5f5] text-[#242424] border-b border-[#e0e0e0] font-sans select-none relative z-30 shadow-2xs">
+      {/* 1. TOP SUITE BAR (Office 365 Top Header) */}
+      <div className="h-11 px-3 flex items-center justify-between bg-[#f5f5f5] border-b border-[#e0e0e0]">
+        {/* Left: 9-dot Waffle + Green Excel Icon + Document Title */}
         <div className="flex items-center gap-2.5">
-          {/* Office 365 9-Dots Waffle Menu */}
           <button
             title="Inicializador de Aplicativos"
-            className="p-1 rounded hover:bg-[#ebebeb] text-[#505050] hover:text-[#242424] cursor-pointer"
+            className="p-1.5 rounded hover:bg-[#ebebeb] text-[#242424] cursor-pointer transition-colors"
           >
-            <div className="grid grid-cols-3 gap-0.5 size-4 p-0.5">
+            <div className="grid grid-cols-3 gap-0.5 size-4">
               {Array.from({ length: 9 }).map((_, i) => (
-                <div key={i} className="size-0.75 bg-[#505050] rounded-2xs" />
+                <div key={i} className="size-0.8 bg-[#242424] rounded-full" />
               ))}
             </div>
           </button>
 
-          {/* Excel Modern Rounded App Icon */}
-          <div className="size-7 bg-[#e8f5e9] border border-[#c8e6c9] rounded-md flex items-center justify-center shadow-xs cursor-pointer hover:scale-105 transition-transform">
-            <div className="size-5 bg-[#107c41] rounded flex items-center justify-center text-white font-bold text-xs shadow-2xs">
-              X
-            </div>
+          {/* Green Excel Square Icon */}
+          <div className="size-6.5 rounded-md bg-[#107c41] flex items-center justify-center text-white shadow-2xs">
+            <span className="font-bold text-xs">X</span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span
-              title="Clique para renomear a pasta de trabalho"
-              className="font-medium text-sm text-[#242424] hover:bg-[#ebebeb] px-1.5 py-0.5 rounded cursor-pointer max-w-[280px] truncate"
-            >
-              {sheet.name}
+          {/* Title & OneDrive Status */}
+          <div className="flex items-center gap-1.5">
+            <input
+              type="text"
+              value={sheet.name}
+              onChange={e => onUpdateSheet({ ...sheet, name: e.target.value })}
+              className="font-semibold text-sm text-[#242424] bg-transparent hover:bg-white/80 focus:bg-white px-1.5 py-0.5 rounded border border-transparent focus:border-[#107c41] outline-hidden max-w-[280px] truncate"
+            />
+            <span title="Salvo no OneDrive" className="text-xs text-[#707070] flex items-center gap-1 cursor-default">
+              <span>☁️✓</span>
             </span>
-
-            {/* Cloud Sync & Shield Icons */}
-            <div className="flex items-center gap-1.5 text-[#505050]">
-              <div title="Protegido e seguro" className="size-4 rounded-full bg-blue-600 flex items-center justify-center text-white text-[9px] shadow-2xs">
-                🛡️
-              </div>
-              <div title="Salvo no OneDrive" className="flex items-center text-emerald-600 text-xs">
-                ☁️✓
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* Center: Excel Online Search Bar (Exact Replica of Image 2) */}
+        {/* Center: Search Box (Alt + Q) */}
         <div
           onClick={onOpenFindReplace}
-          title="Pesquisar ferramentas, ajuda e muito mais (Alt + Q)"
-          className="hidden md:flex items-center gap-2.5 px-3 py-1.5 bg-white border border-[#e0e0e0] hover:border-[#b0b0b0] rounded-md text-xs text-[#707070] w-[420px] cursor-pointer transition-colors shadow-2xs"
+          className="hidden md:flex items-center gap-2 w-96 h-7.5 px-3 bg-white border border-[#e0e0e0] hover:border-[#107c41] rounded-md text-xs text-[#707070] cursor-pointer shadow-2xs transition-colors"
         >
           <Search className="size-3.5 text-[#707070]" />
-          <span className="truncate">Pesquisar ferramentas, ajuda e muito mais (</span>
+          <span className="truncate">Pesquisar ferramentas, fórmulas e ajuda (Alt + Q)</span>
         </div>
 
-        {/* Right: Comments, Actions, Module Switchers, Compartilhar */}
+        {/* Right: Comments, Module Switchers, Copilot, Compartilhar */}
         <div className="flex items-center gap-2">
-          {/* Comentários Button */}
-          <button
-            onClick={onOpenShortcutsModal}
-            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-white border border-[#e0e0e0] hover:bg-[#ebebeb] rounded-md text-xs text-[#242424] font-normal transition-colors cursor-pointer shadow-2xs"
-          >
-            <span>💬 Comentários</span>
-          </button>
-
           {/* Module Switcher Pills */}
           <div className="flex items-center p-0.5 bg-[#ebebeb] rounded-md border border-[#e0e0e0]">
             <button
@@ -265,7 +295,7 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
                 onSetActiveView('spreadsheet');
                 setActiveRibbonTab('home');
               }}
-              className={`px-2 py-0.5 rounded text-xs font-semibold transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
                 activeView === 'spreadsheet'
                   ? 'bg-white text-[#107c41] shadow-2xs font-bold'
                   : 'text-[#505050] hover:text-[#242424]'
@@ -278,7 +308,7 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
                 onSetActiveView('powerquery');
                 setActiveRibbonTab('data');
               }}
-              className={`px-2 py-0.5 rounded text-xs font-semibold transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
                 activeView === 'powerquery'
                   ? 'bg-white text-[#4338ca] shadow-2xs font-bold'
                   : 'text-[#505050] hover:text-[#4338ca]'
@@ -291,7 +321,7 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
                 onSetActiveView('powerbi');
                 setActiveRibbonTab('view');
               }}
-              className={`px-2 py-0.5 rounded text-xs font-semibold transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
                 activeView === 'powerbi'
                   ? 'bg-white text-[#b45309] shadow-2xs font-bold'
                   : 'text-[#505050] hover:text-[#b45309]'
@@ -318,7 +348,7 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
           {/* Compartilhar / Exportar XLSX Button (Green) */}
           <button
             onClick={() => exportSheetToExcel(sheet, sheet.name)}
-            title="Compartilhar / Exportar Pasta de Trabalho"
+            title="Compartilhar / Exportar Pasta de Trabalho (.xlsx)"
             className="flex items-center gap-1.5 px-3 py-1 bg-[#107c41] hover:bg-[#0e6b37] text-white rounded-md text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
           >
             <Download className="size-3.5" />
@@ -327,205 +357,314 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
         </div>
       </div>
 
-
-      {/* 2. RIBBON TABS (Exact Replica of Image 2 Tabs Bar) */}
-      <div className="h-7 px-2 flex items-center justify-between bg-[#f5f5f5] text-xs font-normal text-[#242424] border-b border-[#e0e0e0]">
+      {/* 2. RIBBON TABS (7 Clean, Non-Redundant, 100% Functional Tabs) */}
+      <div className="h-7.5 px-2 flex items-center justify-between bg-[#f5f5f5] text-xs font-normal text-[#242424] border-b border-[#e0e0e0]">
         <div className="flex items-center gap-0.5 h-full">
+          {/* Arquivo (Backstage Menu Toggle) */}
           <button
-            onClick={() => {
-              onSetActiveView('spreadsheet');
-              setActiveRibbonTab('home');
-            }}
-            className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] rounded-t cursor-pointer"
+            onClick={() => setShowFileMenu(prev => !prev)}
+            className={`px-3 h-full flex items-center gap-1 font-semibold rounded-t cursor-pointer transition-colors ${
+              showFileMenu
+                ? 'bg-[#107c41] text-white'
+                : 'hover:bg-[#ebebeb] text-[#107c41]'
+            }`}
           >
-            Arquivo
+            <FileSpreadsheet className="size-3.5" />
+            <span>Arquivo</span>
           </button>
 
+          {/* Início */}
           <button
             onClick={() => {
               onSetActiveView('spreadsheet');
               setActiveRibbonTab('home');
-              setIsRibbonCollapsed(prev => activeRibbonTab === 'home' ? !prev : false);
+              setShowFileMenu(false);
             }}
-            className={`px-2.5 h-full flex items-center cursor-pointer ${
-              activeRibbonTab === 'home' && activeView === 'spreadsheet'
-                ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
+            className={`px-3 h-full flex items-center cursor-pointer transition-colors ${
+              activeRibbonTab === 'home' && !showFileMenu && activeView === 'spreadsheet'
+                ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41] bg-white/60'
                 : 'hover:bg-[#ebebeb] text-[#242424]'
             }`}
           >
             Início
           </button>
 
+          {/* Inserir */}
           <button
             onClick={() => {
               onSetActiveView('spreadsheet');
               setActiveRibbonTab('insert');
-              setIsRibbonCollapsed(prev => activeRibbonTab === 'insert' ? !prev : false);
+              setShowFileMenu(false);
             }}
-            className={`px-2.5 h-full flex items-center cursor-pointer ${
-              activeRibbonTab === 'insert'
-                ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
+            className={`px-3 h-full flex items-center cursor-pointer transition-colors ${
+              activeRibbonTab === 'insert' && !showFileMenu
+                ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41] bg-white/60'
                 : 'hover:bg-[#ebebeb] text-[#242424]'
             }`}
           >
             Inserir
           </button>
 
-          <button
-            onClick={() => exportSheetToExcel(sheet, sheet.name)}
-            className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
-          >
-            Compartilhar
-          </button>
-
+          {/* Fórmulas */}
           <button
             onClick={() => {
               onSetActiveView('spreadsheet');
               setActiveRibbonTab('formulas');
+              setShowFileMenu(false);
             }}
-            className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
-          >
-            Layout da Página
-          </button>
-
-          <button
-            onClick={() => {
-              onSetActiveView('spreadsheet');
-              setActiveRibbonTab('formulas');
-              setIsRibbonCollapsed(prev => activeRibbonTab === 'formulas' ? !prev : false);
-            }}
-            className={`px-2.5 h-full flex items-center cursor-pointer ${
-              activeRibbonTab === 'formulas'
-                ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
+            className={`px-3 h-full flex items-center cursor-pointer transition-colors ${
+              activeRibbonTab === 'formulas' && !showFileMenu
+                ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41] bg-white/60'
                 : 'hover:bg-[#ebebeb] text-[#242424]'
             }`}
           >
             Fórmulas
           </button>
 
+          {/* Dados */}
           <button
             onClick={() => {
-              onSetActiveView('powerquery');
               setActiveRibbonTab('data');
+              setShowFileMenu(false);
             }}
-            className={`px-2.5 h-full flex items-center cursor-pointer ${
-              activeRibbonTab === 'data' || activeView === 'powerquery'
-                ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
+            className={`px-3 h-full flex items-center cursor-pointer transition-colors ${
+              activeRibbonTab === 'data' && !showFileMenu
+                ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41] bg-white/60'
                 : 'hover:bg-[#ebebeb] text-[#242424]'
             }`}
           >
             Dados
           </button>
 
-          <button
-            onClick={() => onOpenQuickAnalysis()}
-            className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
-          >
-            Revisão
-          </button>
-
+          {/* Exibir */}
           <button
             onClick={() => {
-              onSetActiveView('powerbi');
               setActiveRibbonTab('view');
+              setShowFileMenu(false);
             }}
-            className={`px-2.5 h-full flex items-center cursor-pointer ${
-              activeRibbonTab === 'view' || activeView === 'powerbi'
-                ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41]'
+            className={`px-3 h-full flex items-center cursor-pointer transition-colors ${
+              activeRibbonTab === 'view' && !showFileMenu
+                ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41] bg-white/60'
                 : 'hover:bg-[#ebebeb] text-[#242424]'
             }`}
           >
             Exibir
           </button>
 
+          {/* Ajuda */}
           <button
-            onClick={onOpenShortcutsModal}
-            className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
+            onClick={() => {
+              setActiveRibbonTab('help');
+              setShowFileMenu(false);
+            }}
+            className={`px-3 h-full flex items-center cursor-pointer transition-colors ${
+              activeRibbonTab === 'help' && !showFileMenu
+                ? 'text-[#107c41] font-semibold border-b-2 border-[#107c41] bg-white/60'
+                : 'hover:bg-[#ebebeb] text-[#242424]'
+            }`}
           >
             Ajuda
-          </button>
-
-          <button
-            onClick={() => onOpenTextToColumns()}
-            className="px-2.5 h-full flex items-center hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
-          >
-            Desenhar
           </button>
         </div>
 
         {/* Right: Ribbon Collapse/Expand Toggle Chevron */}
         <button
           onClick={() => setIsRibbonCollapsed(!isRibbonCollapsed)}
-          title={isRibbonCollapsed ? "Exibir Faixa de Opções" : "Ocultar Faixa de Opções"}
+          title={isRibbonCollapsed ? "Exibir Barra de Ferramentas" : "Ocultar Barra de Ferramentas"}
           className="p-1 rounded hover:bg-[#ebebeb] text-[#707070] hover:text-[#242424] cursor-pointer transition-colors"
         >
           <ChevronDown className={`size-3.5 transition-transform duration-200 ${isRibbonCollapsed ? '' : 'rotate-180'}`} />
         </button>
       </div>
 
-      {/* 3. RIBBON TOOLBAR BODY (Simplified Single-Line Office 365 Toolbar) */}
-      {!isRibbonCollapsed && (
-        <div className="h-9 px-3 py-1 flex items-center gap-2 overflow-x-auto scrollbar-none bg-[#f5f5f5] text-xs text-[#242424] border-b border-[#e0e0e0] animate-in slide-in-from-top-1 duration-150">
+      {/* 3. ARQUIVO BACKSTAGE DROPDOWN DIALOG */}
+      {showFileMenu && (
+        <div className="absolute left-2 top-18.5 z-50 w-84 bg-white border border-[#e0e0e0] rounded-lg shadow-2xl p-3 animate-in fade-in slide-in-from-top-2 duration-150 font-sans text-xs">
+          <div className="flex items-center justify-between border-b border-[#e0e0e0] pb-2 mb-2">
+            <span className="font-semibold text-xs text-[#242424] flex items-center gap-1.5">
+              <FileSpreadsheet className="size-4 text-[#107c41]" />
+              <span>Menu Arquivo</span>
+            </span>
+            <button
+              onClick={() => setShowFileMenu(false)}
+              className="p-1 rounded hover:bg-[#ebebeb] text-[#707070] cursor-pointer"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
 
-        {/* PÁGINA INICIAL */}
-        {activeRibbonTab === 'home' && (
-          <>
-            {/* Group: Fonte & Formatação de Texto */}
-            <div className="flex flex-col items-center justify-between h-full pr-2.5 border-r border-slate-200">
-              <div className="flex items-center gap-0.5">
+          <div className="space-y-1">
+            <button
+              onClick={() => {
+                onNewWorkbook?.();
+                setShowFileMenu(false);
+              }}
+              className="w-full px-2.5 py-1.5 rounded-md hover:bg-[#f0f9f3] text-left text-[#242424] flex items-center gap-2 cursor-pointer transition-colors"
+            >
+              <FileText className="size-4 text-[#107c41]" />
+              <div>
+                <div className="font-semibold">Nova Planilha em Branco</div>
+                <div className="text-[10px] text-[#707070]">Iniciar pasta de trabalho limpa</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                onOpenImportExport();
+                setShowFileMenu(false);
+              }}
+              className="w-full px-2.5 py-1.5 rounded-md hover:bg-[#f0f9f3] text-left text-[#242424] flex items-center gap-2 cursor-pointer transition-colors"
+            >
+              <Upload className="size-4 text-blue-600" />
+              <div>
+                <div className="font-semibold">Abrir / Importar Arquivo</div>
+                <div className="text-[10px] text-[#707070]">Carregar CSV ou XLSX do computador</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                exportSheetToExcel(sheet, sheet.name);
+                setShowFileMenu(false);
+              }}
+              className="w-full px-2.5 py-1.5 rounded-md hover:bg-[#f0f9f3] text-left text-[#242424] flex items-center gap-2 cursor-pointer transition-colors"
+            >
+              <Download className="size-4 text-[#107c41]" />
+              <div>
+                <div className="font-semibold">Exportar como Excel (.xlsx)</div>
+                <div className="text-[10px] text-[#707070]">Salvar pasta de trabalho localmente</div>
+              </div>
+            </button>
+
+            <div className="h-px bg-[#e0e0e0] my-1.5" />
+            <div className="px-2.5 py-1 text-[10px] font-bold text-[#707070] uppercase">Modelos de Exemplo</div>
+
+            <button
+              onClick={() => {
+                onLoadSampleSales?.();
+                setShowFileMenu(false);
+              }}
+              className="w-full px-2.5 py-1.5 rounded-md hover:bg-[#f5f5f5] text-left text-[#242424] flex items-center gap-2 cursor-pointer transition-colors"
+            >
+              <BarChart3 className="size-4 text-emerald-600" />
+              <div>
+                <div className="font-semibold">Modelo de Vendas & BI</div>
+                <div className="text-[10px] text-[#707070]">Tabela com 60 vendas, comissões e totais</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                onLoadSampleHR?.();
+                setShowFileMenu(false);
+              }}
+              className="w-full px-2.5 py-1.5 rounded-md hover:bg-[#f5f5f5] text-left text-[#242424] flex items-center gap-2 cursor-pointer transition-colors"
+            >
+              <Layers className="size-4 text-purple-600" />
+              <div>
+                <div className="font-semibold">Modelo de RH & Folha</div>
+                <div className="text-[10px] text-[#707070]">Controle de colaboradores e departamentos</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                onLoadSampleBudget?.();
+                setShowFileMenu(false);
+              }}
+              className="w-full px-2.5 py-1.5 rounded-md hover:bg-[#f5f5f5] text-left text-[#242424] flex items-center gap-2 cursor-pointer transition-colors"
+            >
+              <DollarSign className="size-4 text-amber-600" />
+              <div>
+                <div className="font-semibold">Modelo de Orçamento DRE</div>
+                <div className="text-[10px] text-[#707070]">Planejamento orçamentário e centros de custo</div>
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 4. RIBBON TOOLBAR BODY (100% Active Tool Panels for each tab) */}
+      {!isRibbonCollapsed && (
+        <div className="h-10 px-3 py-1 flex items-center gap-2 overflow-x-auto scrollbar-none bg-[#f5f5f5] text-xs text-[#242424] border-b border-[#e0e0e0] animate-in slide-in-from-top-1 duration-150">
+
+          {/* TAB 1: INÍCIO (Home) */}
+          {activeRibbonTab === 'home' && (
+            <>
+              {/* Desfazer / Refazer */}
+              <div className="flex items-center gap-0.5 pr-2 border-r border-[#d4d4d4]">
+                <button
+                  onClick={onUndo}
+                  disabled={!canUndo}
+                  title="Desfazer (Ctrl+Z)"
+                  className="p-1.5 rounded hover:bg-[#ebebeb] disabled:opacity-30 text-[#242424] cursor-pointer"
+                >
+                  <Undo className="size-3.5" />
+                </button>
+                <button
+                  onClick={onRedo}
+                  disabled={!canRedo}
+                  title="Refazer (Ctrl+Y)"
+                  className="p-1.5 rounded hover:bg-[#ebebeb] disabled:opacity-30 text-[#242424] cursor-pointer"
+                >
+                  <Redo className="size-3.5" />
+                </button>
+              </div>
+
+              {/* Formatação de Fonte */}
+              <div className="flex items-center gap-1 pr-2 border-r border-[#d4d4d4]">
                 <button
                   onClick={() => applyFormat({ bold: !sheet.data[cellPosToKey(selectedRange.startRow, selectedRange.startCol)]?.format?.bold })}
                   title="Negrito (Ctrl+B)"
-                  className="p-1 rounded-xs hover:bg-slate-100 text-slate-700 font-bold cursor-pointer"
+                  className="p-1.5 rounded hover:bg-[#ebebeb] text-[#242424] font-bold cursor-pointer"
                 >
                   <Bold className="size-3.5" />
                 </button>
                 <button
                   onClick={() => applyFormat({ italic: !sheet.data[cellPosToKey(selectedRange.startRow, selectedRange.startCol)]?.format?.italic })}
                   title="Itálico (Ctrl+I)"
-                  className="p-1 rounded-xs hover:bg-slate-100 text-slate-700 cursor-pointer italic"
+                  className="p-1.5 rounded hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
                 >
                   <Italic className="size-3.5" />
                 </button>
                 <button
                   onClick={() => applyFormat({ underline: !sheet.data[cellPosToKey(selectedRange.startRow, selectedRange.startCol)]?.format?.underline })}
                   title="Sublinhado (Ctrl+U)"
-                  className="p-1 rounded-xs hover:bg-slate-100 text-slate-700 cursor-pointer"
+                  className="p-1.5 rounded hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
                 >
                   <Underline className="size-3.5" />
                 </button>
                 <button
                   onClick={() => applyFormat({ strike: !sheet.data[cellPosToKey(selectedRange.startRow, selectedRange.startCol)]?.format?.strike })}
                   title="Tachado"
-                  className="p-1 rounded-xs hover:bg-slate-100 text-slate-700 cursor-pointer"
+                  className="p-1.5 rounded hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
                 >
                   <Strikethrough className="size-3.5" />
                 </button>
 
-                <div className="h-3.5 w-px bg-slate-200 mx-0.5" />
+                <div className="h-4 w-px bg-[#d4d4d4] mx-0.5" />
 
                 {/* Color Pickers */}
                 <div className="relative">
                   <button
                     onClick={() => setShowColorPicker(showColorPicker === 'text' ? null : 'text')}
-                    title="Cor da Fonte"
-                    className="p-1 rounded-xs hover:bg-slate-100 text-slate-700 flex items-center cursor-pointer"
+                    title="Cor do Texto"
+                    className="p-1.5 rounded hover:bg-[#ebebeb] text-[#242424] flex items-center cursor-pointer"
                   >
                     <Type className="size-3.5 text-red-600" />
-                    <ChevronDown className="size-2.5 text-slate-400" />
+                    <ChevronDown className="size-2.5 text-[#707070]" />
                   </button>
-
                   {showColorPicker === 'text' && (
-                    <div className="absolute left-0 top-full mt-1 p-2 bg-white border border-slate-300 rounded-md shadow-xl grid grid-cols-6 gap-1 z-50">
-                      {colors.map(color => (
+                    <div className="absolute left-0 top-full mt-1 p-2 bg-white border border-[#e0e0e0] rounded-md shadow-xl grid grid-cols-5 gap-1 z-50">
+                      {colors.slice(0, 20).map(c => (
                         <button
-                          key={color}
+                          key={c}
                           onClick={() => {
-                            applyFormat({ textColor: color });
+                            applyFormat({ textColor: c });
                             setShowColorPicker(null);
                           }}
-                          style={{ backgroundColor: color }}
-                          className="size-4 rounded-xs border border-slate-300 hover:scale-110 cursor-pointer"
+                          className="size-4 rounded-xs border border-black/10 cursor-pointer"
+                          style={{ backgroundColor: c }}
                         />
                       ))}
                     </div>
@@ -536,355 +675,337 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
                   <button
                     onClick={() => setShowColorPicker(showColorPicker === 'bg' ? null : 'bg')}
                     title="Cor de Preenchimento"
-                    className="p-1 rounded-xs hover:bg-slate-100 text-slate-700 flex items-center cursor-pointer"
+                    className="p-1.5 rounded hover:bg-[#ebebeb] text-[#242424] flex items-center cursor-pointer"
                   >
-                    <Palette className="size-3.5 text-amber-500" />
-                    <ChevronDown className="size-2.5 text-slate-400" />
+                    <PaintBucket className="size-3.5 text-amber-500" />
+                    <ChevronDown className="size-2.5 text-[#707070]" />
                   </button>
-
                   {showColorPicker === 'bg' && (
-                    <div className="absolute left-0 top-full mt-1 p-2 bg-white border border-slate-300 rounded-md shadow-xl grid grid-cols-6 gap-1 z-50">
-                      {colors.map(color => (
+                    <div className="absolute left-0 top-full mt-1 p-2 bg-white border border-[#e0e0e0] rounded-md shadow-xl grid grid-cols-5 gap-1 z-50">
+                      {colors.slice(0, 20).map(c => (
                         <button
-                          key={color}
+                          key={c}
                           onClick={() => {
-                            applyFormat({ bgColor: color });
+                            applyFormat({ bgColor: c });
                             setShowColorPicker(null);
                           }}
-                          style={{ backgroundColor: color }}
-                          className="size-4 rounded-xs border border-slate-300 hover:scale-110 cursor-pointer"
+                          className="size-4 rounded-xs border border-black/10 cursor-pointer"
+                          style={{ backgroundColor: c }}
                         />
                       ))}
                     </div>
                   )}
                 </div>
               </div>
-              <span className="text-[10px] text-slate-400 font-sans">Fonte</span>
-            </div>
 
-            {/* Group: Alinhamento & Mesclar */}
-            <div className="flex flex-col items-center justify-between h-full pr-2.5 border-r border-slate-200">
-              <div className="flex items-center gap-0.5">
+              {/* Alinhamento & Mesclagem */}
+              <div className="flex items-center gap-1 pr-2 border-r border-[#d4d4d4]">
                 <button
                   onClick={() => applyFormat({ align: 'left' })}
                   title="Alinhar à Esquerda"
-                  className="p-1 rounded-xs hover:bg-slate-100 text-slate-700 cursor-pointer"
+                  className="p-1.5 rounded hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
                 >
                   <AlignLeft className="size-3.5" />
                 </button>
                 <button
                   onClick={() => applyFormat({ align: 'center' })}
                   title="Centralizar"
-                  className="p-1 rounded-xs hover:bg-slate-100 text-slate-700 cursor-pointer"
+                  className="p-1.5 rounded hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
                 >
                   <AlignCenter className="size-3.5" />
                 </button>
                 <button
                   onClick={() => applyFormat({ align: 'right' })}
                   title="Alinhar à Direita"
-                  className="p-1 rounded-xs hover:bg-slate-100 text-slate-700 cursor-pointer"
+                  className="p-1.5 rounded hover:bg-[#ebebeb] text-[#242424] cursor-pointer"
                 >
                   <AlignRight className="size-3.5" />
                 </button>
-
-                <div className="h-3.5 w-px bg-slate-200 mx-0.5" />
-
                 <button
                   onClick={handleMergeAndCenter}
-                  title="Mesclar e Centralizar Células"
-                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-xs bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs text-slate-700 font-medium cursor-pointer"
+                  title="Mesclar e Centralizar"
+                  className="px-2 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-[11px] font-medium cursor-pointer"
                 >
-                  <Merge className="size-3 text-[#107c41]" />
-                  <span>Mesclar</span>
+                  Mesclar
                 </button>
               </div>
-              <span className="text-[10px] text-slate-400 font-sans">Alinhamento</span>
-            </div>
 
-            {/* Group: Número e Formatação de Dados */}
-            <div className="flex flex-col items-center justify-between h-full pr-2.5 border-r border-slate-200">
+              {/* Formato Numérico */}
+              <div className="flex items-center gap-1 pr-2 border-r border-[#d4d4d4]">
+                <button
+                  onClick={() => applyFormat({ type: 'currency' })}
+                  title="Formatar como Moeda (R$)"
+                  className="p-1.5 rounded hover:bg-[#ebebeb] text-[#242424] font-semibold cursor-pointer"
+                >
+                  <DollarSign className="size-3.5 text-[#107c41]" />
+                </button>
+                <button
+                  onClick={() => applyFormat({ type: 'percentage' })}
+                  title="Formatar como Porcentagem (%)"
+                  className="p-1.5 rounded hover:bg-[#ebebeb] text-[#242424] font-semibold cursor-pointer"
+                >
+                  <Percent className="size-3.5" />
+                </button>
+                <button
+                  onClick={() => applyFormat({ type: 'general' })}
+                  title="Formato Geral"
+                  className="px-2 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-[11px] font-medium cursor-pointer"
+                >
+                  Geral
+                </button>
+              </div>
+
+
+              {/* Formatação Condicional & Ações */}
               <div className="flex items-center gap-1.5">
-                {/* Format Dropdown */}
-                <select
-                  onChange={e => {
-                    const val = e.target.value;
-                    if (val === 'currency' || val === 'currency_usd' || val === 'currency_eur') {
-                      applyFormat({ type: val as any, decimals: 2, align: 'right' });
-                    } else if (val === 'percentage') {
-                      applyFormat({ type: val as any, decimals: 1, align: 'right' });
-                    } else if (val === 'number') {
-                      applyFormat({ type: val as any, decimals: 2, align: 'right' });
-                    } else if (val === 'text') {
-                      applyFormat({ type: 'text', align: 'left' });
-                    } else if (val === 'date') {
-                      applyFormat({ type: 'date', align: 'center' });
-                    } else if (
-                      val === 'time_hh_mm_ss' ||
-                      val === 'time' ||
-                      val === 'time_hh_mm' ||
-                      val === 'time_duration' ||
-                      val === 'time_minutes_label' ||
-                      val === 'time_from_decimal_hours' ||
-                      val === 'time_from_minutes' ||
-                      val === 'time_from_seconds'
-                    ) {
-                      applyFormat({ type: val as any, align: 'center' });
-                    } else {
-                      applyFormat({ type: 'general' });
-                    }
-                  }}
-                  defaultValue="general"
-                  className="h-6 px-2 bg-slate-50 border border-slate-300 rounded-xs text-xs font-medium text-slate-800 focus:outline-hidden focus:border-[#107c41] cursor-pointer"
-                >
-                  <option value="general">Geral</option>
-                  <option value="time_hh_mm_ss">⏱️ Hora (03:17:26)</option>
-                  <option value="time_minutes_label">⏱️ Minutos (60m)</option>
-                  <option value="time_duration">⏱️ Duração (1h 00m)</option>
-                  <option value="currency">Moeda Real (R$)</option>
-                  <option value="currency_usd">Moeda Dólar ($)</option>
-                  <option value="percentage">Percentual (%)</option>
-                  <option value="number">Número (1.250,00)</option>
-                  <option value="date">Data (DD/MM/AAAA)</option>
-                  <option value="text">Texto Puro</option>
-                </select>
-
-                {/* 1-Click Fast Buttons */}
-                <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-xs border border-slate-200">
-                  <button
-                    onClick={() => applyFormat({ type: 'currency', decimals: 2, align: 'right' })}
-                    title="Formatar como Moeda (R$)"
-                    className="px-1.5 py-0.5 rounded-xs bg-white text-[#107c41] font-bold text-xs border border-slate-200 hover:bg-slate-50 cursor-pointer"
-                  >
-                    R$
-                  </button>
-                  <button
-                    onClick={() => applyFormat({ type: 'percentage', decimals: 1, align: 'right' })}
-                    title="Formatar como Percentual (%)"
-                    className="px-1.5 py-0.5 rounded-xs bg-white text-slate-700 font-bold text-xs border border-slate-200 hover:bg-slate-50 cursor-pointer"
-                  >
-                    %
-                  </button>
-                  <button
-                    onClick={() => applyFormat({ type: 'time_hh_mm_ss', align: 'center' })}
-                    title="Formatar como Horas Completas (03:17:26)"
-                    className="px-1.5 py-0.5 rounded-xs bg-white text-blue-700 font-mono font-bold text-[11px] border border-slate-200 hover:bg-slate-50 cursor-pointer"
-                  >
-                    00:00:00
-                  </button>
-                  <button
-                    onClick={() => applyFormat({ type: 'time_minutes_label', align: 'center' })}
-                    title="Formatar como Minutos (60m)"
-                    className="px-1.5 py-0.5 rounded-xs bg-white text-indigo-700 font-bold text-xs border border-slate-200 hover:bg-slate-50 cursor-pointer"
-                  >
-                    60m
-                  </button>
-                </div>
-              </div>
-              <span className="text-[10px] text-slate-400 font-sans">Número</span>
-            </div>
-
-            {/* Group: Estilos & Formatação Condicional */}
-            <div className="flex flex-col items-center justify-between h-full pr-2.5 border-r border-slate-200">
-              <button
-                onClick={onOpenConditionalModal}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-xs bg-slate-50 hover:bg-emerald-50 text-[#107c41] border border-slate-200 hover:border-emerald-300 text-xs font-semibold cursor-pointer"
-              >
-                <Palette className="size-3.5" />
-                <span>Formatação Condicional</span>
-              </button>
-              <span className="text-[10px] text-slate-400 font-sans">Estilos</span>
-            </div>
-
-            {/* Group: Células & Linhas */}
-            <div className="flex flex-col items-center justify-between h-full pr-2.5 border-r border-slate-200">
-              <button
-                onClick={handleDeleteSelectedRows}
-                title="Excluir Linhas Selecionadas (Ctrl + -)"
-                className="flex items-center gap-1 px-2 py-1 rounded-xs bg-slate-50 hover:bg-rose-50 text-rose-700 border border-slate-200 hover:border-rose-300 text-xs font-medium cursor-pointer"
-              >
-                <Trash2 className="size-3.5" />
-                <span>Excluir Linhas</span>
-              </button>
-              <span className="text-[10px] text-slate-400 font-sans">Células</span>
-            </div>
-
-            {/* Group: Edição, Filtros & Busca */}
-            <div className="flex flex-col items-center justify-between h-full">
-              <div className="flex items-center gap-1">
                 <button
-                  onClick={() => {
-                    onUpdateSheet({
-                      ...sheet,
-                      filterEnabled: !sheet.filterEnabled,
-                    });
-                  }}
-                  title="Ativar/Desativar AutoFilter nas Colunas (Ctrl+Shift+L)"
-                  className={`flex items-center gap-1 px-2 py-1 rounded-xs text-xs font-bold border transition-colors cursor-pointer ${
-                    sheet.filterEnabled
-                      ? 'bg-[#107c41] text-white border-[#0e6b37]'
-                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-300'
-                  }`}
+                  onClick={onOpenConditionalModal}
+                  className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs font-medium cursor-pointer"
                 >
-                  <Filter className="size-3" />
-                  <span>Filtro</span>
+                  <Sparkles className="size-3.5 text-amber-600" />
+                  <span>Formatação Condicional</span>
                 </button>
-
-                <button
-                  onClick={onOpenFindReplace}
-                  title="Localizar e Substituir (Ctrl+L / Ctrl+F)"
-                  className="flex items-center gap-1 px-2 py-1 rounded-xs bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-medium cursor-pointer"
-                >
-                  <Search className="size-3" />
-                  <span>Localizar (Ctrl+L)</span>
-                </button>
-
                 <button
                   onClick={onOpenQuickAnalysis}
-                  title="Análise Rápida de Dados (Ctrl+Q)"
-                  className="flex items-center gap-1 px-2 py-1 rounded-xs bg-emerald-50 hover:bg-emerald-100 text-[#107c41] border border-emerald-300 text-xs font-bold cursor-pointer"
+                  className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs font-medium cursor-pointer"
                 >
-                  <Sparkles className="size-3" />
-                  <span>Ctrl+Q</span>
+                  <BarChart3 className="size-3.5 text-[#107c41]" />
+                  <span>Análise Rápida (Ctrl+Q)</span>
+                </button>
+                <button
+                  onClick={handleDeleteRow}
+                  title="Excluir Linhas Selecionadas"
+                  className="p-1.5 rounded hover:bg-rose-50 text-rose-700 cursor-pointer"
+                >
+                  <Trash2 className="size-3.5" />
                 </button>
               </div>
-              <span className="text-[10px] text-slate-400 font-sans">Edição</span>
-            </div>
-          </>
-        )}
+            </>
+          )}
 
-        {/* INSERIR */}
-        {activeRibbonTab === 'insert' && (
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => onSetActiveView('powerbi')}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xs bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold cursor-pointer"
-            >
-              <BarChart2 className="size-4 text-amber-700" />
-              <span>Gráficos no Power BI Studio</span>
-            </button>
-
-            <button
-              onClick={onOpenQuickAnalysis}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xs bg-emerald-50 hover:bg-emerald-100 text-[#107c41] border border-emerald-300 text-xs font-bold cursor-pointer"
-            >
-              <Sparkles className="size-4 text-[#107c41]" />
-              <span>Tabela Dinâmica / Análise Rápida</span>
-            </button>
-          </div>
-        )}
-
-        {/* FÓRMULAS */}
-        {activeRibbonTab === 'formulas' && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onOpenFormulaWizard}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xs bg-[#107c41] hover:bg-[#0e6b37] text-white text-xs font-bold cursor-pointer shadow-2xs"
-            >
-              <span className="font-serif italic font-bold">fx</span>
-              <span>Assistente de Fórmulas</span>
-            </button>
-
-            <div className="h-6 w-px bg-slate-200" />
-
-            <div className="flex items-center gap-1 flex-wrap">
+          {/* TAB 2: INSERIR (Insert) */}
+          {activeRibbonTab === 'insert' && (
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => onInsertFormulaTemplate('=PROCX(A2; Planilha1!A:A; Planilha1!B:B; "Não Encontrado")')}
-                className="px-2 py-1 rounded-xs bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-mono font-semibold border border-slate-300 cursor-pointer"
+                onClick={() => onSetActiveView('powerbi')}
+                className="flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs font-semibold text-[#b45309] cursor-pointer"
               >
-                + PROCX
+                <BarChart3 className="size-3.5" />
+                <span>Gráficos no Power BI</span>
               </button>
               <button
-                onClick={() => onInsertFormulaTemplate('=SEERRO(SOMA(A1:A10); 0)')}
-                className="px-2 py-1 rounded-xs bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-mono font-semibold border border-slate-300 cursor-pointer"
+                onClick={() => onSetActiveView('powerbi')}
+                className="flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs font-semibold text-purple-700 cursor-pointer"
               >
-                + SEERRO
+                <Table className="size-3.5" />
+                <span>Tabela Dinâmica</span>
+              </button>
+              <div className="h-4 w-px bg-[#d4d4d4]" />
+              <button
+                onClick={onOpenFormulaWizard}
+                className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs font-medium cursor-pointer"
+              >
+                <Calculator className="size-3.5 text-[#107c41]" />
+                <span>Inserir Função (fx)</span>
               </button>
               <button
-                onClick={() => onInsertFormulaTemplate('=ÍNDICE(B2:D10; CORRESP("Item"; B2:B10; 0); 2)')}
-                className="px-2 py-1 rounded-xs bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-mono font-semibold border border-slate-300 cursor-pointer"
+                onClick={handleInsertRow}
+                className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs font-medium cursor-pointer"
               >
-                + ÍNDICE/CORRESP
-              </button>
-              <button
-                onClick={() => onInsertFormulaTemplate('=SOMARPRODUTO(C2:C10; D2:D10)')}
-                className="px-2 py-1 rounded-xs bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-mono font-semibold border border-slate-300 cursor-pointer"
-              >
-                + SOMARPRODUTO
-              </button>
-              <button
-                onClick={() => onInsertFormulaTemplate('=MÉDIA.PONDERADA(D2:D10; E2:E10)')}
-                className="px-2 py-1 rounded-xs bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-mono font-semibold border border-slate-300 cursor-pointer"
-              >
-                + MÉDIA.PONDERADA
-              </button>
-              <button
-                onClick={() => onInsertFormulaTemplate('=UNIRTEXTO(" - "; VERDADEIRO; A2:A10)')}
-                className="px-2 py-1 rounded-xs bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-mono font-semibold border border-slate-300 cursor-pointer"
-              >
-                + UNIRTEXTO
-              </button>
-              <button
-                onClick={() => onInsertFormulaTemplate('=CONT.SE(A2:A10; ">0")')}
-                className="px-2 py-1 rounded-xs bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-mono font-semibold border border-slate-300 cursor-pointer"
-              >
-                + CONT.SE
+                <Plus className="size-3.5 text-[#107c41]" />
+                <span>Inserir Linha Acima</span>
               </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* DADOS (POWER QUERY) */}
-        {activeRibbonTab === 'data' && (
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => onSetActiveView('powerquery')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xs bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold cursor-pointer shadow-2xs"
-            >
-              <Database className="size-3.5" />
-              <span>Abrir Editor Power Query</span>
-            </button>
+          {/* TAB 3: FÓRMULAS (Formulas) */}
+          {activeRibbonTab === 'formulas' && (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={onOpenFormulaWizard}
+                className="flex items-center gap-1 px-3 py-1 bg-[#107c41] text-white hover:bg-[#0e6b37] rounded text-xs font-semibold cursor-pointer shadow-2xs"
+              >
+                <Calculator className="size-3.5" />
+                <span>Assistente fx</span>
+              </button>
+              <div className="h-4 w-px bg-[#d4d4d4] mx-1" />
+              <button
+                onClick={() => onInsertFormulaTemplate('=SOMA(')}
+                className="px-2.5 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs font-medium cursor-pointer"
+              >
+                ∑ SOMA
+              </button>
+              <button
+                onClick={() => onInsertFormulaTemplate('=MÉDIA(')}
+                className="px-2.5 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs font-medium cursor-pointer"
+              >
+                MÉDIA
+              </button>
+              <button
+                onClick={() => onInsertFormulaTemplate('=PROCX(')}
+                className="px-2.5 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs font-medium cursor-pointer"
+              >
+                PROCX
+              </button>
+              <button
+                onClick={() => onInsertFormulaTemplate('=SE(')}
+                className="px-2.5 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs font-medium cursor-pointer"
+              >
+                SE
+              </button>
+              <button
+                onClick={() => onInsertFormulaTemplate('=SOMARPRODUTO(')}
+                className="px-2.5 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs font-medium cursor-pointer"
+              >
+                SOMARPRODUTO
+              </button>
+              <button
+                onClick={() => onInsertFormulaTemplate('=UNIRTEXTO(')}
+                className="px-2.5 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs font-medium cursor-pointer"
+              >
+                UNIRTEXTO
+              </button>
+              <div className="h-4 w-px bg-[#d4d4d4] mx-1" />
+              <button
+                onClick={() => onUpdateSheet(recalculateSheet(sheet))}
+                className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs text-[#707070] cursor-pointer"
+              >
+                <RefreshCw className="size-3" />
+                <span>Recalcular</span>
+              </button>
+            </div>
+          )}
 
-            <button
-              onClick={onOpenTextToColumns}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xs bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold border border-slate-300 cursor-pointer"
-            >
-              <Split className="size-3.5 text-purple-600" />
-              <span>Dividir por Delimitador (Texto para Colunas)</span>
-            </button>
+          {/* TAB 4: DADOS (Data) */}
+          {activeRibbonTab === 'data' && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onSetActiveView('powerquery')}
+                className="flex items-center gap-1.5 px-3 py-1 bg-[#4338ca] text-white hover:bg-[#3730a3] rounded text-xs font-semibold cursor-pointer shadow-2xs"
+              >
+                <Database className="size-3.5" />
+                <span>Abrir Power Query Studio (ETL)</span>
+              </button>
+              <div className="h-4 w-px bg-[#d4d4d4]" />
+              <button
+                onClick={onOpenTextToColumns}
+                className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs font-medium cursor-pointer"
+              >
+                <Type className="size-3.5" />
+                <span>Texto para Colunas</span>
+              </button>
+              <button
+                onClick={() => onUpdateSheet({ ...sheet, filterEnabled: !sheet.filterEnabled })}
+                className={`flex items-center gap-1 px-2.5 py-1 border rounded text-xs font-medium cursor-pointer ${
+                  sheet.filterEnabled
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                    : 'bg-white border-[#e0e0e0] text-[#242424] hover:bg-[#ebebeb]'
+                }`}
+              >
+                <Filter className="size-3.5" />
+                <span>{sheet.filterEnabled ? 'Filtros Ativos' : 'Ativar Filtros'}</span>
+              </button>
+            </div>
+          )}
 
-            <button
-              onClick={onOpenImportExport}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xs bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold border border-slate-300 cursor-pointer"
-            >
-              <Upload className="size-3.5" />
-              <span>Importar Arquivo CSV</span>
-            </button>
-          </div>
-        )}
+          {/* TAB 5: EXIBIR (View) */}
+          {activeRibbonTab === 'view' && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onSetActiveView('spreadsheet')}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold cursor-pointer ${
+                  activeView === 'spreadsheet'
+                    ? 'bg-[#107c41] text-white'
+                    : 'bg-white border border-[#e0e0e0] text-[#242424] hover:bg-[#ebebeb]'
+                }`}
+              >
+                <Grid className="size-3.5" />
+                <span>Modo Planilha</span>
+              </button>
+              <button
+                onClick={() => onSetActiveView('powerbi')}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold cursor-pointer ${
+                  activeView === 'powerbi'
+                    ? 'bg-[#b45309] text-white'
+                    : 'bg-white border border-[#e0e0e0] text-[#242424] hover:bg-[#ebebeb]'
+                }`}
+              >
+                <BarChart3 className="size-3.5" />
+                <span>Power BI Dashboard Studio</span>
+              </button>
+              <div className="h-4 w-px bg-[#d4d4d4]" />
+              <label className="flex items-center gap-1.5 text-xs text-[#242424] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showGridlines}
+                  onChange={onToggleGridlines}
+                  className="rounded text-[#107c41] focus:ring-0"
+                />
+                <span>Linhas de Grade</span>
+              </label>
+              <label className="flex items-center gap-1.5 text-xs text-[#242424] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showFormulaBar}
+                  onChange={onToggleFormulaBar}
+                  className="rounded text-[#107c41] focus:ring-0"
+                />
+                <span>Barra de Fórmulas</span>
+              </label>
+              <div className="h-4 w-px bg-[#d4d4d4]" />
+              <div className="flex items-center gap-1 text-xs">
+                <span className="text-[#707070]">Zoom:</span>
+                <button
+                  onClick={() => onSetZoomLevel?.(75)}
+                  className={`px-2 py-0.5 rounded text-[11px] ${zoomLevel === 75 ? 'bg-slate-200 font-bold' : 'hover:bg-[#ebebeb]'}`}
+                >
+                  75%
+                </button>
+                <button
+                  onClick={() => onSetZoomLevel?.(100)}
+                  className={`px-2 py-0.5 rounded text-[11px] ${zoomLevel === 100 ? 'bg-slate-200 font-bold' : 'hover:bg-[#ebebeb]'}`}
+                >
+                  100%
+                </button>
+                <button
+                  onClick={() => onSetZoomLevel?.(125)}
+                  className={`px-2 py-0.5 rounded text-[11px] ${zoomLevel === 125 ? 'bg-slate-200 font-bold' : 'hover:bg-[#ebebeb]'}`}
+                >
+                  125%
+                </button>
+              </div>
+            </div>
+          )}
 
-        {/* EXIBIR (POWER BI) */}
-        {activeRibbonTab === 'view' && (
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => onSetActiveView('powerbi')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xs bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold cursor-pointer shadow-2xs"
-            >
-              <LayoutDashboard className="size-3.5" />
-              <span>Abrir Painel Power BI</span>
-            </button>
+          {/* TAB 6: AJUDA (Help) */}
+          {activeRibbonTab === 'help' && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onOpenShortcutsModal}
+                className="flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs font-semibold text-[#242424] cursor-pointer"
+              >
+                <Keyboard className="size-3.5 text-indigo-600" />
+                <span>Teclas de Atalho do Excel</span>
+              </button>
+              <button
+                onClick={onToggleCopilot}
+                className="flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs font-semibold text-purple-700 cursor-pointer"
+              >
+                <Sparkles className="size-3.5" />
+                <span>Excel Copilot AI (Gemini)</span>
+              </button>
+              <button
+                onClick={onOpenFormulaWizard}
+                className="flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs font-semibold text-[#107c41] cursor-pointer"
+              >
+                <HelpCircle className="size-3.5" />
+                <span>Catálogo de 22+ Funções</span>
+              </button>
+            </div>
+          )}
 
-            <button
-              onClick={() => onSetActiveView('spreadsheet')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xs bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold border border-slate-300 cursor-pointer"
-            >
-              <Grid className="size-3.5 text-[#107c41]" />
-              <span>Voltar para Grade da Planilha</span>
-            </button>
-          </div>
-        )}
-      </div>
+        </div>
       )}
     </div>
   );
 };
-

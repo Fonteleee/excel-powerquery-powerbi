@@ -28,6 +28,8 @@ interface SpreadsheetGridProps {
   sheet: Sheet;
   activeCell: CellPosition;
   selectedRange: CellRange;
+  showGridlines?: boolean;
+  zoomLevel?: number;
   onUpdateSheet: (sheet: Sheet) => void;
   onSelectCell: (pos: CellPosition) => void;
   onSelectRange: (range: CellRange) => void;
@@ -45,6 +47,8 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   sheet,
   activeCell,
   selectedRange,
+  showGridlines = true,
+  zoomLevel = 100,
   onUpdateSheet,
   onSelectCell,
   onSelectRange,
@@ -57,6 +61,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   onOpenCharts,
   onOpenFindReplace,
 }) => {
+
 
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -781,6 +786,17 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
 
     const key = cellPosToKey(row, col);
 
+    if (e.shiftKey) {
+
+      setIsCtrlSelecting(false);
+      const startRow = Math.min(selectionAnchor.row, row);
+      const endRow = Math.max(selectionAnchor.row, row);
+      const startCol = Math.min(selectionAnchor.col, col);
+      const endCol = Math.max(selectionAnchor.col, col);
+      onSelectRange({ startRow, startCol, endRow, endCol });
+      return;
+    }
+
     if (e.ctrlKey || e.metaKey) {
       setIsCtrlSelecting(true);
       setMultiSelectedKeys(prev => {
@@ -797,6 +813,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       setIsSelecting(true);
       return;
     }
+
 
     // Normal single click or drag start: clear multi-selection & set anchor
     setIsCtrlSelecting(false);
@@ -1191,17 +1208,22 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       onContextMenu={handleContextMenu}
-      className="relative flex-1 overflow-auto bg-[#ffffff] select-none scrollbar-thin focus:outline-hidden"
+      className={`relative flex-1 overflow-auto bg-[#ffffff] select-none scrollbar-thin focus:outline-hidden ${
+        !showGridlines ? 'no-gridlines' : ''
+      }`}
+      style={{ zoom: `${zoomLevel}%` }}
       tabIndex={0}
     >
-      <table className="border-collapse table-fixed w-max text-xs bg-white">
+      <table className={`border-collapse table-fixed w-max text-xs bg-white ${!showGridlines ? 'no-gridlines' : ''}`}>
         {/* Table Column Header: Top Left corner + A, B, C... */}
         <thead className="sticky top-0 z-20 bg-[#f5f5f5]">
           <tr>
             {/* Top-left corner origin cell (Exact Excel Online style) */}
             <th
-              title="Selecionar Toda a Planilha (Ctrl+T)"
+              title="Selecionar Toda a Planilha (Ctrl+A)"
               onClick={() => {
+                setMultiSelectedKeys(new Set());
+                setSelectionAnchor({ row: 0, col: 0 });
                 onSelectCell({ row: 0, col: 0 });
                 onSelectRange({
                   startRow: 0,
@@ -1212,6 +1234,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
               }}
               className="sticky left-0 z-30 w-9 h-5.5 bg-[#f5f5f5] border-r border-b border-[#e1dfdd] select-none cursor-pointer hover:bg-[#ebebeb] transition-colors"
             >
+
               <div className="relative w-full h-full">
                 {/* Excel Online bottom-right corner triangle */}
                 <div

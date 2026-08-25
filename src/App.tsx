@@ -38,21 +38,19 @@ import { autoRecognizeAndFormatSheet, DataRecognitionReport } from './utils/data
 
 export function App() {
 
-  // Initialize with the rich Sales Sample Sheet calculated
+  // Initialize with a clean blank sheet (Planilha1)
   const [sheets, setSheets] = useState<Sheet[]>(() => {
-    const sales = recalculateSheet(createSalesSampleSheet());
-    const hr = recalculateSheet(createHRStaffSampleSheet());
-    const fin = recalculateSheet(createFinancialBudgetSheet());
-    return [sales, hr, fin];
+    const blank = createEmptySheet('sheet-1', 'Planilha1', 100, 26);
+    return [blank];
   });
 
-  const [activeSheetId, setActiveSheetId] = useState<string>(() => sheets[0]?.id || 'sheet-sales');
-  const [activeCell, setActiveCell] = useState<CellPosition>({ row: 8, col: 6 });
+  const [activeSheetId, setActiveSheetId] = useState<string>(() => sheets[0]?.id || 'sheet-1');
+  const [activeCell, setActiveCell] = useState<CellPosition>({ row: 0, col: 0 });
   const [selectedRange, setSelectedRange] = useState<CellRange>({
-    startRow: 8,
-    startCol: 6,
-    endRow: 8,
-    endCol: 6,
+    startRow: 0,
+    startCol: 0,
+    endRow: 0,
+    endCol: 0,
   });
 
   // History stack for Undo / Redo
@@ -61,6 +59,11 @@ export function App() {
 
   // Navigation View: 'spreadsheet' | 'powerquery' | 'powerbi'
   const [activeView, setActiveView] = useState<'spreadsheet' | 'powerquery' | 'powerbi'>('spreadsheet');
+
+  // View settings
+  const [showGridlines, setShowGridlines] = useState(true);
+  const [showFormulaBar, setShowFormulaBar] = useState(true);
+  const [zoomLevel, setZoomLevel] = useState(100);
 
   // Copilot AI state
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
@@ -75,6 +78,7 @@ export function App() {
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isFindReplaceOpen, setIsFindReplaceOpen] = useState(false);
   const [recognitionReport, setRecognitionReport] = useState<DataRecognitionReport | null>(null);
+
 
 
   const activeSheet = sheets.find(s => s.id === activeSheetId) || sheets[0];
@@ -338,6 +342,45 @@ export function App() {
     confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
   };
 
+  const handleNewBlankWorkbook = () => {
+    pushHistory(sheets);
+    const blank = createEmptySheet(`sheet-${Date.now()}`, 'Planilha1', 100, 26);
+    setSheets([blank]);
+    setActiveSheetId(blank.id);
+    setActiveCell({ row: 0, col: 0 });
+    setSelectedRange({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
+  };
+
+  const handleLoadSampleSales = () => {
+    pushHistory(sheets);
+    const sales = recalculateSheet(createSalesSampleSheet());
+    setSheets(prev => [sales, ...prev.filter(s => s.id !== sales.id)]);
+    setActiveSheetId(sales.id);
+    setActiveCell({ row: 8, col: 6 });
+    setSelectedRange({ startRow: 8, startCol: 6, endRow: 8, endCol: 6 });
+    confetti({ particleCount: 30, spread: 60, origin: { y: 0.6 } });
+  };
+
+  const handleLoadSampleHR = () => {
+    pushHistory(sheets);
+    const hr = recalculateSheet(createHRStaffSampleSheet());
+    setSheets(prev => [...prev.filter(s => s.id !== hr.id), hr]);
+    setActiveSheetId(hr.id);
+    setActiveCell({ row: 1, col: 1 });
+    setSelectedRange({ startRow: 1, startCol: 1, endRow: 1, endCol: 1 });
+    confetti({ particleCount: 30, spread: 60, origin: { y: 0.6 } });
+  };
+
+  const handleLoadSampleBudget = () => {
+    pushHistory(sheets);
+    const fin = recalculateSheet(createFinancialBudgetSheet());
+    setSheets(prev => [...prev.filter(s => s.id !== fin.id), fin]);
+    setActiveSheetId(fin.id);
+    setActiveCell({ row: 1, col: 1 });
+    setSelectedRange({ startRow: 1, startCol: 1, endRow: 1, endCol: 1 });
+    confetti({ particleCount: 30, spread: 60, origin: { y: 0.6 } });
+  };
+
   return (
     <div className="flex flex-col h-screen w-screen bg-[#f5f5f5] text-[#242424] overflow-hidden font-sans">
       {/* SPREADSHEET MAIN WORKSPACE */}
@@ -364,16 +407,28 @@ export function App() {
             onInsertFormulaTemplate={handleInsertFormulaTemplate}
             isCopilotOpen={isCopilotOpen}
             onToggleCopilot={() => setIsCopilotOpen(prev => !prev)}
+            onNewWorkbook={handleNewBlankWorkbook}
+            onLoadSampleSales={handleLoadSampleSales}
+            onLoadSampleHR={handleLoadSampleHR}
+            onLoadSampleBudget={handleLoadSampleBudget}
+            showGridlines={showGridlines}
+            onToggleGridlines={() => setShowGridlines(prev => !prev)}
+            showFormulaBar={showFormulaBar}
+            onToggleFormulaBar={() => setShowFormulaBar(prev => !prev)}
+            zoomLevel={zoomLevel}
+            onSetZoomLevel={setZoomLevel}
           />
 
           {/* Formula Bar */}
-          <FormulaBar
-            sheet={activeSheet}
-            activeCell={activeCell}
-            selectedRange={selectedRange}
-            onCommitFormula={handleCommitFormula}
-            onOpenFormulaWizard={() => setIsFormulaWizardOpen(true)}
-          />
+          {showFormulaBar && (
+            <FormulaBar
+              sheet={activeSheet}
+              activeCell={activeCell}
+              selectedRange={selectedRange}
+              onCommitFormula={handleCommitFormula}
+              onOpenFormulaWizard={() => setIsFormulaWizardOpen(true)}
+            />
+          )}
 
           {/* Grid + Copilot Container */}
           <div className="flex-1 flex overflow-hidden relative">
@@ -381,6 +436,8 @@ export function App() {
               sheet={activeSheet}
               activeCell={activeCell}
               selectedRange={selectedRange}
+              showGridlines={showGridlines}
+              zoomLevel={zoomLevel}
               onUpdateSheet={handleUpdateSheet}
               onSelectCell={setActiveCell}
               onSelectRange={setSelectedRange}
@@ -393,6 +450,7 @@ export function App() {
               onOpenCharts={() => setActiveView('powerbi')}
               onOpenFindReplace={() => setIsFindReplaceOpen(true)}
             />
+
 
             <CopilotPanel
               isOpen={isCopilotOpen}
