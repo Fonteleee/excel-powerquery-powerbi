@@ -15,6 +15,7 @@ import {
   Sigma,
   Download,
   FileSpreadsheet,
+  ChevronDown,
 } from 'lucide-react';
 import { Filter as FilterIcon, Search as SearchIcon } from 'lucide-react';
 import { Sheet, CellPosition, CellRange, CellData, CellFormat } from '../../types/spreadsheet';
@@ -24,6 +25,25 @@ import { ColumnFilterDropdown } from './ColumnFilterDropdown';
 import { colIndexToLabel, cellPosToKey, recalculateSheet, getCellValue, parseNumberSafely, shiftFormula } from '../../engine/formulaParser';
 import { detectFlashFill, FlashFillPrediction } from '../../engine/flashFill';
 import { exportSheetToExcel } from '../../utils/excelExporter';
+
+function getNocoColType(sheet: Sheet, colIdx: number): { badge: string; color: string } {
+  const headerCell = sheet.data[cellPosToKey(0, colIdx)];
+  const title = String(headerCell?.value || '').toLowerCase();
+  
+  if (/hora|tempo|dura[cç]|perman|pausa|time/i.test(title)) {
+    return { badge: '⏱', color: 'text-amber-600 bg-amber-50' };
+  }
+  if (/data|nasc|admiss|date/i.test(title)) {
+    return { badge: '📅', color: 'text-blue-600 bg-blue-50' };
+  }
+  if (/valor|sal[aá]|pre[cç]|custo|lucro|fatur|r\$|\$/i.test(title)) {
+    return { badge: '💲', color: 'text-emerald-600 bg-emerald-50' };
+  }
+  if (/agente|id|c[oó]d|num|qtd|total|quant/i.test(title) || typeof headerCell?.value === 'number') {
+    return { badge: '#', color: 'text-purple-600 bg-purple-50' };
+  }
+  return { badge: 'T', color: 'text-slate-500 bg-slate-100' };
+}
 
 interface SpreadsheetGridProps {
   sheet: Sheet;
@@ -46,6 +66,7 @@ interface SpreadsheetGridProps {
   onExecuteAgentActions?: (actions: AgentAction[]) => void;
   onLoadTemplate?: (sheet: Sheet) => void;
   onOpenImportModal?: () => void;
+  onToggleCopilot?: () => void;
 }
 
 export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
@@ -69,8 +90,14 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   onExecuteAgentActions,
   onLoadTemplate,
   onOpenImportModal,
+  onToggleCopilot,
 }) => {
-
+  const handleAddRow = () => {
+    onUpdateSheet({
+      ...sheet,
+      rowCount: sheet.rowCount + 1,
+    });
+  };
 
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -1333,25 +1360,26 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   }, [sheet.data, sheet.rowCount, sheet.colCount]);
 
   return (
-    <div
-      ref={gridRef}
-      onScroll={handleScroll}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-      onContextMenu={handleContextMenu}
-      className={`relative flex-1 overflow-auto bg-[#ffffff] select-none scrollbar-thin focus:outline-hidden ${
-        !showGridlines ? 'no-gridlines' : ''
-      }`}
-      style={{ zoom: `${zoomLevel}%` }}
-      tabIndex={0}
-    >
+    <div className="flex-1 flex flex-col overflow-hidden bg-white relative">
+      <div
+        ref={gridRef}
+        onScroll={handleScroll}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onContextMenu={handleContextMenu}
+        className={`relative flex-1 overflow-auto bg-[#ffffff] select-none scrollbar-thin focus:outline-hidden ${
+          !showGridlines ? 'no-gridlines' : ''
+        }`}
+        style={{ zoom: `${zoomLevel}%` }}
+        tabIndex={0}
+      >
       <table className={`border-collapse table-fixed w-max text-xs bg-white ${!showGridlines ? 'no-gridlines' : ''}`}>
-        {/* Table Column Header: Top Left corner + A, B, C... */}
-        <thead className="sticky top-0 z-20 bg-[#f5f5f5]">
+        {/* Table Column Header: Top Left corner (#) + NocoDB Column Types */}
+        <thead className="sticky top-0 z-20 bg-[#f8fafc]">
           <tr>
-            {/* Top-left corner origin cell (Exact Excel Online style) */}
+            {/* Top-left corner origin cell (#) */}
             <th
-              title="Selecionar Toda a Planilha (Ctrl+A)"
+              title="Selecionar Toda a Tabela (Ctrl+A)"
               onClick={() => {
                 setMultiSelectedKeys(new Set());
                 setSelectionAnchor({ row: 0, col: 0 });
@@ -1363,16 +1391,9 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                   endCol: sheet.colCount - 1,
                 });
               }}
-              className="sticky left-0 z-30 w-9 h-5.5 bg-[#f5f5f5] border-r border-b border-[#e1dfdd] select-none cursor-pointer hover:bg-[#ebebeb] transition-colors"
+              className="sticky left-0 z-30 w-10 h-7 bg-[#f8fafc] border-r border-b border-[#e2e8f0] select-none cursor-pointer hover:bg-slate-100 transition-colors text-center text-slate-500 font-mono text-xs"
             >
-
-              <div className="relative w-full h-full">
-                {/* Excel Online bottom-right corner triangle */}
-                <div
-                  className="absolute bottom-0.75 right-0.75 border-solid border-transparent border-r-[#a6a6a6] border-b-[#a6a6a6]"
-                  style={{ borderWidth: '0 0 5px 5px' }}
-                />
-              </div>
+              #
             </th>
 
             {Array.from({ length: renderedCols }).map((_, colIdx) => {
@@ -1380,25 +1401,35 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
               const isColSelected =
                 colIdx >= selectedRange.startCol && colIdx <= selectedRange.endCol;
               const isColActive = colIdx === activeCell.col;
-              const width = sheet.colWidths[colIdx] || 110;
+              const width = sheet.colWidths[colIdx] || 120;
               const isColFiltered = Boolean(sheet.filters?.[colIdx]);
               const headerCell = sheet.data[cellPosToKey(0, colIdx)];
               const colHeaderTitle = headerCell?.value || colLabel;
+              const colType = getNocoColType(sheet, colIdx);
 
               return (
                 <th
                   key={colIdx}
                   style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
-                  className={`relative h-5.5 border-r border-b border-[#e1dfdd] text-xs font-sans font-normal transition-colors cursor-pointer select-none ${
+                  className={`relative h-7 border-r border-b border-[#e2e8f0] text-xs font-sans font-medium transition-colors cursor-pointer select-none group ${
                     isColSelected || isColActive
-                      ? 'bg-[#dff6dd] text-[#107c41] font-semibold border-b-2 border-b-[#107c41]'
-                      : 'bg-[#f5f5f5] text-[#505050] hover:bg-[#ebebeb]'
+                      ? 'bg-indigo-50/80 text-indigo-900 font-semibold'
+                      : 'bg-[#f8fafc] text-slate-700 hover:bg-slate-100'
                   }`}
                   onMouseDown={e => handleColHeaderMouseDown(e, colIdx)}
                   onMouseEnter={e => handleColHeaderMouseEnter(e, colIdx)}
                 >
-                  <div className="flex items-center justify-center px-1 font-sans relative">
-                    <span className="truncate text-xs">{colLabel}</span>
+                  <div className="flex items-center justify-between px-2 font-sans relative w-full h-full">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className={`size-4 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${colType.color}`}>
+                        {colType.badge}
+                      </span>
+                      <span className="truncate text-xs font-medium text-slate-700">
+                        {headerCell?.value ? String(headerCell.value) : colLabel}
+                      </span>
+                    </div>
+
+                    <ChevronDown className="size-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
 
                     {/* Filter Button */}
                     {sheet.filterEnabled && (
@@ -1408,10 +1439,10 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                           setOpenFilterCol(openFilterCol === colIdx ? null : colIdx);
                         }}
                         title={`Filtrar / Classificar Coluna ${colLabel}`}
-                        className={`absolute right-1 p-0.5 rounded-xs transition-all cursor-pointer ${
+                        className={`absolute right-1 p-0.5 rounded transition-all cursor-pointer ${
                           isColFiltered
-                            ? 'bg-[#107c41] text-white shadow-2xs'
-                            : 'text-[#505050] hover:text-[#107c41] hover:bg-[#e1dfdd]'
+                            ? 'bg-indigo-600 text-white shadow-2xs'
+                            : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-200'
                         }`}
                       >
                         <FilterIcon className="size-2.5" />
@@ -1437,9 +1468,9 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                   <div
                     onMouseDown={e => handleColResizeMouseDown(e, colIdx)}
                     onDoubleClick={() => handleColAutoFit(colIdx)}
-                    className="absolute right-0 top-0 bottom-0 w-2 hover:bg-[#107c41] cursor-col-resize z-20 group"
+                    className="absolute right-0 top-0 bottom-0 w-2 hover:bg-indigo-500 cursor-col-resize z-20 group"
                   >
-                    <div className="w-px h-full bg-[#e1dfdd] mx-auto group-hover:bg-[#107c41]" />
+                    <div className="w-px h-full bg-[#e2e8f0] mx-auto group-hover:bg-indigo-500" />
                   </div>
                 </th>
               );
@@ -1461,32 +1492,28 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
             const isRowSelected =
               rowIdx >= selectedRange.startRow && rowIdx <= selectedRange.endRow;
             const isRowActive = rowIdx === activeCell.row;
-            const height = sheet.rowHeights[rowIdx] || 22;
+            const height = sheet.rowHeights[rowIdx] || 24;
 
             return (
               <tr key={rowIdx} style={{ height: `${height}px` }}>
-                {/* Sticky Row Number (Left column) - Exact Image 2 Style */}
+                {/* Sticky Row Number (Left column) - NocoDB # Column */}
                 <th
-                  className={`sticky left-0 z-10 w-9 border-r border-b border-[#e1dfdd] text-xs font-sans font-normal select-none transition-colors cursor-pointer ${
+                  className={`sticky left-0 z-10 w-10 border-r border-b border-[#e2e8f0] text-[11px] font-mono select-none transition-colors cursor-pointer text-center ${
                     isRowSelected || isRowActive
-                      ? 'bg-[#dff6dd] text-[#107c41] font-semibold border-r-2 border-r-[#107c41]'
-                      : 'bg-[#f5f5f5] text-[#505050] hover:bg-[#ebebeb]'
+                      ? 'bg-indigo-50 text-indigo-700 font-bold border-r-2 border-r-indigo-600'
+                      : 'bg-[#f8fafc] text-slate-500 hover:bg-slate-100'
                   }`}
-
                   onMouseDown={e => handleRowHeaderMouseDown(e, rowIdx)}
                   onMouseEnter={e => handleRowHeaderMouseEnter(e, rowIdx)}
                 >
-                  <div className="relative h-full flex items-center justify-center font-sans text-xs">
+                  <div className="relative h-full flex items-center justify-center font-mono text-[11px]">
                     {rowIdx + 1}
                     <div
                       onMouseDown={e => handleRowResizeMouseDown(e, rowIdx)}
-                      className="absolute bottom-0 left-0 right-0 h-1.5 hover:bg-[#107c41] cursor-row-resize z-20"
+                      className="absolute bottom-0 left-0 right-0 h-1.5 hover:bg-indigo-500 cursor-row-resize z-20"
                     />
                   </div>
                 </th>
-
-
-
 
                 {/* Cells in row */}
                 {Array.from({ length: renderedCols }).map((_, colIdx) => {
@@ -1767,7 +1794,49 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
           </button>
         </div>
       )}
+      </div>
 
+      {/* NocoDB Bottom Status & Summary Bar */}
+      <div className="h-8 shrink-0 bg-[#f8fafc] border-t border-[#e2e8f0] px-3 flex items-center justify-between text-xs text-slate-600 select-none z-10">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleAddRow}
+            className="flex items-center gap-1 font-medium text-slate-700 hover:text-indigo-600 hover:bg-slate-200/60 px-2 py-0.5 rounded transition-colors cursor-pointer"
+          >
+            <Plus className="size-3.5 text-slate-500" />
+            <span>New record</span>
+          </button>
+
+          <span className="text-slate-300">|</span>
+
+          <span className="text-slate-500 font-sans">
+            {Math.max(sheet.rowCount - 1, 0)} records
+          </span>
+
+          <span className="text-slate-300">|</span>
+
+          <button
+            onClick={onOpenQuickAnalysis}
+            className="flex items-center gap-1 text-slate-600 hover:text-slate-900 px-1.5 py-0.5 rounded hover:bg-slate-200/50 cursor-pointer"
+          >
+            <ChevronDown className="size-3 text-slate-400" />
+            <span>Summary</span>
+          </button>
+        </div>
+
+        {/* NocoAI Floating Button on Bottom Right */}
+        {onToggleCopilot && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onToggleCopilot}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-white font-semibold text-xs shadow-md hover:opacity-95 transition-opacity cursor-pointer"
+            >
+              <Sparkles className="size-3.5" />
+              <span>NocoAI</span>
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

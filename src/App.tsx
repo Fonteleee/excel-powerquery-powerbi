@@ -24,6 +24,11 @@ import { DashboardStudio } from './components/PowerBI/DashboardStudio';
 import { CopilotPanel } from './components/Copilot/CopilotPanel';
 import { applyAgentActions } from './engine/agentActionExecutor';
 import { AgentAction } from './engine/agentActionProtocol';
+import { NocoIconRail, NocoNavView } from './components/NocoLayout/NocoIconRail';
+import { NocoBaseSidebar } from './components/NocoLayout/NocoBaseSidebar';
+import { NocoTopHeader } from './components/NocoLayout/NocoTopHeader';
+import { NocoTableToolbar } from './components/NocoLayout/NocoTableToolbar';
+import { exportSheetToExcel } from './utils/excelExporter';
 
 // Modals
 import { QuickAnalysisModal } from './components/Modals/QuickAnalysisModal';
@@ -40,7 +45,7 @@ export function App() {
 
   // Initialize with a clean blank sheet (Planilha1)
   const [sheets, setSheets] = useState<Sheet[]>(() => {
-    const blank = createEmptySheet('sheet-1', 'Planilha1', 100, 26);
+    const blank = createEmptySheet('sheet-1', 'Acompanhamento_de_Pausa_Agente_1787943161501', 100, 26);
     return [blank];
   });
 
@@ -59,6 +64,9 @@ export function App() {
 
   // Navigation View: 'spreadsheet' | 'powerquery' | 'powerbi'
   const [activeView, setActiveView] = useState<'spreadsheet' | 'powerquery' | 'powerbi'>('spreadsheet');
+  const [activeNav, setActiveNav] = useState<NocoNavView>('data');
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [searchFilter, setSearchFilter] = useState<string>('');
 
   // View settings
   const [showGridlines, setShowGridlines] = useState(true);
@@ -502,134 +510,160 @@ export function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#f5f5f5] text-[#242424] overflow-hidden font-sans">
-      {/* SPREADSHEET MAIN WORKSPACE */}
-      {activeView === 'spreadsheet' && (
-        <>
-          {/* Top Application Ribbon */}
-          <RibbonBar
-            sheet={activeSheet}
-            selectedRange={selectedRange}
-            activeView={activeView}
-            onSetActiveView={setActiveView}
-            onUpdateSheet={handleUpdateSheet}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            canUndo={historyPast.length > 0}
-            canRedo={historyFuture.length > 0}
-            onOpenQuickAnalysis={() => setIsQuickAnalysisOpen(true)}
-            onOpenFormulaWizard={() => setIsFormulaWizardOpen(true)}
-            onOpenTextToColumns={() => setIsTextToColumnsOpen(true)}
-            onOpenConditionalModal={() => setIsConditionalModalOpen(true)}
-            onOpenImportExport={() => setIsImportExportOpen(true)}
-            onOpenShortcutsModal={() => setIsShortcutsOpen(true)}
-            onOpenFindReplace={() => setIsFindReplaceOpen(true)}
-            onInsertFormulaTemplate={handleInsertFormulaTemplate}
-            isCopilotOpen={isCopilotOpen}
-            onToggleCopilot={() => setIsCopilotOpen(prev => !prev)}
-            onNewWorkbook={handleNewBlankWorkbook}
-            onLoadSampleSales={handleLoadSampleSales}
-            onLoadSampleHR={handleLoadSampleHR}
-            onLoadSampleBudget={handleLoadSampleBudget}
-            showGridlines={showGridlines}
-            onToggleGridlines={() => setShowGridlines(prev => !prev)}
-            showFormulaBar={showFormulaBar}
-            onToggleFormulaBar={() => setShowFormulaBar(prev => !prev)}
-            zoomLevel={zoomLevel}
-            onSetZoomLevel={setZoomLevel}
-          />
+    <div className="flex h-screen w-screen bg-[#f8fafc] text-slate-900 overflow-hidden font-sans select-none">
+      {/* 1. Leftmost NocoDB Icon Rail */}
+      <NocoIconRail
+        activeNav={activeNav}
+        onSelectNav={nav => {
+          setActiveNav(nav);
+          if (nav === 'data') setActiveView('spreadsheet');
+          if (nav === 'workflows') setActiveView('powerquery');
+          if (nav === 'interfaces') setActiveView('powerbi');
+          if (nav === 'settings') setIsApiKeyModalOpen(true);
+          if (nav === 'help') setIsShortcutsOpen(true);
+        }}
+        onNewSheet={handleAddSheet}
+        onToggleCopilot={() => setIsCopilotOpen(prev => !prev)}
+        isCopilotOpen={isCopilotOpen}
+      />
 
-          {/* Formula Bar */}
-          {showFormulaBar && (
-            <FormulaBar
+      {/* 2. Collapsible Base & Tables Sidebar Drawer */}
+      <NocoBaseSidebar
+        isOpen={isSidebarOpen}
+        onToggle={() => setIsSidebarOpen(prev => !prev)}
+        sheets={sheets}
+        activeSheetId={activeSheetId}
+        onSelectSheet={setActiveSheetId}
+        onNewSheet={handleAddSheet}
+        activeView={activeView}
+        onSelectView={setActiveView}
+      />
+
+      {/* 3. Main Center Canvas */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-white">
+        {/* Top Header Breadcrumb & Global Actions */}
+        <NocoTopHeader
+          sheet={activeSheet}
+          isSidebarOpen={isSidebarOpen}
+          onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
+          activeView={activeView}
+          onSelectView={setActiveView}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          canUndo={historyPast.length > 0}
+          canRedo={historyFuture.length > 0}
+          onRefresh={() => {
+            const recalculated = recalculateSheet(activeSheet);
+            handleUpdateSheet(recalculated);
+          }}
+          onExportExcel={() => exportSheetToExcel(activeSheet, activeSheet.name)}
+          onOpenImportModal={() => setIsImportExportOpen(true)}
+          onToggleCopilot={() => setIsCopilotOpen(prev => !prev)}
+        />
+
+        {/* DATA TABLE SPREADSHEET VIEW */}
+        {activeView === 'spreadsheet' && (
+          <>
+            {/* NocoDB Data Table Toolbar */}
+            <NocoTableToolbar
               sheet={activeSheet}
-              activeCell={activeCell}
-              selectedRange={selectedRange}
-              onCommitFormula={handleCommitFormula}
               onOpenFormulaWizard={() => setIsFormulaWizardOpen(true)}
-              onSelectCell={setActiveCell}
-              onSelectRange={setSelectedRange}
-            />
-          )}
-
-          {/* Grid + Copilot Container */}
-          <div className="flex-1 flex overflow-hidden relative">
-            <SpreadsheetGrid
-              sheet={activeSheet}
-              allSheets={sheets}
-              activeCell={activeCell}
-              selectedRange={selectedRange}
-              showGridlines={showGridlines}
-              zoomLevel={zoomLevel}
-              onUpdateSheet={handleUpdateSheet}
-              onSelectCell={setActiveCell}
-              onSelectRange={setSelectedRange}
-              onUndo={handleUndo}
-              onRedo={handleRedo}
               onOpenQuickAnalysis={() => setIsQuickAnalysisOpen(true)}
-              onOpenFormulaWizard={() => setIsFormulaWizardOpen(true)}
-              onOpenTextToColumns={() => setIsTextToColumnsOpen(true)}
-              onOpenConditionalModal={() => setIsConditionalModalOpen(true)}
-              onOpenCharts={() => setActiveView('powerbi')}
+              onOpenConditionalFormat={() => setIsConditionalModalOpen(true)}
               onOpenFindReplace={() => setIsFindReplaceOpen(true)}
-              onExecuteAgentActions={handleExecuteAgentActions}
-              onLoadTemplate={newSheet => {
-                pushHistory(sheets);
-                const recalculated = recalculateSheet(newSheet);
-                setSheets(prev => prev.map(s => s.id === activeSheetId ? recalculated : s));
+              onAutoRecognize={() => {
+                const { sheet: recognized } = autoRecognizeAndFormatSheet(activeSheet);
+                handleUpdateSheet(recalculateSheet(recognized));
               }}
-              onOpenImportModal={() => setIsImportExportOpen(true)}
+              onNewRecord={() => {
+                const updated = {
+                  ...activeSheet,
+                  rowCount: activeSheet.rowCount + 1,
+                };
+                handleUpdateSheet(updated);
+              }}
+              searchFilter={searchFilter}
+              onSearchChange={setSearchFilter}
+              recordCount={activeSheet.rowCount}
             />
 
+            {/* Formula Bar */}
+            {showFormulaBar && (
+              <FormulaBar
+                sheet={activeSheet}
+                activeCell={activeCell}
+                selectedRange={selectedRange}
+                onCommitFormula={handleCommitFormula}
+                onOpenFormulaWizard={() => setIsFormulaWizardOpen(true)}
+                onSelectCell={setActiveCell}
+                onSelectRange={setSelectedRange}
+              />
+            )}
 
-            <CopilotPanel
-              isOpen={isCopilotOpen}
-              onClose={() => setIsCopilotOpen(false)}
-              sheet={activeSheet}
-              activeCell={activeCell}
-              onInsertFormula={handleInsertFormulaFromCopilot}
-              onOpenSettings={() => setIsApiKeyModalOpen(true)}
-              onOpenPowerBI={() => setActiveView('powerbi')}
-              onExecuteAgentActions={handleExecuteAgentActions}
-              onCreateNewSheet={handleCreateNewSheetFromData}
-            />
-          </div>
+            {/* Grid + Copilot Container */}
+            <div className="flex-1 flex overflow-hidden relative">
+              <SpreadsheetGrid
+                sheet={activeSheet}
+                allSheets={sheets}
+                activeCell={activeCell}
+                selectedRange={selectedRange}
+                showGridlines={showGridlines}
+                zoomLevel={zoomLevel}
+                onUpdateSheet={handleUpdateSheet}
+                onSelectCell={setActiveCell}
+                onSelectRange={setSelectedRange}
+                onUndo={handleUndo}
+                onRedo={handleRedo}
+                onOpenQuickAnalysis={() => setIsQuickAnalysisOpen(true)}
+                onOpenFormulaWizard={() => setIsFormulaWizardOpen(true)}
+                onOpenTextToColumns={() => setIsTextToColumnsOpen(true)}
+                onOpenConditionalModal={() => setIsConditionalModalOpen(true)}
+                onOpenCharts={() => setActiveView('powerbi')}
+                onOpenFindReplace={() => setIsFindReplaceOpen(true)}
+                onExecuteAgentActions={handleExecuteAgentActions}
+                onLoadTemplate={newSheet => {
+                  pushHistory(sheets);
+                  const recalculated = recalculateSheet(newSheet);
+                  setSheets(prev => prev.map(s => s.id === activeSheetId ? recalculated : s));
+                }}
+                onOpenImportModal={() => setIsImportExportOpen(true)}
+                onToggleCopilot={() => setIsCopilotOpen(prev => !prev)}
+              />
 
+              <CopilotPanel
+                isOpen={isCopilotOpen}
+                onClose={() => setIsCopilotOpen(false)}
+                sheet={activeSheet}
+                activeCell={activeCell}
+                onInsertFormula={handleInsertFormulaFromCopilot}
+                onOpenSettings={() => setIsApiKeyModalOpen(true)}
+                onOpenPowerBI={() => setActiveView('powerbi')}
+                onExecuteAgentActions={handleExecuteAgentActions}
+                onCreateNewSheet={handleCreateNewSheetFromData}
+              />
+            </div>
+          </>
+        )}
 
-          {/* Bottom Tabs Bar */}
-          <SheetTabs
-            sheets={sheets}
-            activeSheetId={activeSheetId}
-            selectedRange={selectedRange}
-            onSelectSheet={setActiveSheetId}
-            onAddSheet={handleAddSheet}
-            onRenameSheet={handleRenameSheet}
-            onDuplicateSheet={handleDuplicateSheet}
-            onDeleteSheet={handleDeleteSheet}
+        {/* POWER QUERY STUDIO VIEW */}
+        {activeView === 'powerquery' && (
+          <PowerQueryEditor
+            sheet={activeSheet}
+            allSheets={sheets}
+            onApplyChangesToSheet={handleUpdateSheet}
+            onClose={() => setActiveView('spreadsheet')}
           />
-        </>
-      )}
+        )}
 
-
-      {/* POWER QUERY STUDIO VIEW */}
-      {activeView === 'powerquery' && (
-        <PowerQueryEditor
-          sheet={activeSheet}
-          allSheets={sheets}
-          onApplyChangesToSheet={handleUpdateSheet}
-          onClose={() => setActiveView('spreadsheet')}
-        />
-      )}
-
-
-      {/* POWER BI VISUAL ANALYTICS VIEW */}
-      {activeView === 'powerbi' && (
-        <DashboardStudio
-          sheet={activeSheet}
-          onClose={() => setActiveView('spreadsheet')}
-          onLoadSampleSales={handleLoadSampleSales}
-        />
-      )}
+        {/* POWER BI VISUAL ANALYTICS VIEW */}
+        {activeView === 'powerbi' && (
+          <DashboardStudio
+            sheet={activeSheet}
+            onClose={() => setActiveView('spreadsheet')}
+            onLoadSampleSales={handleLoadSampleSales}
+          />
+        )}
+      </div>
 
       {/* MODALS */}
       <QuickAnalysisModal
