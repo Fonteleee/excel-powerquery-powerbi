@@ -47,54 +47,54 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
     <div className="h-10 bg-white border-b border-[#e2e8f0] px-3 flex items-center justify-between gap-2 select-none z-10 font-sans">
       {/* Left Action Buttons */}
       <div className="flex items-center gap-1">
-        {/* Fields */}
+        {/* Campos (Colunas) */}
         <button
           title="Configurar colunas visíveis"
           className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
         >
           <SlidersHorizontal className="size-3.5 text-slate-500" />
-          <span>Fields</span>
+          <span>Campos</span>
           <span className="px-1.5 py-0.2 bg-indigo-50 text-indigo-700 font-bold rounded-full text-[10px]">
             {sheet.colCount}
           </span>
         </button>
 
-        {/* Filter */}
+        {/* Filtro */}
         <button
           onClick={onOpenFindReplace}
           title="Filtrar dados da tabela"
           className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
         >
           <Filter className="size-3.5 text-slate-500" />
-          <span>Filter</span>
+          <span>Filtro</span>
         </button>
 
-        {/* Group */}
+        {/* Agrupar */}
         <button
           title="Agrupar por coluna"
           className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
         >
           <Layers className="size-3.5 text-slate-500" />
-          <span>Group</span>
+          <span>Agrupar</span>
         </button>
 
-        {/* Sort */}
+        {/* Ordenar */}
         <button
           title="Classificar e ordenar linhas"
           className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
         >
           <ArrowUpDown className="size-3.5 text-slate-500" />
-          <span>Sort</span>
+          <span>Ordenar</span>
         </button>
 
-        {/* Colour (Formatação Condicional) */}
+        {/* Cores (Formatação Condicional) */}
         <button
           onClick={onOpenConditionalFormat}
           title="Formatação Condicional & Cores"
           className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
         >
           <Palette className="size-3.5 text-slate-500" />
-          <span>Colour</span>
+          <span>Cores</span>
         </button>
 
         {/* Formula Wizard (Assistente de Fórmulas) */}

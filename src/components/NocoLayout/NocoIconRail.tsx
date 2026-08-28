@@ -29,15 +29,15 @@ export const NocoIconRail: React.FC<NocoIconRailProps> = ({
   isCopilotOpen = false,
 }) => {
   const topNavItems: { id: NocoNavView; label: string; icon: React.ReactNode }[] = [
-    { id: 'data', label: 'Data', icon: <Table className="size-4.5" /> },
-    { id: 'workflows', label: 'Workflows', icon: <GitBranch className="size-4.5" /> },
-    { id: 'interfaces', label: 'Interfaces', icon: <LayoutDashboard className="size-4.5" /> },
-    { id: 'settings', label: 'Settings', icon: <Settings className="size-4.5" /> },
-    { id: 'help', label: 'Help', icon: <HelpCircle className="size-4.5" /> },
+    { id: 'data', label: 'Dados', icon: <Table className="size-4.5" /> },
+    { id: 'workflows', label: 'Fluxos', icon: <GitBranch className="size-4.5" /> },
+    { id: 'interfaces', label: 'Painéis', icon: <LayoutDashboard className="size-4.5" /> },
+    { id: 'settings', label: 'Ajustes', icon: <Settings className="size-4.5" /> },
+    { id: 'help', label: 'Ajuda', icon: <HelpCircle className="size-4.5" /> },
   ];
 
   const bottomNavItems: { id: NocoNavView; label: string; icon: React.ReactNode }[] = [
-    { id: 'activity', label: 'Activity', icon: <Clock className="size-4.5" /> },
+    { id: 'activity', label: 'Histórico', icon: <Clock className="size-4.5" /> },
   ];
 
   return (
@@ -46,7 +46,7 @@ export const NocoIconRail: React.FC<NocoIconRailProps> = ({
       <div className="flex flex-col items-center w-full gap-1">
         {/* NocoDB Logo Badge */}
         <div
-          title="NocoDB Studio"
+          title="Estúdio de Dados"
           className="size-8 rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-700 flex items-center justify-center text-white font-bold text-sm shadow-sm cursor-pointer mb-2 hover:opacity-90 transition-opacity"
         >
           <span className="tracking-tighter">N</span>
@@ -83,11 +83,11 @@ export const NocoIconRail: React.FC<NocoIconRailProps> = ({
 
         {/* Bookmarks */}
         <button
-          title="Bookmarks"
+          title="Favoritos"
           className="size-9 rounded-lg flex flex-col items-center justify-center text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#1e293b] transition-colors cursor-pointer"
         >
           <Bookmark className="size-4" />
-          <span className="text-[8px] font-medium leading-none">Bookmarks</span>
+          <span className="text-[8px] font-medium leading-none">Favoritos</span>
         </button>
       </div>
 

@@ -95,7 +95,7 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
           className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
         >
           <Plus className="size-3.5" />
-          <span>Create New</span>
+          <span>Criar Nova Tabela</span>
         </button>
       </div>
 
@@ -150,7 +150,7 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
                     }`}
                   >
                     <LayoutDashboard className="size-3 text-emerald-500" />
-                    <span className="truncate">Dashboard Analytics</span>
+                    <span className="truncate">Painel Analítico (BI)</span>
                   </button>
 
                   <button

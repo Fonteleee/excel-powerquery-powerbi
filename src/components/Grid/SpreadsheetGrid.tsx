@@ -1804,13 +1804,13 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
             className="flex items-center gap-1 font-medium text-slate-700 hover:text-indigo-600 hover:bg-slate-200/60 px-2 py-0.5 rounded transition-colors cursor-pointer"
           >
             <Plus className="size-3.5 text-slate-500" />
-            <span>New record</span>
+            <span>Novo Registro</span>
           </button>
 
           <span className="text-slate-300">|</span>
 
           <span className="text-slate-500 font-sans">
-            {Math.max(sheet.rowCount - 1, 0)} records
+            {Math.max(sheet.rowCount - 1, 0)} registros
           </span>
 
           <span className="text-slate-300">|</span>
@@ -1820,7 +1820,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
             className="flex items-center gap-1 text-slate-600 hover:text-slate-900 px-1.5 py-0.5 rounded hover:bg-slate-200/50 cursor-pointer"
           >
             <ChevronDown className="size-3 text-slate-400" />
-            <span>Summary</span>
+            <span>Resumo</span>
           </button>
         </div>
 

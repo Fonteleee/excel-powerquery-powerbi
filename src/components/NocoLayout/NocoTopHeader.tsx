@@ -78,7 +78,7 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
           </span>
         </div>
 
-        {/* View Switcher Tabs (Data vs Details/Analytics) */}
+        {/* View Switcher Tabs (Dados vs Painel BI) */}
         <div className="flex items-center bg-slate-100/90 p-0.5 rounded-lg border border-slate-200 ml-2">
           <button
             onClick={() => onSelectView('spreadsheet')}
@@ -89,7 +89,7 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
             }`}
           >
             <TableIcon className="size-3.5 text-indigo-600" />
-            <span>Data</span>
+            <span>Dados</span>
           </button>
 
           <button
@@ -101,7 +101,7 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
             }`}
           >
             <LayoutDashboard className="size-3.5 text-emerald-600" />
-            <span>Analytics</span>
+            <span>Painel BI</span>
           </button>
         </div>
       </div>
@@ -166,11 +166,11 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
         {/* Share Button (NocoDB Signature Blue) */}
         <button
           onClick={onExportExcel}
-          title="Compartilhar / Salvar"
+          title="Compartilhar / Salvar Planilha"
           className="flex items-center gap-1 px-3 py-1 rounded-md text-xs font-semibold bg-[#2563eb] text-white hover:bg-[#1d4ed8] shadow-xs transition-colors cursor-pointer ml-1"
         >
           <Share2 className="size-3.5" />
-          <span>Share</span>
+          <span>Compartilhar</span>
         </button>
       </div>
     </header>
