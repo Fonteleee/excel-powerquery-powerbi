@@ -29,6 +29,7 @@ interface NocoTableToolbarProps {
   recordCount: number;
   onOpenFields?: () => void;
   onOpenSort?: () => void;
+  onOpenFormat?: () => void;
 }
 
 export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
@@ -44,6 +45,7 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
   recordCount,
   onOpenFields,
   onOpenSort,
+  onOpenFormat,
 }) => {
   const [isSearchActive, setIsSearchActive] = useState(false);
 
@@ -102,10 +104,22 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
           <span>Ordenar</span>
         </button>
 
+        {/* Formatação (Cores, Fontes, Moeda, Tempo) */}
+        {onOpenFormat && (
+          <button
+            onClick={onOpenFormat}
+            title="Formatação de Células, Cores, Fontes, Moeda e Tempo"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold text-indigo-700 hover:bg-indigo-50 bg-indigo-50/50 border border-indigo-200 transition-colors cursor-pointer"
+          >
+            <Palette className="size-3.5 text-indigo-600" />
+            <span>Formatar</span>
+          </button>
+        )}
+
         {/* Cores (Formatação Condicional) */}
         <button
           onClick={onOpenConditionalFormat}
-          title="Formatação Condicional & Cores"
+          title="Formatação Condicional & Escala de Cores"
           className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
         >
           <Palette className="size-3.5 text-slate-500" />

@@ -48,6 +48,7 @@ import { NocoSortModal } from './components/NocoLayout/NocoSortModal';
 import { NocoSummaryDrawer } from './components/NocoLayout/NocoSummaryDrawer';
 import { NocoUserProfileModal } from './components/NocoLayout/NocoUserProfileModal';
 import { NocoHistoryDrawer } from './components/NocoLayout/NocoHistoryDrawer';
+import { NocoFormatModal } from './components/NocoLayout/NocoFormatModal';
 
 export function App() {
 
@@ -101,6 +102,7 @@ export function App() {
   const [isSummaryDrawerOpen, setIsSummaryDrawerOpen] = useState(false);
   const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
+  const [isFormatModalOpen, setIsFormatModalOpen] = useState(false);
   const [starredSheetIds, setStarredSheetIds] = useState<Set<string>>(() => new Set());
 
   const activeSheet = sheets.find(s => s.id === activeSheetId) || sheets[0];
@@ -617,6 +619,7 @@ export function App() {
               recordCount={activeSheet.rowCount}
               onOpenFields={() => setIsFieldsModalOpen(true)}
               onOpenSort={() => setIsSortModalOpen(true)}
+              onOpenFormat={() => setIsFormatModalOpen(true)}
             />
 
             {/* Formula Bar */}
@@ -661,6 +664,7 @@ export function App() {
                 onOpenImportModal={() => setIsImportExportOpen(true)}
                 onToggleCopilot={() => setIsCopilotOpen(prev => !prev)}
                 onToggleSummary={() => setIsSummaryDrawerOpen(prev => !prev)}
+                onOpenFormatModal={() => setIsFormatModalOpen(true)}
               />
 
               <CopilotPanel
@@ -699,6 +703,14 @@ export function App() {
       </div>
 
       {/* MODALS & DRAWERS */}
+      <NocoFormatModal
+        isOpen={isFormatModalOpen}
+        onClose={() => setIsFormatModalOpen(false)}
+        sheet={activeSheet}
+        selectedRange={selectedRange}
+        onUpdateSheet={handleUpdateSheet}
+      />
+
       <NocoShareModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}

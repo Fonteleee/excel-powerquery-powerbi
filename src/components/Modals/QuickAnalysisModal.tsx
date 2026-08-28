@@ -55,85 +55,85 @@ export const QuickAnalysisModal: React.FC<QuickAnalysisModalProps> = ({
   const previewCount = values.filter(v => v !== null && v !== undefined && v !== '').length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl bg-white border border-slate-300 rounded-2xl shadow-2xl overflow-hidden flex flex-col text-slate-900">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-200 font-sans">
+      <div className="w-full max-w-2xl bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden flex flex-col text-slate-900 max-h-[88vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/80">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
-              <Sparkles className="size-5" />
+            <div className="size-9 rounded-2xl bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs flex items-center justify-center">
+              <Sparkles className="size-4.5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-slate-900 tracking-tight">Lente de Análise Rápida</h3>
-                <span className="px-2 py-0.5 text-xs font-mono font-bold rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                <h3 className="text-sm font-bold text-slate-900 tracking-tight">Lente de Análise Rápida</h3>
+                <span className="px-2 py-0.5 text-[10px] font-mono font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                   CTRL + Q
                 </span>
               </div>
-              <p className="text-xs text-slate-600 mt-0.5">
-                Intervalo: <strong className="font-mono text-emerald-900 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">{rangeAddress}</strong> ({numericValues.length} números detectados)
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Intervalo: <strong className="font-mono text-emerald-900 font-bold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">{rangeAddress}</strong> ({numericValues.length} números detectados)
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-200 transition-colors cursor-pointer"
+            className="size-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-200 transition-colors cursor-pointer"
           >
-            <X className="size-5" />
+            <X className="size-4" />
           </button>
         </div>
 
         {/* Tabs Bar */}
-        <div className="flex border-b border-slate-200 bg-slate-100/80 px-4">
+        <div className="flex border-b border-slate-200 bg-slate-100/60 px-4 gap-1 overflow-x-auto">
           <button
             onClick={() => setActiveTab('totals')}
-            className={`flex items-center gap-2 py-3 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 py-2.5 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer ${
               activeTab === 'totals'
-                ? 'border-emerald-700 text-emerald-900 bg-white shadow-2xs'
+                ? 'border-emerald-600 text-emerald-900 bg-white shadow-2xs rounded-t-lg'
                 : 'border-transparent text-slate-600 hover:text-slate-950 hover:bg-slate-200/50'
             }`}
           >
-            <Calculator className="size-4 text-emerald-700" />
-            Totais & Cálculos
+            <Calculator className="size-3.5 text-emerald-700" />
+            <span>Totais & Cálculos</span>
           </button>
           <button
             onClick={() => setActiveTab('formatting')}
-            className={`flex items-center gap-2 py-3 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 py-2.5 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer ${
               activeTab === 'formatting'
-                ? 'border-emerald-700 text-emerald-900 bg-white shadow-2xs'
+                ? 'border-emerald-600 text-emerald-900 bg-white shadow-2xs rounded-t-lg'
                 : 'border-transparent text-slate-600 hover:text-slate-950 hover:bg-slate-200/50'
             }`}
           >
-            <Palette className="size-4 text-emerald-700" />
-            Formatação Condicional
+            <Palette className="size-3.5 text-emerald-700" />
+            <span>Formatação Condicional</span>
           </button>
           <button
             onClick={() => setActiveTab('charts')}
-            className={`flex items-center gap-2 py-3 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 py-2.5 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer ${
               activeTab === 'charts'
-                ? 'border-emerald-700 text-emerald-900 bg-white shadow-2xs'
+                ? 'border-emerald-600 text-emerald-900 bg-white shadow-2xs rounded-t-lg'
                 : 'border-transparent text-slate-600 hover:text-slate-950 hover:bg-slate-200/50'
             }`}
           >
-            <BarChart2 className="size-4 text-emerald-700" />
-            Gráficos Instantâneos
+            <BarChart2 className="size-3.5 text-emerald-700" />
+            <span>Gráficos Instantâneos</span>
           </button>
           <button
             onClick={() => setActiveTab('tables')}
-            className={`flex items-center gap-2 py-3 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 py-2.5 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer ${
               activeTab === 'tables'
-                ? 'border-emerald-700 text-emerald-900 bg-white shadow-2xs'
+                ? 'border-emerald-600 text-emerald-900 bg-white shadow-2xs rounded-t-lg'
                 : 'border-transparent text-slate-600 hover:text-slate-950 hover:bg-slate-200/50'
             }`}
           >
-            <Table className="size-4 text-emerald-700" />
-            Tabela Dinâmica
+            <Table className="size-3.5 text-emerald-700" />
+            <span>Tabela Dinâmica</span>
           </button>
         </div>
 
         {/* Tab Content */}
-        <div className="p-6 max-h-[440px] overflow-y-auto bg-white text-slate-900">
+        <div className="p-5 flex-1 overflow-y-auto bg-white text-slate-900">
           {/* TOTAIS & CÁLCULOS */}
           {activeTab === 'totals' && (
             <div className="space-y-4">
