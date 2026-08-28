@@ -27,6 +27,8 @@ interface NocoTableToolbarProps {
   searchFilter: string;
   onSearchChange: (query: string) => void;
   recordCount: number;
+  onOpenFields?: () => void;
+  onOpenSort?: () => void;
 }
 
 export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
@@ -40,8 +42,18 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
   searchFilter,
   onSearchChange,
   recordCount,
+  onOpenFields,
+  onOpenSort,
 }) => {
   const [isSearchActive, setIsSearchActive] = useState(false);
+
+  const handleToggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
 
   return (
     <div className="h-10 bg-white border-b border-[#e2e8f0] px-3 flex items-center justify-between gap-2 select-none z-10 font-sans">
@@ -49,7 +61,8 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
       <div className="flex items-center gap-1">
         {/* Campos (Colunas) */}
         <button
-          title="Configurar colunas visíveis"
+          onClick={onOpenFields}
+          title="Configurar e visualizar campos"
           className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
         >
           <SlidersHorizontal className="size-3.5 text-slate-500" />
@@ -71,7 +84,8 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
 
         {/* Agrupar */}
         <button
-          title="Agrupar por coluna"
+          onClick={onOpenSort}
+          title="Agrupar e ordenar registros"
           className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
         >
           <Layers className="size-3.5 text-slate-500" />
@@ -80,6 +94,7 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
 
         {/* Ordenar */}
         <button
+          onClick={onOpenSort}
           title="Classificar e ordenar linhas"
           className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
         >
@@ -154,9 +169,10 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
           )}
         </div>
 
-        {/* Expand / Maximize */}
+        {/* Expand / Maximize Fullscreen */}
         <button
-          title="Expandir visualização"
+          onClick={handleToggleFullscreen}
+          title="Alternar Tela Cheia"
           className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer"
         >
           <Maximize2 className="size-3.5" />

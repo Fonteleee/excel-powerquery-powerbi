@@ -41,6 +41,14 @@ import { FindReplaceModal } from './components/Modals/FindReplaceModal';
 import { GeminiApiKeyModal } from './components/Modals/GeminiApiKeyModal';
 import { autoRecognizeAndFormatSheet } from './utils/dataRecognizer';
 
+// NocoDB Advanced Modals & Drawers
+import { NocoShareModal } from './components/NocoLayout/NocoShareModal';
+import { NocoFieldsModal } from './components/NocoLayout/NocoFieldsModal';
+import { NocoSortModal } from './components/NocoLayout/NocoSortModal';
+import { NocoSummaryDrawer } from './components/NocoLayout/NocoSummaryDrawer';
+import { NocoUserProfileModal } from './components/NocoLayout/NocoUserProfileModal';
+import { NocoHistoryDrawer } from './components/NocoLayout/NocoHistoryDrawer';
+
 export function App() {
 
   // Initialize with a clean blank sheet (Planilha1)
@@ -85,6 +93,15 @@ export function App() {
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isFindReplaceOpen, setIsFindReplaceOpen] = useState(false);
+
+  // NocoDB Specific Dialog States
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isFieldsModalOpen, setIsFieldsModalOpen] = useState(false);
+  const [isSortModalOpen, setIsSortModalOpen] = useState(false);
+  const [isSummaryDrawerOpen, setIsSummaryDrawerOpen] = useState(false);
+  const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
+  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
+  const [starredSheetIds, setStarredSheetIds] = useState<Set<string>>(() => new Set());
 
   const activeSheet = sheets.find(s => s.id === activeSheetId) || sheets[0];
 
@@ -525,6 +542,17 @@ export function App() {
         onNewSheet={handleAddSheet}
         onToggleCopilot={() => setIsCopilotOpen(prev => !prev)}
         isCopilotOpen={isCopilotOpen}
+        onOpenUserProfile={() => setIsUserProfileOpen(true)}
+        onOpenHistory={() => setIsHistoryDrawerOpen(true)}
+        onToggleFavorites={() => {
+          setStarredSheetIds(prev => {
+            const next = new Set(prev);
+            if (next.has(activeSheetId)) next.delete(activeSheetId);
+            else next.add(activeSheetId);
+            return next;
+          });
+        }}
+        isStarred={starredSheetIds.has(activeSheetId)}
       />
 
       {/* 2. Collapsible Base & Tables Sidebar Drawer */}
@@ -559,6 +587,8 @@ export function App() {
           onExportExcel={() => exportSheetToExcel(activeSheet, activeSheet.name)}
           onOpenImportModal={() => setIsImportExportOpen(true)}
           onToggleCopilot={() => setIsCopilotOpen(prev => !prev)}
+          onOpenShare={() => setIsShareModalOpen(true)}
+          onRenameSheet={newName => handleRenameSheet(activeSheetId, newName)}
         />
 
         {/* DATA TABLE SPREADSHEET VIEW */}
@@ -585,6 +615,8 @@ export function App() {
               searchFilter={searchFilter}
               onSearchChange={setSearchFilter}
               recordCount={activeSheet.rowCount}
+              onOpenFields={() => setIsFieldsModalOpen(true)}
+              onOpenSort={() => setIsSortModalOpen(true)}
             />
 
             {/* Formula Bar */}
@@ -628,6 +660,7 @@ export function App() {
                 }}
                 onOpenImportModal={() => setIsImportExportOpen(true)}
                 onToggleCopilot={() => setIsCopilotOpen(prev => !prev)}
+                onToggleSummary={() => setIsSummaryDrawerOpen(prev => !prev)}
               />
 
               <CopilotPanel
@@ -665,7 +698,51 @@ export function App() {
         )}
       </div>
 
-      {/* MODALS */}
+      {/* MODALS & DRAWERS */}
+      <NocoShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        sheet={activeSheet}
+      />
+
+      <NocoFieldsModal
+        isOpen={isFieldsModalOpen}
+        onClose={() => setIsFieldsModalOpen(false)}
+        sheet={activeSheet}
+        onUpdateSheet={handleUpdateSheet}
+      />
+
+      <NocoSortModal
+        isOpen={isSortModalOpen}
+        onClose={() => setIsSortModalOpen(false)}
+        sheet={activeSheet}
+        onUpdateSheet={handleUpdateSheet}
+      />
+
+      <NocoSummaryDrawer
+        isOpen={isSummaryDrawerOpen}
+        onClose={() => setIsSummaryDrawerOpen(false)}
+        sheet={activeSheet}
+        selectedRange={selectedRange}
+      />
+
+      <NocoUserProfileModal
+        isOpen={isUserProfileOpen}
+        onClose={() => setIsUserProfileOpen(false)}
+        onOpenSettings={() => setIsApiKeyModalOpen(true)}
+        tableCount={sheets.length}
+      />
+
+      <NocoHistoryDrawer
+        isOpen={isHistoryDrawerOpen}
+        onClose={() => setIsHistoryDrawerOpen(false)}
+        historyPastCount={historyPast.length}
+        historyFutureCount={historyFuture.length}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        sheetName={activeSheet.name || 'Tabela'}
+      />
+
       <QuickAnalysisModal
         isOpen={isQuickAnalysisOpen}
         onClose={() => setIsQuickAnalysisOpen(false)}

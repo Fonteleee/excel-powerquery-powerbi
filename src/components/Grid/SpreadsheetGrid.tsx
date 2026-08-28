@@ -67,6 +67,7 @@ interface SpreadsheetGridProps {
   onLoadTemplate?: (sheet: Sheet) => void;
   onOpenImportModal?: () => void;
   onToggleCopilot?: () => void;
+  onToggleSummary?: () => void;
 }
 
 export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
@@ -91,6 +92,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   onLoadTemplate,
   onOpenImportModal,
   onToggleCopilot,
+  onToggleSummary,
 }) => {
   const handleAddRow = () => {
     onUpdateSheet({
@@ -1816,7 +1818,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
           <span className="text-slate-300">|</span>
 
           <button
-            onClick={onOpenQuickAnalysis}
+            onClick={onToggleSummary || onOpenQuickAnalysis}
             className="flex items-center gap-1 text-slate-600 hover:text-slate-900 px-1.5 py-0.5 rounded hover:bg-slate-200/50 cursor-pointer"
           >
             <ChevronDown className="size-3 text-slate-400" />

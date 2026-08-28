@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ChevronsRight,
   Box,
@@ -30,6 +30,8 @@ interface NocoTopHeaderProps {
   onExportExcel: () => void;
   onOpenImportModal: () => void;
   onToggleCopilot: () => void;
+  onOpenShare: () => void;
+  onRenameSheet?: (newName: string) => void;
 }
 
 export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
@@ -46,8 +48,18 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
   onExportExcel,
   onOpenImportModal,
   onToggleCopilot,
+  onOpenShare,
+  onRenameSheet,
 }) => {
-  const cleanTableName = sheet.name || 'Acompanhamento_de_Dados';
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [tempName, setTempName] = useState(sheet.name || 'Tabela');
+
+  const handleFinishRename = () => {
+    setIsRenaming(false);
+    if (tempName.trim() && onRenameSheet && tempName !== sheet.name) {
+      onRenameSheet(tempName.trim());
+    }
+  };
 
   return (
     <header className="h-12 bg-white border-b border-[#e2e8f0] px-3 flex items-center justify-between select-none z-10">
@@ -69,13 +81,35 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
             <Box className="size-2.5" />
           </div>
           <span className="text-slate-400">/</span>
-          <span className="font-medium text-slate-600 truncate max-w-[160px] hover:text-slate-900 cursor-pointer">
-            Base_Workspace
+          <span className="font-medium text-slate-600 truncate max-w-[160px]">
+            Espaço_de_Trabalho
           </span>
           <span className="text-slate-400">/</span>
-          <span className="font-semibold text-slate-800 truncate max-w-[200px]">
-            {cleanTableName}
-          </span>
+          {isRenaming ? (
+            <input
+              type="text"
+              value={tempName}
+              onChange={e => setTempName(e.target.value)}
+              onBlur={handleFinishRename}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleFinishRename();
+                if (e.key === 'Escape') setIsRenaming(false);
+              }}
+              className="px-1.5 py-0.5 text-xs font-semibold text-slate-900 bg-indigo-50 border border-indigo-400 rounded focus:outline-hidden"
+              autoFocus
+            />
+          ) : (
+            <span
+              onClick={() => {
+                setTempName(sheet.name || 'Tabela');
+                setIsRenaming(true);
+              }}
+              title="Clique duas vezes para renomear"
+              className="font-semibold text-slate-800 truncate max-w-[220px] hover:text-indigo-600 hover:bg-slate-100 px-1 py-0.5 rounded transition-colors cursor-pointer"
+            >
+              {sheet.name || 'Acompanhamento_de_Dados'}
+            </span>
+          )}
         </div>
 
         {/* View Switcher Tabs (Dados vs Painel BI) */}
@@ -165,7 +199,7 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
 
         {/* Share Button (NocoDB Signature Blue) */}
         <button
-          onClick={onExportExcel}
+          onClick={onOpenShare}
           title="Compartilhar / Salvar Planilha"
           className="flex items-center gap-1 px-3 py-1 rounded-md text-xs font-semibold bg-[#2563eb] text-white hover:bg-[#1d4ed8] shadow-xs transition-colors cursor-pointer ml-1"
         >
