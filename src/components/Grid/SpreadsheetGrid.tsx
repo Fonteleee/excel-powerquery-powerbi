@@ -112,6 +112,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   const [flashFillHint, setFlashFillHint] = useState<FlashFillPrediction | null>(null);
 
   const gridRef = useRef<HTMLDivElement>(null);
+  const dragAnchorRef = useRef<{ row: number; col: number; x: number; y: number; isDragStarted: boolean } | null>(null);
 
   // Calculate if multiple cells are selected (either contiguous range or multi-cell CTRL)
   const hasMultipleSelection = useMemo(() => {
@@ -820,7 +821,8 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     }
 
 
-    // Normal single click or drag start: clear multi-selection & set anchor
+    // Normal single click or deliberate drag start:
+    // Strictly locks active selection to THIS single cell on initial click
     setIsCtrlSelecting(false);
     setMultiSelectedKeys(new Set());
     setSelectionAnchor({ row, col });
@@ -831,12 +833,14 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       endRow: row,
       endCol: col,
     });
-    setIsSelecting(true);
+    setIsSelecting(false);
+    dragAnchorRef.current = { row, col, x: e.clientX, y: e.clientY, isDragStarted: false };
   };
 
   const handleCellMouseEnter = (e: React.MouseEvent, row: number, col: number) => {
     // Hard guard: if primary mouse button (left-click) is NOT actively held down, cancel dragging immediately
     if ((e.buttons & 1) !== 1) {
+      dragAnchorRef.current = null;
       if (isSelecting) setIsSelecting(false);
       if (isCtrlSelecting) setIsCtrlSelecting(false);
       if (isRowSelecting) setIsRowSelecting(false);
@@ -863,31 +867,35 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       return;
     }
 
-    if (isSelecting) {
-      if (isCtrlSelecting) {
-        // Expand multi-selection block with CTRL
-        const rMin = Math.min(selectionAnchor.row, row);
-        const rMax = Math.max(selectionAnchor.row, row);
-        const cMin = Math.min(selectionAnchor.col, col);
-        const cMax = Math.max(selectionAnchor.col, col);
+    // Only expand range if user deliberately dragged with mouse button down across cells
+    if (dragAnchorRef.current) {
+      if (row !== dragAnchorRef.current.row || col !== dragAnchorRef.current.col) {
+        dragAnchorRef.current.isDragStarted = true;
+        setIsSelecting(true);
 
-        setMultiSelectedKeys(prev => {
-          const next = new Set(prev);
-          for (let r = rMin; r <= rMax; r++) {
-            for (let c = cMin; c <= cMax; c++) {
-              next.add(cellPosToKey(r, c));
+        if (isCtrlSelecting) {
+          const rMin = Math.min(dragAnchorRef.current.row, row);
+          const rMax = Math.max(dragAnchorRef.current.row, row);
+          const cMin = Math.min(dragAnchorRef.current.col, col);
+          const cMax = Math.max(dragAnchorRef.current.col, col);
+
+          setMultiSelectedKeys(prev => {
+            const next = new Set(prev);
+            for (let r = rMin; r <= rMax; r++) {
+              for (let c = cMin; c <= cMax; c++) {
+                next.add(cellPosToKey(r, c));
+              }
             }
-          }
-          return next;
-        });
-      } else {
-        // Fluid rectangular range drag selection without CTRL
-        onSelectRange({
-          startRow: Math.min(selectionAnchor.row, row),
-          startCol: Math.min(selectionAnchor.col, col),
-          endRow: Math.max(selectionAnchor.row, row),
-          endCol: Math.max(selectionAnchor.col, col),
-        });
+            return next;
+          });
+        } else {
+          onSelectRange({
+            startRow: Math.min(dragAnchorRef.current.row, row),
+            startCol: Math.min(dragAnchorRef.current.col, col),
+            endRow: Math.max(dragAnchorRef.current.row, row),
+            endCol: Math.max(dragAnchorRef.current.col, col),
+          });
+        }
       }
     }
   };
@@ -1149,6 +1157,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     };
 
     const handleGlobalMouseUp = () => {
+      dragAnchorRef.current = null;
       if (resizingCol !== null) setResizingCol(null);
       if (resizingRow !== null) setResizingRow(null);
       setIsSelecting(false);

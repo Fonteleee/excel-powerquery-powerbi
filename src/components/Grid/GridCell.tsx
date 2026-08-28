@@ -262,7 +262,7 @@ const GridCellComponent: React.FC<GridCellProps> = ({
             e.stopPropagation();
             if (onFillDoubleClick) onFillDoubleClick(row, col);
           }}
-          className="absolute -bottom-1 -right-1 size-2 bg-[#107c41] border border-white z-30 cursor-crosshair shadow-xs hover:scale-125 transition-transform"
+          className="absolute -bottom-0.5 -right-0.5 size-1.5 bg-[#107c41] border border-white z-30 cursor-crosshair shadow-2xs hover:scale-125 transition-transform"
         />
       )}
 
