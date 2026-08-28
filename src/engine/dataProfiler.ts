@@ -44,8 +44,9 @@ export function profileSheetColumns(sheet: Sheet, headerRowIndex = 0): ColumnPro
     let booleanTypeCount = 0;
 
 
-    const isHeaderTimeKeyword = /tempo|hora|pausa|logado|dura[cç][aã]o|perman[eê]ncia|chamada|atendimento|time/i.test(colName);
-    const isHeaderCurrencyKeyword = /pre[cç]o|valor|sal[aá]rio|faturamento|custo|lucro|receita|venda|r\$/i.test(colName);
+    const isIdColumn = /^id\b|c[oó]digo|identificador|sku|matricula|matrícula/i.test(colName);
+    const isHeaderTimeKeyword = !isIdColumn && /tempo|hora|pausa|logado|dura[cç][aã]o|perman[eê]ncia|chamada|atendimento|time/i.test(colName);
+    const isHeaderCurrencyKeyword = !isIdColumn && /pre[cç]o|valor|sal[aá]rio|faturamento|custo|lucro|receita|total|comiss[aã]o|r\$/i.test(colName);
 
     const dataStartRow = headerRowIndex + 1;
     const totalDataRows = Math.max(effectiveRows - dataStartRow, 0);
@@ -92,12 +93,21 @@ export function profileSheetColumns(sheet: Sheet, headerRowIndex = 0): ColumnPro
 
     // Determine dominant type
     let inferredType: ColumnProfile['inferredType'] = 'text';
-    if (timeTypeCount > validCount * 0.35 || (isHeaderTimeKeyword && validCount > 0)) inferredType = 'time';
-    else if (currencyTypeCount > validCount * 0.35 || (isHeaderCurrencyKeyword && validCount > 0)) inferredType = 'currency';
-    else if (percentageTypeCount > validCount * 0.35) inferredType = 'percentage';
-    else if (numberTypeCount > validCount * 0.35) inferredType = 'number';
-    else if (dateTypeCount > validCount * 0.35) inferredType = 'date';
-    else if (booleanTypeCount > validCount * 0.35) inferredType = 'boolean';
+    if (isIdColumn) {
+      inferredType = 'text';
+    } else if (timeTypeCount > validCount * 0.35 || (isHeaderTimeKeyword && timeTypeCount > 0)) {
+      inferredType = 'time';
+    } else if (currencyTypeCount > validCount * 0.35 || (isHeaderCurrencyKeyword && numbers.length > validCount * 0.3)) {
+      inferredType = 'currency';
+    } else if (percentageTypeCount > validCount * 0.35) {
+      inferredType = 'percentage';
+    } else if (numberTypeCount > validCount * 0.35 || (numbers.length > validCount * 0.5)) {
+      inferredType = 'number';
+    } else if (dateTypeCount > validCount * 0.35) {
+      inferredType = 'date';
+    } else if (booleanTypeCount > validCount * 0.35) {
+      inferredType = 'boolean';
+    }
 
 
     // Stats

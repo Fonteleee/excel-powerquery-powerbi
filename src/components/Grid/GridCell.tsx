@@ -28,6 +28,8 @@ interface GridCellProps {
   onEditChange: (value: string) => void;
   onEditKeyDown: (e: React.KeyboardEvent) => void;
   onEditBlur: () => void;
+  onFillMouseDown?: (e: React.MouseEvent) => void;
+  onFillDoubleClick?: (row: number, col: number) => void;
 }
 
 const GridCellComponent: React.FC<GridCellProps> = ({
@@ -55,6 +57,8 @@ const GridCellComponent: React.FC<GridCellProps> = ({
   onEditChange,
   onEditKeyDown,
   onEditBlur,
+  onFillMouseDown,
+  onFillDoubleClick,
 }) => {
   if (isMergeCovered) return null;
 
@@ -232,6 +236,7 @@ const GridCellComponent: React.FC<GridCellProps> = ({
 
   return (
     <td
+      data-cell={`R${row}C${col}`}
       colSpan={colSpan > 1 ? colSpan : undefined}
       rowSpan={rowSpan > 1 ? rowSpan : undefined}
       onMouseDown={e => onMouseDown(e, row, col)}
@@ -247,7 +252,18 @@ const GridCellComponent: React.FC<GridCellProps> = ({
         (isSingleCellSelection && isSelected) ||
         (!isSingleCellSelection && isRangeBottomRight)
       ) && (
-        <div className="absolute -bottom-1 -right-1 size-1.5 bg-[#107c41] border border-white z-30 pointer-events-none shadow-2xs" />
+        <div
+          title="Alça de Preenchimento: Arraste ou clique duas vezes para preencher"
+          onMouseDown={e => {
+            e.stopPropagation();
+            if (onFillMouseDown) onFillMouseDown(e);
+          }}
+          onDoubleClick={e => {
+            e.stopPropagation();
+            if (onFillDoubleClick) onFillDoubleClick(row, col);
+          }}
+          className="absolute -bottom-1 -right-1 size-2 bg-[#107c41] border border-white z-30 cursor-crosshair shadow-xs hover:scale-125 transition-transform"
+        />
       )}
 
       {/* Data Bar background fill */}
@@ -270,7 +286,13 @@ const GridCellComponent: React.FC<GridCellProps> = ({
       {isEditing ? (
         <div className="absolute inset-0 z-30">
           <input
-            autoFocus
+            ref={(el) => {
+              if (el && document.activeElement !== el) {
+                el.focus();
+                const len = el.value.length;
+                el.setSelectionRange(len, len);
+              }
+            }}
             type="text"
             value={editValue}
             onChange={e => onEditChange(e.target.value)}

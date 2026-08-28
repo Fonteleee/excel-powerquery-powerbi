@@ -12,7 +12,14 @@ import {
   Calculator,
   BarChart2,
   Trash2,
-  Lock,
+  Zap,
+  Layers,
+  Cpu,
+  RefreshCw,
+  PlusCircle,
+  FileSpreadsheet,
+  ClipboardCheck,
+  TableProperties,
 } from 'lucide-react';
 import { Sheet, CellPosition } from '../../types/spreadsheet';
 import {
@@ -20,8 +27,13 @@ import {
   askGeminiCopilot,
   getStoredApiKey,
   getStoredModel,
+  saveStoredModel,
+  STATIC_CANDIDATE_MODELS,
 } from '../../services/geminiService';
-import { CopilotChartCard, CopilotChartConfig } from './CopilotChartCard';
+import { CopilotChartCard } from './CopilotChartCard';
+import { CopilotSqlTable } from './CopilotSqlTable';
+import { syncSheetToDuckDB, queryDuckDB, DuckDBQueryResult } from '../../engine/duckdbEngine';
+import { AgentAction } from '../../engine/agentActionProtocol';
 
 interface CopilotPanelProps {
   isOpen: boolean;
@@ -31,6 +43,8 @@ interface CopilotPanelProps {
   onInsertFormula: (formula: string) => void;
   onOpenSettings: () => void;
   onOpenPowerBI?: () => void;
+  onExecuteAgentActions?: (actions: AgentAction[]) => void;
+  onCreateNewSheet?: (name: string, columns: string[], rows: any[]) => void;
 }
 
 export const CopilotPanel: React.FC<CopilotPanelProps> = ({
@@ -41,12 +55,15 @@ export const CopilotPanel: React.FC<CopilotPanelProps> = ({
   onInsertFormula,
   onOpenSettings,
   onOpenPowerBI,
+  onExecuteAgentActions,
+  onCreateNewSheet,
 }) => {
   const [messages, setMessages] = useState<CopilotMessage[]>([
     {
       id: 'welcome',
       role: 'assistant',
-      content: 'Olá! Sou o seu **Excel Copilot com Google Gemini**.\n\nPosso gerar fórmulas avançadas, criar **gráficos interativos imediatos**, montar etapas de Power Query e analisar seus dados.\n\n🔒 **100% Seguro**: Todos os dados sensíveis são anonimizados no seu navegador antes do processamento.',
+      content:
+        'Olá! Sou o seu **Autonomous Excel Agent com Google Gemini 3.x e DuckDB-Wasm**.\n\nAgora posso **executar ações reais no seu Excel**:\n- 🏗️ **Criar planilhas inteiras do zero** (Fluxo de Caixa, DRE, Vendas, Estoque)\n- ✏️ **Editar e calcular células em lote** com fórmulas automáticas\n- 🗑️ **Apagar colunas e linhas** sob demanda\n- 📊 **Gerar gráficos dinâmicos** e consultas SQL instantâneas\n- 📋 **Copiar dados formatados** para colar em qualquer aba ou arquivo\n- 🛡️ **Zero vazamento**: Dados protegidos com anonimização LGPD nativa.',
       timestamp: new Date(),
     },
   ]);
@@ -54,11 +71,31 @@ export const CopilotPanel: React.FC<CopilotPanelProps> = ({
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copiedFormula, setCopiedFormula] = useState<string | null>(null);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [appliedActionIds, setAppliedActionIds] = useState<Set<string>>(new Set());
+  const [duckdbResults, setDuckdbResults] = useState<Record<string, DuckDBQueryResult>>({});
+  const [selectedModel, setSelectedModel] = useState<string>(getStoredModel());
+
+  // DuckDB sync status
+  const [indexedCols, setIndexedCols] = useState<string[]>([]);
+  const [indexedRows, setIndexedRows] = useState(0);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const apiKey = getStoredApiKey();
-  const currentModel = getStoredModel();
+
+  // Sincronizar planilha ativa com DuckDB-Wasm
+  useEffect(() => {
+    if (isOpen && sheet) {
+      syncSheetToDuckDB(sheet).then(res => {
+        if (res.success) {
+          setIndexedCols(res.columns);
+          setIndexedRows(res.rowCount);
+        }
+      });
+    }
+  }, [isOpen, sheet]);
 
   useEffect(() => {
     if (isOpen) {
@@ -73,6 +110,11 @@ export const CopilotPanel: React.FC<CopilotPanelProps> = ({
   }, [messages, isLoading]);
 
   if (!isOpen) return null;
+
+  const handleModelChange = (newModel: string) => {
+    setSelectedModel(newModel);
+    saveStoredModel(newModel);
+  };
 
   const handleSend = async (customPrompt?: string) => {
     const textToSend = customPrompt || input.trim();
@@ -96,22 +138,35 @@ export const CopilotPanel: React.FC<CopilotPanelProps> = ({
 
     try {
       const result = await askGeminiCopilot(textToSend, sheet, messages);
+      
+      const assistantMsgId = `assistant-${Date.now()}`;
       const assistantMsg: CopilotMessage = {
-        id: `assistant-${Date.now()}`,
+        id: assistantMsgId,
         role: 'assistant',
         content: result.text,
         timestamp: new Date(),
         suggestedFormula: result.suggestedFormula,
         suggestedMCode: result.suggestedMCode,
         suggestedChart: result.suggestedChart,
+        suggestedSql: result.suggestedSql,
+        actions: result.actions,
         maskedItemsCount: result.maskedCount,
       };
+
       setMessages(prev => [...prev, assistantMsg]);
+
+      // Se houver consulta SQL, executar automaticamente no DuckDB-Wasm
+      if (result.suggestedSql) {
+        queryDuckDB(result.suggestedSql).then(sqlRes => {
+          setDuckdbResults(prev => ({ ...prev, [assistantMsgId]: sqlRes }));
+        });
+      }
+
     } catch (err: any) {
       const errorMsg: CopilotMessage = {
         id: `error-${Date.now()}`,
         role: 'assistant',
-        content: `❌ **Erro ao consultar Gemini:** ${err?.message || 'Falha desconhecida.'}\n\nVerifique se sua chave de API está correta clicando no ícone de chave acima.`,
+        content: `❌ **Erro ao consultar Gemini:** ${err?.message || 'Falha desconhecida.'}\n\nVerifique sua chave de API nas configurações ou escolha outro modelo Gemini 3.x.`,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMsg]);
@@ -120,10 +175,40 @@ export const CopilotPanel: React.FC<CopilotPanelProps> = ({
     }
   };
 
-  const handleCopy = (text: string) => {
+  const handleApplyActions = (msgId: string, actions: AgentAction[]) => {
+    if (onExecuteAgentActions && actions.length > 0) {
+      onExecuteAgentActions(actions);
+      setAppliedActionIds(prev => new Set(prev).add(msgId));
+    }
+  };
+
+  const handleCopyFormula = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedFormula(text);
     setTimeout(() => setCopiedFormula(null), 2000);
+  };
+
+  // Copiar resposta formatada para colar direto no Excel (TSV) ou texto limpo
+  const handleCopyResponse = (msg: CopilotMessage, asTabularData = false) => {
+    let textToCopy = msg.content;
+
+    const createAction = msg.actions?.find(a => a.type === 'create_sheet_from_scratch') as any;
+    const duckResult = duckdbResults[msg.id];
+
+    if (asTabularData && createAction && createAction.columns && createAction.rows) {
+      // Montar TSV (Tab-Separated Values) que cola perfeitamente em linhas e colunas no Excel
+      const headerLine = createAction.columns.join('\t');
+      const rowLines = createAction.rows.map((r: any[]) => r.map(v => v === null || v === undefined ? '' : String(v)).join('\t'));
+      textToCopy = `${headerLine}\n${rowLines.join('\n')}`;
+    } else if (asTabularData && duckResult && duckResult.columns.length > 0) {
+      const headerLine = duckResult.columns.join('\t');
+      const rowLines = duckResult.rows.map(row => duckResult.columns.map(c => row[c] ?? '').join('\t'));
+      textToCopy = `${headerLine}\n${rowLines.join('\n')}`;
+    }
+
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedMessageId(msg.id);
+    setTimeout(() => setCopiedMessageId(null), 2000);
   };
 
   const handleClearHistory = () => {
@@ -131,244 +216,311 @@ export const CopilotPanel: React.FC<CopilotPanelProps> = ({
       {
         id: 'welcome-reset',
         role: 'assistant',
-        content: 'Histórico limpo. Como posso ajudar com sua planilha agora?',
+        content: 'Histórico limpo. O que você gostaria de criar, editar ou analisar na planilha?',
         timestamp: new Date(),
       },
     ]);
+    setDuckdbResults({});
   };
 
+  // Sugestões inteligentes baseadas no estado da planilha
   const quickPrompts = [
     {
-      label: 'Sugerir Fórmula para Total',
-      icon: <Calculator className="size-3 text-emerald-600" />,
-      prompt: `Gere uma fórmula do Excel para somar ou calcular os valores principais da tabela atual.`,
+      label: 'Criar DRE Financeira 2026',
+      icon: <FileSpreadsheet className="size-3 text-emerald-600" />,
+      prompt: 'Crie uma nova planilha de DRE (Demonstrativo do Resultado do Exercício) completa para 2026 com 12 meses, receitas, custos, despesas, impostos, lucro líquido e margem EBITDA com fórmulas.',
     },
     {
-      label: 'Criar Gráfico de Vendas',
-      icon: <BarChart2 className="size-3 text-blue-600" />,
-      prompt: `Analise a planilha, calcule o total por categoria/vendedor e crie um gráfico avançado com os dados.`,
+      label: 'Criar Fluxo de Caixa Anual',
+      icon: <Layers className="size-3 text-blue-600" />,
+      prompt: 'Crie uma planilha de Fluxo de Caixa anual detalhada com entradas, saídas fixas/variáveis, saldo inicial, saldo final e saldo acumulado com fórmulas reais.',
     },
     {
-      label: 'Transformação Power Query',
-      icon: <Database className="size-3 text-purple-600" />,
-      prompt: `Como criar uma etapa no Power Query para limpar nulos e padronizar textos nesta planilha?`,
+      label: 'Adicionar Coluna de Margem %',
+      icon: <Calculator className="size-3 text-amber-600" />,
+      prompt: 'Adicione uma nova coluna de Margem % calculando a porcentagem de lucro em relação ao faturamento para todas as linhas preenchidas.',
+    },
+    {
+      label: 'Gráfico Comparativo',
+      icon: <BarChart2 className="size-3 text-purple-600" />,
+      prompt: 'Analise os dados da planilha atual, faça o agrupamento dos principais totais e gere um gráfico comparativo avançado.',
+    },
+    {
+      label: 'Consulta Analítica SQL',
+      icon: <Database className="size-3 text-cyan-600" />,
+      prompt: 'Gere uma consulta SQL analítica no DuckDB agrupando as métricas principais da planilha atual com soma e média.',
     },
   ];
 
   return (
-    <aside className="w-80 sm:w-96 h-full bg-[#f9f9f9] border-l border-[#e0e0e0] flex flex-col z-30 select-none shadow-lg animate-in slide-in-from-right-2 duration-200 font-sans">
-      {/* Header */}
-      <div className="h-11 px-3.5 bg-[#f5f5f5] border-b border-[#e0e0e0] flex items-center justify-between">
+    <aside aria-label="Excel AI Copilot" className="fixed top-12 bottom-8 right-0 z-40 flex w-[480px] max-w-[95vw] flex-col border-l border-slate-200 bg-slate-50 shadow-2xl transition-all duration-300">
+      {/* Header do Cockpit */}
+      <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
         <div className="flex items-center gap-2">
-          <div className="size-6 rounded-md bg-linear-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-2xs">
-            <Sparkles className="size-3.5" />
+          <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-tr from-emerald-600 to-teal-500 text-white shadow-sm">
+            <Sparkles className="size-4.5" />
           </div>
           <div>
-            <h3 className="font-semibold text-xs text-[#242424] flex items-center gap-1.5">
-              <span>Copilot</span>
-              <span className="text-[10px] bg-purple-100 text-purple-800 font-semibold px-1.5 py-0.2 rounded">{currentModel}</span>
-            </h3>
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-slate-800 text-sm">Autonomous Excel Agent</span>
+              <span className="flex items-center gap-0.5 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800" title="Anonimização de dados pessoais ativa">
+                <ShieldCheck className="size-3" /> LGPD Safe
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-slate-500">
+              <span className="flex items-center gap-1">
+                <Cpu className="size-3 text-blue-600" />
+                <select
+                  value={selectedModel}
+                  onChange={e => handleModelChange(e.target.value)}
+                  className="bg-transparent text-slate-600 font-medium hover:text-slate-900 border-none p-0 focus:ring-0 cursor-pointer"
+                >
+                  {STATIC_CANDIDATE_MODELS.map(m => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 text-slate-400">
           <button
             onClick={onOpenSettings}
-            title={`Configurações de IA (${currentModel})`}
-            className="p-1 rounded hover:bg-[#ebebeb] text-[#505050] hover:text-[#242424] cursor-pointer transition-colors"
+            className="rounded p-1.5 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+            title="Configurar chave de API"
           >
-            <Key className="size-3.5" />
+            <Key className="size-4" />
           </button>
           <button
             onClick={handleClearHistory}
-            title="Limpar conversa"
-            className="p-1 rounded hover:bg-[#ebebeb] text-[#505050] hover:text-[#242424] cursor-pointer transition-colors"
+            className="rounded p-1.5 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+            title="Limpar histórico"
           >
-            <Trash2 className="size-3.5" />
+            <Trash2 className="size-4" />
           </button>
           <button
             onClick={onClose}
+            className="rounded p-1.5 hover:bg-slate-100 hover:text-slate-700 transition-colors"
             title="Fechar Copilot"
-            className="p-1 rounded hover:bg-[#ebebeb] text-[#505050] hover:text-[#242424] cursor-pointer transition-colors"
           >
             <X className="size-4" />
           </button>
         </div>
       </div>
 
-      {/* Security Status Ribbon */}
-      <div className="px-3 py-1.5 bg-[#e8f5e9] border-b border-[#c8e6c9] flex items-center justify-between text-[11px] text-emerald-900">
-        <div className="flex items-center gap-1.5">
-          <ShieldCheck className="size-3.5 text-emerald-700 shrink-0" />
-          <span className="font-medium">Data Masking Ativo</span>
+      {/* Barra de Status DuckDB-Wasm */}
+      <div className="flex items-center justify-between border-b border-slate-200/80 bg-slate-100/60 px-4 py-1.5 text-[11px] text-slate-600">
+        <div className="flex items-center gap-2">
+          <span className="flex size-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>DuckDB-Wasm Engine: <strong>{indexedRows} linhas</strong> ({indexedCols.length} colunas indexadas)</span>
         </div>
-        <span className="text-[10px] text-emerald-700 bg-white/70 px-1.5 py-0.2 rounded border border-emerald-300">
-          0 dados sensíveis expostos
-        </span>
+        <span className="font-mono text-[10px] text-slate-400">Client-Side WASM</span>
       </div>
 
-      {/* Chat Messages Container */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin text-xs">
+      {/* Lista de Mensagens */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map(msg => {
-          // Strip raw chart JSON block from displayed text so user gets clean narrative + visual card
-          const cleanContent = msg.content
-            .replace(/```chart[\s\S]*?```/gi, '')
-            .replace(/```(?:excel|formula|)\s*\n?=[^\n`]+\n?```/gi, '')
-            .trim();
+          const isUser = msg.role === 'user';
+          const hasActions = msg.actions && msg.actions.length > 0;
+          const hasTableAction = msg.actions?.some(a => a.type === 'create_sheet_from_scratch');
+          const isApplied = appliedActionIds.has(msg.id);
+          const isCopied = copiedMessageId === msg.id;
+          const duckResult = duckdbResults[msg.id];
 
           return (
-            <div
-              key={msg.id}
-              className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
-            >
+            <div key={msg.id} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
               <div
-                className={`max-w-[96%] rounded-lg px-3 py-2 leading-relaxed shadow-2xs ${
-                  msg.role === 'user'
-                    ? 'bg-[#107c41] text-white rounded-br-none'
-                    : 'bg-white border border-[#e0e0e0] text-[#242424] rounded-bl-none'
+                className={`max-w-[95%] rounded-2xl px-4 py-3 text-xs leading-relaxed shadow-sm ${
+                  isUser
+                    ? 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-br-none'
+                    : 'bg-white border border-slate-200/80 text-slate-800 rounded-bl-none'
                 }`}
               >
-                {cleanContent && (
-                  <div className="whitespace-pre-wrap text-xs select-text">
-                    {cleanContent}
+                {/* Texto da Mensagem */}
+                <div className="whitespace-pre-wrap font-sans markdown-body">
+                  {msg.content}
+                </div>
+
+                {/* Badge de Ações Prontas para Execução */}
+                {hasActions && !isUser && (
+                  <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/80 p-3">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-1.5 font-bold text-emerald-900 text-xs">
+                        <Zap className="size-4 text-emerald-600" />
+                        <span>{msg.actions!.length} Ações Prontas para o Excel</span>
+                      </div>
+                      <span className="rounded-full bg-emerald-200/70 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                        {isApplied ? '✅ Executado' : '⚡ Ação Direta'}
+                      </span>
+                    </div>
+
+                    <ul className="mb-3 space-y-1 text-[11px] text-emerald-800 list-disc list-inside">
+                      {msg.actions!.map((act, aIdx) => {
+                        if (act.type === 'create_sheet_from_scratch') {
+                          return <li key={aIdx}>Criar nova aba <strong>{act.sheetName}</strong> ({act.rows?.length || 0} linhas).</li>;
+                        } else if (act.type === 'set_cells') {
+                          return <li key={aIdx}>Editar / calcular <strong>{act.cells.length} células</strong> com fórmulas.</li>;
+                        } else if (act.type === 'delete_columns') {
+                          return <li key={aIdx}>Excluir <strong>{act.colIndices.length} colunas</strong>.</li>;
+                        } else if (act.type === 'delete_rows') {
+                          return <li key={aIdx}>Excluir <strong>{act.rowIndices.length} linhas</strong>.</li>;
+                        } else if (act.type === 'clear_range') {
+                          return <li key={aIdx}>Limpar intervalo selecionado.</li>;
+                        } else if (act.type === 'format_range') {
+                          return <li key={aIdx}>Formatar intervalo de células.</li>;
+                        }
+                        return null;
+                      })}
+                    </ul>
+
+                    {!isApplied ? (
+                      <button
+                        onClick={() => handleApplyActions(msg.id, msg.actions!)}
+                        className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 transition-all hover:scale-[1.01] active:scale-[0.99]"
+                      >
+                        <Zap className="size-3.5" />
+                        <span>Aplicar Ações na Planilha Agora</span>
+                      </button>
+                    ) : (
+                      <div className="text-center font-medium text-[11px] text-emerald-700 bg-emerald-100/60 rounded py-1">
+                        ✅ Ações aplicadas com sucesso (Pressione Ctrl+Z para desfazer a qualquer momento).
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Embedded Interactive Chart Card */}
-                {msg.suggestedChart && (
-                  <CopilotChartCard
-                    chart={msg.suggestedChart}
-                    onOpenPowerBI={onOpenPowerBI}
+                {/* Tabela de Resultados DuckDB-Wasm */}
+                {duckResult && (
+                  <CopilotSqlTable
+                    queryResult={duckResult}
+                    sqlQuery={msg.suggestedSql}
+                    onExportToNewSheet={onCreateNewSheet}
                   />
                 )}
 
-                {/* Formula Action Card */}
+                {/* Card de Gráfico Interativo */}
+                {msg.suggestedChart && (
+                  <div className="mt-3">
+                    <CopilotChartCard chart={msg.suggestedChart} onOpenPowerBI={onOpenPowerBI} />
+                  </div>
+                )}
+
+                {/* Card de Sugestão de Fórmula */}
                 {msg.suggestedFormula && (
-                  <div className="mt-2.5 p-2 bg-[#f5f5f5] border border-[#e0e0e0] rounded-md text-xs">
-                    <div className="flex items-center justify-between mb-1.5 text-[11px] text-[#707070] font-semibold">
-                      <span>Fórmula Sugerida:</span>
-                      <button
-                        onClick={() => handleCopy(msg.suggestedFormula!)}
-                        className="flex items-center gap-1 text-[#107c41] hover:underline cursor-pointer"
-                      >
-                        {copiedFormula === msg.suggestedFormula ? (
-                          <>
-                            <Check className="size-3" />
-                            <span>Copiado!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="size-3" />
-                            <span>Copiar</span>
-                          </>
-                        )}
-                      </button>
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700 mb-1">
+                      <span className="flex items-center gap-1">
+                        <Calculator className="size-3.5 text-emerald-600" />
+                        Fórmula Sugerida
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleCopyFormula(msg.suggestedFormula!)}
+                          className="flex items-center gap-1 rounded bg-white px-2 py-0.5 text-[10px] font-medium text-slate-600 shadow-sm border border-slate-200 hover:bg-slate-50"
+                        >
+                          {copiedFormula === msg.suggestedFormula ? <Check className="size-3 text-emerald-600" /> : <Copy className="size-3" />}
+                          <span>{copiedFormula === msg.suggestedFormula ? 'Copiado' : 'Copiar'}</span>
+                        </button>
+                        <button
+                          onClick={() => onInsertFormula(msg.suggestedFormula!)}
+                          className="flex items-center gap-1 rounded bg-emerald-600 px-2 py-0.5 text-[10px] font-medium text-white shadow-sm hover:bg-emerald-700"
+                        >
+                          <ArrowRight className="size-3" />
+                          <span>Inserir na Célula</span>
+                        </button>
+                      </div>
                     </div>
-                    <code className="block p-1.5 bg-white border border-[#e0e0e0] rounded font-mono text-[11px] text-[#107c41] font-bold select-all mb-2">
+                    <code className="block rounded bg-white p-1.5 font-mono text-[11px] text-emerald-700 border border-slate-200">
                       {msg.suggestedFormula}
                     </code>
+                  </div>
+                )}
+
+                {/* Rodapé de Ações da Mensagem: Copiar Resposta / Copiar como Tabela */}
+                {!isUser && (
+                  <div className="mt-3 flex flex-wrap items-center justify-end gap-1.5 border-t border-slate-100 pt-2 text-[11px]">
+                    {(hasTableAction || (duckResult && duckResult.columns.length > 0)) && (
+                      <button
+                        onClick={() => handleCopyResponse(msg, true)}
+                        className="flex items-center gap-1 rounded-md bg-emerald-50 px-2.5 py-1 font-medium text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                        title="Copia os dados formatados em colunas para colar direto no Excel"
+                      >
+                        {isCopied ? <Check className="size-3 text-emerald-600" /> : <TableProperties className="size-3 text-emerald-700" />}
+                        <span>{isCopied ? 'Tabela Copiada!' : 'Copiar como Tabela Excel'}</span>
+                      </button>
+                    )}
+
                     <button
-                      onClick={() => onInsertFormula(msg.suggestedFormula!)}
-                      className="w-full py-1 bg-[#107c41] hover:bg-[#0e6b37] text-white rounded text-xs font-semibold flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+                      onClick={() => handleCopyResponse(msg, false)}
+                      className="flex items-center gap-1 rounded-md bg-slate-100 px-2.5 py-1 font-medium text-slate-700 border border-slate-200 hover:bg-slate-200 transition-colors"
+                      title="Copiar texto completo da resposta"
                     >
-                      <span>Inserir na Célula Ativa</span>
-                      <ArrowRight className="size-3" />
+                      {isCopied ? <Check className="size-3 text-emerald-600" /> : <Copy className="size-3 text-slate-500" />}
+                      <span>{isCopied ? 'Copiado!' : 'Copiar Resposta'}</span>
                     </button>
                   </div>
                 )}
-
-                {/* Power Query Code Card */}
-                {msg.suggestedMCode && (
-                  <div className="mt-2.5 p-2 bg-purple-50 border border-purple-200 rounded-md text-xs">
-                    <div className="flex items-center justify-between mb-1.5 text-[11px] text-purple-900 font-semibold">
-                      <span className="flex items-center gap-1">
-                        <Database className="size-3 text-purple-700" />
-                        <span>Código Power Query (M):</span>
-                      </span>
-                      <button
-                        onClick={() => handleCopy(msg.suggestedMCode!)}
-                        className="text-purple-700 hover:underline cursor-pointer"
-                      >
-                        Copiar Código
-                      </button>
-                    </div>
-                    <pre className="p-1.5 bg-white border border-purple-200 rounded font-mono text-[10px] text-purple-900 overflow-x-auto select-all">
-                      {msg.suggestedMCode}
-                    </pre>
-                  </div>
-                )}
               </div>
-
-              <span className="text-[10px] text-[#8a8886] mt-0.5 px-1">
-                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
             </div>
           );
         })}
 
         {isLoading && (
-          <div className="flex items-center gap-2 p-2.5 bg-white border border-[#e0e0e0] rounded-lg max-w-[85%] text-xs text-[#505050] shadow-2xs animate-pulse">
-            <div className="size-3.5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
-            <span>Processando dados e gerando visualizações...</span>
+          <div className="flex items-center gap-2 text-xs text-slate-500 p-2">
+            <RefreshCw className="size-4 animate-spin text-emerald-600" />
+            <span>O Gemini está analisando e formulando as ações em Português...</span>
           </div>
         )}
 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick Suggestion Chips */}
-      <div className="p-2 bg-[#f5f5f5] border-t border-[#e0e0e0] flex flex-wrap gap-1">
-        {quickPrompts.map((q, idx) => (
-          <button
-            key={idx}
-            onClick={() => handleSend(q.prompt)}
-            disabled={isLoading}
-            className="flex items-center gap-1 px-2 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded-md text-[11px] text-[#242424] transition-colors cursor-pointer disabled:opacity-40"
-          >
-            {q.icon}
-            <span className="truncate max-w-[140px]">{q.label}</span>
-          </button>
-        ))}
+      {/* Sugestões Rápidas de Prompt */}
+      <div className="border-t border-slate-200 bg-slate-100/70 p-2">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          {quickPrompts.map((item, idx) => (
+            <button
+              key={idx}
+              onClick={() => handleSend(item.prompt)}
+              disabled={isLoading}
+              className="flex shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-700 shadow-sm hover:border-emerald-300 hover:bg-emerald-50/50 hover:text-emerald-800 transition-all disabled:opacity-50"
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Input Area */}
-      <div className="p-3 bg-white border-t border-[#e0e0e0]">
-        {!apiKey ? (
-          <div className="p-2 bg-amber-50 border border-amber-200 rounded text-center">
-            <p className="text-[11px] text-amber-900 mb-1.5 font-medium">Chave do Google Gemini não configurada</p>
-            <button
-              onClick={onOpenSettings}
-              className="px-3 py-1 bg-[#107c41] text-white rounded text-xs font-semibold hover:bg-[#0e6b37] cursor-pointer"
-            >
-              Configurar Chave Gemini
-            </button>
-          </div>
-        ) : (
-          <form
-            onSubmit={e => {
-              e.preventDefault();
-              handleSend();
-            }}
-            className="flex items-center gap-1.5"
+      {/* Input de Mensagem */}
+      <div className="border-t border-slate-200 bg-white p-3">
+        <form
+          onSubmit={e => {
+            e.preventDefault();
+            handleSend();
+          }}
+          className="flex items-center gap-2"
+        >
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder="Peça para criar uma planilha, editar células, apagar colunas ou gerar gráficos..."
+            disabled={isLoading}
+            className="flex-1 rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50"
+          />
+          <button
+            type="submit"
+            disabled={!input.trim() || isLoading}
+            className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              placeholder="Peça uma fórmula, gráfico ou código M..."
-              disabled={isLoading}
-              className="flex-1 h-8 px-2.5 bg-white border border-[#e0e0e0] focus:border-[#107c41] focus:outline-hidden rounded text-xs text-[#242424] placeholder:text-[#8a8886]"
-            />
-            <button
-              type="submit"
-              disabled={!input.trim() || isLoading}
-              className="size-8 bg-[#107c41] hover:bg-[#0e6b37] disabled:opacity-30 text-white rounded flex items-center justify-center shrink-0 shadow-2xs cursor-pointer transition-colors"
-            >
-              <Send className="size-3.5" />
-            </button>
-          </form>
-        )}
+            <Send className="size-4" />
+          </button>
+        </form>
       </div>
     </aside>
   );

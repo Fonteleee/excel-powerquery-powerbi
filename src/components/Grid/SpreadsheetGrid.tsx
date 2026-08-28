@@ -18,14 +18,16 @@ import {
 } from 'lucide-react';
 import { Filter as FilterIcon, Search as SearchIcon } from 'lucide-react';
 import { Sheet, CellPosition, CellRange, CellData, CellFormat } from '../../types/spreadsheet';
+import { AgentAction } from '../../engine/agentActionProtocol';
 import { GridCell } from './GridCell';
 import { ColumnFilterDropdown } from './ColumnFilterDropdown';
-import { colIndexToLabel, cellPosToKey, recalculateSheet, getCellValue, parseNumberSafely } from '../../engine/formulaParser';
+import { colIndexToLabel, cellPosToKey, recalculateSheet, getCellValue, parseNumberSafely, shiftFormula } from '../../engine/formulaParser';
 import { detectFlashFill, FlashFillPrediction } from '../../engine/flashFill';
 import { exportSheetToExcel } from '../../utils/excelExporter';
 
 interface SpreadsheetGridProps {
   sheet: Sheet;
+  allSheets?: Sheet[];
   activeCell: CellPosition;
   selectedRange: CellRange;
   showGridlines?: boolean;
@@ -41,10 +43,14 @@ interface SpreadsheetGridProps {
   onOpenConditionalModal: () => void;
   onOpenCharts: () => void;
   onOpenFindReplace?: () => void;
+  onExecuteAgentActions?: (actions: AgentAction[]) => void;
+  onLoadTemplate?: (sheet: Sheet) => void;
+  onOpenImportModal?: () => void;
 }
 
 export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   sheet,
+  allSheets = [],
   activeCell,
   selectedRange,
   showGridlines = true,
@@ -60,6 +66,9 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   onOpenConditionalModal,
   onOpenCharts,
   onOpenFindReplace,
+  onExecuteAgentActions,
+  onLoadTemplate,
+  onOpenImportModal,
 }) => {
 
 
@@ -194,11 +203,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
           let newRaw = cell.raw;
           // Adjust formula references if it's a formula and not a cut
           if (newRaw.startsWith('=') && !clipboard.isCut) {
-            newRaw = newRaw.replace(/([A-Z]+)(\d+)/g, (match, colLetters, rowNumber) => {
-              const originalR = parseInt(rowNumber, 10);
-              const newR = Math.max(1, originalR + deltaR);
-              return `${colLetters}${newR}`;
-            });
+            newRaw = shiftFormula(newRaw, deltaR, deltaC);
           }
 
           updatedData[cellPosToKey(r, c)] = {
@@ -830,6 +835,34 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   };
 
   const handleCellMouseEnter = (e: React.MouseEvent, row: number, col: number) => {
+    // Hard guard: if primary mouse button (left-click) is NOT actively held down, cancel dragging immediately
+    if ((e.buttons & 1) !== 1) {
+      if (isSelecting) setIsSelecting(false);
+      if (isCtrlSelecting) setIsCtrlSelecting(false);
+      if (isRowSelecting) setIsRowSelecting(false);
+      if (isColSelecting) setIsColSelecting(false);
+      if (isDraggingFill) {
+        if (fillRange) {
+          applyFillHandleDrag(fillRange);
+        }
+        setIsDraggingFill(false);
+        setFillRange(null);
+      }
+      return;
+    }
+
+    if (isDraggingFill) {
+      if (row >= selectedRange.endRow) {
+        setFillRange({
+          startRow: selectedRange.startRow,
+          startCol: selectedRange.startCol,
+          endRow: row,
+          endCol: selectedRange.endCol,
+        });
+      }
+      return;
+    }
+
     if (isSelecting) {
       if (isCtrlSelecting) {
         // Expand multi-selection block with CTRL
@@ -875,7 +908,14 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     });
   };
 
-  const handleRowHeaderMouseEnter = (rowIdx: number) => {
+  const handleRowHeaderMouseEnter = (e: React.MouseEvent, rowIdx: number) => {
+    if ((e.buttons & 1) !== 1) {
+      if (isRowSelecting) {
+        setIsRowSelecting(false);
+        setRowSelectAnchor(null);
+      }
+      return;
+    }
     if (isRowSelecting && rowSelectAnchor !== null) {
       const startR = Math.min(rowSelectAnchor, rowIdx);
       const endR = Math.max(rowSelectAnchor, rowIdx);
@@ -904,7 +944,14 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     });
   };
 
-  const handleColHeaderMouseEnter = (colIdx: number) => {
+  const handleColHeaderMouseEnter = (e: React.MouseEvent, colIdx: number) => {
+    if ((e.buttons & 1) !== 1) {
+      if (isColSelecting) {
+        setIsColSelecting(false);
+        setColSelectAnchor(null);
+      }
+      return;
+    }
     if (isColSelecting && colSelectAnchor !== null) {
       const startC = Math.min(colSelectAnchor, colIdx);
       const endC = Math.max(colSelectAnchor, colIdx);
@@ -917,6 +964,123 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     }
   };
 
+  // Fill Handle logic
+  const handleFillMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsDraggingFill(true);
+  };
+
+  // Double-click on corner fill handle: Auto-fill down to the end of adjacent column
+  const handleFillDoubleClick = (startR: number, startC: number) => {
+    // Scan adjacent column to find the bottom data boundary
+    const adjCol = startC > 0 ? startC - 1 : startC + 1;
+    let lastDataRow = startR;
+
+    for (let r = startR + 1; r < sheet.rowCount; r++) {
+      const cell = sheet.data[cellPosToKey(r, adjCol)];
+      if (cell && (cell.raw || (cell.value !== null && cell.value !== undefined && String(cell.value).trim() !== ''))) {
+        lastDataRow = r;
+      } else {
+        break; // Stop at first empty cell in adjacent column
+      }
+    }
+
+    if (lastDataRow > startR) {
+      applyFillHandleDrag({
+        startRow: selectedRange.startRow,
+        startCol: selectedRange.startCol,
+        endRow: lastDataRow,
+        endCol: selectedRange.endCol,
+      });
+    }
+  };
+
+  const applyFillHandleDrag = (targetRange: CellRange) => {
+    const updatedData = { ...sheet.data };
+    const srcStartR = selectedRange.startRow;
+    const srcEndR = selectedRange.endRow;
+    const srcStartC = selectedRange.startCol;
+    const srcEndC = selectedRange.endCol;
+    const srcRowCount = srcEndR - srcStartR + 1;
+    const srcColCount = srcEndC - srcStartC + 1;
+
+    // 1. Dragging Downwards
+    if (targetRange.endRow > srcEndR) {
+      for (let c = srcStartC; c <= srcEndC; c++) {
+        // Collect numeric series values if applicable
+        const numSeries: number[] = [];
+        for (let r = srcStartR; r <= srcEndR; r++) {
+          const val = sheet.data[cellPosToKey(r, c)]?.value;
+          const num = parseNumberSafely(val);
+          if (num !== null) numSeries.push(num);
+        }
+
+        const isLinearSeries = numSeries.length >= 2;
+        const step = isLinearSeries ? (numSeries[numSeries.length - 1] - numSeries[0]) / (numSeries.length - 1) : 1;
+
+        for (let r = srcEndR + 1; r <= targetRange.endRow; r++) {
+          const deltaR = r - srcEndR;
+          const sourceRow = srcStartR + ((r - srcEndR - 1) % srcRowCount);
+          const sourceKey = cellPosToKey(sourceRow, c);
+          const sourceCell = sheet.data[sourceKey];
+
+          if (sourceCell) {
+            let newRaw = sourceCell.raw;
+            let newVal = sourceCell.value;
+
+            if (typeof newRaw === 'string' && newRaw.startsWith('=')) {
+              const shiftR = r - sourceRow;
+              newRaw = shiftFormula(newRaw, shiftR, 0);
+              newVal = null;
+            } else if (isLinearSeries && typeof sourceCell.value === 'number') {
+              const nextVal = numSeries[numSeries.length - 1] + step * deltaR;
+              newRaw = String(nextVal);
+              newVal = nextVal;
+            }
+
+            updatedData[cellPosToKey(r, c)] = {
+              raw: newRaw,
+              value: newVal,
+              format: sourceCell.format ? { ...sourceCell.format } : undefined,
+            };
+          }
+        }
+      }
+    }
+    // 2. Dragging to the Right
+    else if (targetRange.endCol > srcEndC) {
+      for (let r = srcStartR; r <= srcEndR; r++) {
+        for (let c = srcEndC + 1; c <= targetRange.endCol; c++) {
+          const sourceCol = srcStartC + ((c - srcEndC - 1) % srcColCount);
+          const sourceKey = cellPosToKey(r, sourceCol);
+          const sourceCell = sheet.data[sourceKey];
+
+          if (sourceCell) {
+            let newRaw = sourceCell.raw;
+            let newVal = sourceCell.value;
+
+            if (typeof newRaw === 'string' && newRaw.startsWith('=')) {
+              const shiftC = c - sourceCol;
+              newRaw = shiftFormula(newRaw, 0, shiftC);
+              newVal = null;
+            }
+
+            updatedData[cellPosToKey(r, c)] = {
+              raw: newRaw,
+              value: newVal,
+              format: sourceCell.format ? { ...sourceCell.format } : undefined,
+            };
+          }
+        }
+      }
+    }
+
+    const recalculated = recalculateSheet({ ...sheet, data: updatedData });
+    onUpdateSheet(recalculated);
+    onSelectRange(targetRange);
+  };
+
+  // Column Resizing handlers
   const handleMouseUp = () => {
     setIsSelecting(false);
     setIsCtrlSelecting(false);
@@ -931,52 +1095,6 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     }
   };
 
-
-
-
-  // Fill Handle logic
-  const handleFillMouseDown = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsDraggingFill(true);
-  };
-
-  const applyFillHandleDrag = (targetRange: CellRange) => {
-    const updatedData = { ...sheet.data };
-    const sourceRows = selectedRange.endRow - selectedRange.startRow + 1;
-
-    if (targetRange.endRow > selectedRange.endRow) {
-      for (let r = selectedRange.endRow + 1; r <= targetRange.endRow; r++) {
-        for (let c = selectedRange.startCol; c <= selectedRange.endCol; c++) {
-          const sourceRow = selectedRange.startRow + ((r - selectedRange.endRow - 1) % sourceRows);
-          const sourceKey = cellPosToKey(sourceRow, c);
-          const sourceCell = sheet.data[sourceKey];
-
-          if (sourceCell) {
-            let newRaw = sourceCell.raw;
-            if (newRaw.startsWith('=')) {
-              const deltaR = r - sourceRow;
-              newRaw = newRaw.replace(/([A-Z]+)(\d+)/g, (match, colLetters, rowNumber) => {
-                const newRowIdx = parseInt(rowNumber, 10) + deltaR;
-                return `${colLetters}${newRowIdx}`;
-              });
-            }
-
-            updatedData[cellPosToKey(r, c)] = {
-              raw: newRaw,
-              value: newRaw.startsWith('=') ? null : newRaw,
-              format: { ...sourceCell.format },
-            };
-          }
-        }
-      }
-    }
-
-    const recalculated = recalculateSheet({ ...sheet, data: updatedData });
-    onUpdateSheet(recalculated);
-    onSelectRange(targetRange);
-  };
-
-  // Column Resizing handlers
   const handleColResizeMouseDown = (e: React.MouseEvent, colIndex: number) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1048,9 +1166,13 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleGlobalMouseUp);
+    window.addEventListener('pointerup', handleGlobalMouseUp);
+    window.addEventListener('blur', handleGlobalMouseUp);
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleGlobalMouseUp);
+      window.removeEventListener('pointerup', handleGlobalMouseUp);
+      window.removeEventListener('blur', handleGlobalMouseUp);
     };
   }, [resizingCol, resizingRow, resizeStartX, resizeStartY, resizeStartWidth, resizeStartHeight, isSelecting, isRowSelecting, isColSelecting, isDraggingFill, fillRange, sheet]);
 
@@ -1264,7 +1386,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                       : 'bg-[#f5f5f5] text-[#505050] hover:bg-[#ebebeb]'
                   }`}
                   onMouseDown={e => handleColHeaderMouseDown(e, colIdx)}
-                  onMouseEnter={() => handleColHeaderMouseEnter(colIdx)}
+                  onMouseEnter={e => handleColHeaderMouseEnter(e, colIdx)}
                 >
                   <div className="flex items-center justify-center px-1 font-sans relative">
                     <span className="truncate text-xs">{colLabel}</span>
@@ -1343,7 +1465,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                   }`}
 
                   onMouseDown={e => handleRowHeaderMouseDown(e, rowIdx)}
-                  onMouseEnter={() => handleRowHeaderMouseEnter(rowIdx)}
+                  onMouseEnter={e => handleRowHeaderMouseEnter(e, rowIdx)}
                 >
                   <div className="relative h-full flex items-center justify-center font-sans text-xs">
                     {rowIdx + 1}
@@ -1440,6 +1562,8 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                         }
                       }}
                       onEditBlur={commitEdit}
+                      onFillMouseDown={handleFillMouseDown}
+                      onFillDoubleClick={handleFillDoubleClick}
                     />
                   );
                 })}

@@ -1,5 +1,4 @@
 import React, { useState, useCallback } from 'react';
-import confetti from 'canvas-confetti';
 import { Sheet, CellPosition, CellRange, ConditionalFormatRule } from './types/spreadsheet';
 import {
   createSalesSampleSheet,
@@ -23,18 +22,19 @@ import { SheetTabs } from './components/Grid/SheetTabs';
 import { PowerQueryEditor } from './components/PowerQuery/PowerQueryEditor';
 import { DashboardStudio } from './components/PowerBI/DashboardStudio';
 import { CopilotPanel } from './components/Copilot/CopilotPanel';
+import { applyAgentActions } from './engine/agentActionExecutor';
+import { AgentAction } from './engine/agentActionProtocol';
 
 // Modals
 import { QuickAnalysisModal } from './components/Modals/QuickAnalysisModal';
-import { FormulaWizardModal } from './components/Modals/FormulaWizardModal';
+import { FormulaWizardModal, FormulaInsertOptions } from './components/Modals/FormulaWizardModal';
 import { TextToColumnsModal } from './components/Modals/TextToColumnsModal';
 import { ConditionalFormatModal } from './components/Modals/ConditionalFormatModal';
 import { ImportExportModal } from './components/Modals/ImportExportModal';
 import { ShortcutsModal } from './components/Modals/ShortcutsModal';
 import { FindReplaceModal } from './components/Modals/FindReplaceModal';
 import { GeminiApiKeyModal } from './components/Modals/GeminiApiKeyModal';
-import { AutoFormatNotificationToast } from './components/Common/AutoFormatNotificationToast';
-import { autoRecognizeAndFormatSheet, DataRecognitionReport } from './utils/dataRecognizer';
+import { autoRecognizeAndFormatSheet } from './utils/dataRecognizer';
 
 export function App() {
 
@@ -77,9 +77,6 @@ export function App() {
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isFindReplaceOpen, setIsFindReplaceOpen] = useState(false);
-  const [recognitionReport, setRecognitionReport] = useState<DataRecognitionReport | null>(null);
-
-
 
   const activeSheet = sheets.find(s => s.id === activeSheetId) || sheets[0];
 
@@ -114,16 +111,11 @@ export function App() {
     });
   }, [sheets, pushHistory]);
 
-
-  // Auto recognize types and format active sheet
+  // Auto recognize types and format active sheet cleanly
   const handleAutoRecognize = useCallback(() => {
     pushHistory(sheets);
-    const { sheet: recognizedSheet, report } = autoRecognizeAndFormatSheet(activeSheet);
+    const { sheet: recognizedSheet } = autoRecognizeAndFormatSheet(activeSheet);
     setSheets(prev => prev.map(s => (s.id === recognizedSheet.id ? recognizedSheet : s)));
-    setRecognitionReport(report);
-    if (report.columnsFormatted.length > 0) {
-      confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
-    }
   }, [activeSheet, sheets, pushHistory]);
 
   // Commit formula from FormulaBar
@@ -143,22 +135,106 @@ export function App() {
     handleUpdateSheet(recalculated);
   }, [activeCell, activeSheet, handleUpdateSheet, pushHistory, sheets]);
 
-  // Insert formula from Wizard
-  const handleInsertFormula = useCallback((formula: string) => {
+  // Insert formula from Wizard with flexible destination support
+  const handleInsertFormula = useCallback((options: FormulaInsertOptions | string) => {
     pushHistory(sheets);
-    const key = cellPosToKey(activeCell.row, activeCell.col);
-    const updatedData = {
-      ...activeSheet.data,
-      [key]: {
-        raw: formula,
-        value: formula.startsWith('=') ? null : formula,
+    const formulaStr = typeof options === 'string' ? options : options.formula;
+    const targetMode = typeof options === 'string' ? 'active_cell' : options.targetMode;
+    const customCell = typeof options === 'string' ? undefined : options.customCell;
+
+    const updatedData = { ...activeSheet.data };
+
+    if (targetMode === 'active_cell') {
+      const key = cellPosToKey(activeCell.row, activeCell.col);
+      updatedData[key] = {
+        raw: formulaStr,
+        value: formulaStr.startsWith('=') ? null : formulaStr,
         format: activeSheet.data[key]?.format,
-      },
-    };
+      };
+    } else if (targetMode === 'first_empty_col') {
+      // Find first empty column
+      let targetCol = activeSheet.colCount;
+      for (let c = 0; c < activeSheet.colCount; c++) {
+        let hasData = false;
+        for (let r = 0; r < Math.min(activeSheet.rowCount, 50); r++) {
+          const val = activeSheet.data[`${r}_${c}`]?.value;
+          if (val !== undefined && val !== null && String(val).trim() !== '') {
+            hasData = true;
+            break;
+          }
+        }
+        if (!hasData) {
+          targetCol = c;
+          break;
+        }
+      }
+
+      // Fill whole selection range height
+      const startR = selectedRange.startRow;
+      const endR = selectedRange.endRow;
+      for (let r = startR; r <= endR; r++) {
+        const delta = r - startR;
+        const adjusted = formulaStr.replace(/(?<!\$)([A-Za-z]+)(?<!\$)(\d+)/g, (match, colLetters, rowNumber) => {
+          return `${colLetters}${parseInt(rowNumber, 10) + delta}`;
+        });
+        const key = cellPosToKey(r, targetCol);
+        updatedData[key] = {
+          raw: adjusted,
+          value: adjusted.startsWith('=') ? null : adjusted,
+          format: activeSheet.data[key]?.format,
+        };
+      }
+    } else if (targetMode === 'below_selection') {
+      const targetRow = selectedRange.endRow + 1;
+      const targetCol = selectedRange.startCol;
+      const key = cellPosToKey(targetRow, targetCol);
+      updatedData[key] = {
+        raw: formulaStr,
+        value: formulaStr.startsWith('=') ? null : formulaStr,
+        format: activeSheet.data[key]?.format,
+      };
+    } else if (targetMode === 'fill_column') {
+      // Fill down in adjacent column or first empty column
+      const targetCol = selectedRange.endCol + 1 < activeSheet.colCount ? selectedRange.endCol + 1 : selectedRange.startCol;
+      const startR = selectedRange.startRow;
+      const endR = selectedRange.endRow;
+      for (let r = startR; r <= endR; r++) {
+        const delta = r - startR;
+        const adjusted = formulaStr.replace(/(?<!\$)([A-Za-z]+)(?<!\$)(\d+)/g, (match, colLetters, rowNumber) => {
+          return `${colLetters}${parseInt(rowNumber, 10) + delta}`;
+        });
+        const key = cellPosToKey(r, targetCol);
+        updatedData[key] = {
+          raw: adjusted,
+          value: adjusted.startsWith('=') ? null : adjusted,
+          format: activeSheet.data[key]?.format,
+        };
+      }
+    } else if (targetMode === 'custom' && customCell) {
+      const match = customCell.match(/^([A-Za-z]+)(\d+)$/);
+      if (match) {
+        const colLetters = match[1].toUpperCase();
+        let c = 0;
+        for (let i = 0; i < colLetters.length; i++) {
+          c = c * 26 + (colLetters.charCodeAt(i) - 64);
+        }
+        c = c - 1;
+        const r = parseInt(match[2], 10) - 1;
+        if (r >= 0 && c >= 0) {
+          const key = cellPosToKey(r, c);
+          updatedData[key] = {
+            raw: formulaStr,
+            value: formulaStr.startsWith('=') ? null : formulaStr,
+            format: activeSheet.data[key]?.format,
+          };
+        }
+      }
+    }
+
     const recalculated = recalculateSheet({ ...activeSheet, data: updatedData });
     handleUpdateSheet(recalculated);
     setIsFormulaWizardOpen(false);
-  }, [activeCell, activeSheet, handleUpdateSheet, pushHistory, sheets]);
+  }, [activeCell, activeSheet, handleUpdateSheet, pushHistory, selectedRange, sheets]);
 
   // Insert formula template
   const handleInsertFormulaTemplate = useCallback((template: string) => {
@@ -343,8 +419,51 @@ export function App() {
     };
     const recalculated = recalculateSheet({ ...activeSheet, data: updatedData });
     handleUpdateSheet(recalculated);
-    confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
   };
+
+  const handleExecuteAgentActions = useCallback((actions: AgentAction[]) => {
+    pushHistory(sheets);
+    const result = applyAgentActions(sheets, activeSheetId, actions);
+    setSheets(result.updatedSheets);
+    if (result.newActiveSheetId !== activeSheetId) {
+      setActiveSheetId(result.newActiveSheetId);
+    }
+  }, [sheets, activeSheetId, pushHistory]);
+
+  const handleCreateNewSheetFromData = useCallback((name: string, columns: string[], rows: any[]) => {
+    pushHistory(sheets);
+    const newSheetId = `sheet-${Date.now()}`;
+    const newSheet = createEmptySheet(newSheetId, name, Math.max(100, rows.length + 20), Math.max(26, columns.length + 5));
+    const newData: { [key: string]: any } = {};
+
+    // Cabeçalhos na linha 0
+    columns.forEach((col, idx) => {
+      const key = cellPosToKey(0, idx);
+      newData[key] = {
+        raw: String(col),
+        value: String(col),
+        format: { bold: true, bgColor: '#1e293b', textColor: '#ffffff', align: 'center' },
+      };
+    });
+
+    // Linhas
+    rows.forEach((row, rIdx) => {
+      const r = rIdx + 1;
+      columns.forEach((col, cIdx) => {
+        const val = row[col];
+        const key = cellPosToKey(r, cIdx);
+        newData[key] = {
+          raw: val === null || val === undefined ? '' : String(val),
+          value: val,
+        };
+      });
+    });
+
+    newSheet.data = newData;
+    const recalculated = recalculateSheet(newSheet, sheets);
+    setSheets(prev => [...prev, recalculated]);
+    setActiveSheetId(newSheetId);
+  }, [sheets, pushHistory]);
 
   const handleNewBlankWorkbook = () => {
     pushHistory(sheets);
@@ -362,7 +481,6 @@ export function App() {
     setActiveSheetId(sales.id);
     setActiveCell({ row: 8, col: 6 });
     setSelectedRange({ startRow: 8, startCol: 6, endRow: 8, endCol: 6 });
-    confetti({ particleCount: 30, spread: 60, origin: { y: 0.6 } });
   };
 
   const handleLoadSampleHR = () => {
@@ -372,7 +490,6 @@ export function App() {
     setActiveSheetId(hr.id);
     setActiveCell({ row: 1, col: 1 });
     setSelectedRange({ startRow: 1, startCol: 1, endRow: 1, endCol: 1 });
-    confetti({ particleCount: 30, spread: 60, origin: { y: 0.6 } });
   };
 
   const handleLoadSampleBudget = () => {
@@ -382,7 +499,6 @@ export function App() {
     setActiveSheetId(fin.id);
     setActiveCell({ row: 1, col: 1 });
     setSelectedRange({ startRow: 1, startCol: 1, endRow: 1, endCol: 1 });
-    confetti({ particleCount: 30, spread: 60, origin: { y: 0.6 } });
   };
 
   return (
@@ -431,6 +547,8 @@ export function App() {
               selectedRange={selectedRange}
               onCommitFormula={handleCommitFormula}
               onOpenFormulaWizard={() => setIsFormulaWizardOpen(true)}
+              onSelectCell={setActiveCell}
+              onSelectRange={setSelectedRange}
             />
           )}
 
@@ -438,6 +556,7 @@ export function App() {
           <div className="flex-1 flex overflow-hidden relative">
             <SpreadsheetGrid
               sheet={activeSheet}
+              allSheets={sheets}
               activeCell={activeCell}
               selectedRange={selectedRange}
               showGridlines={showGridlines}
@@ -453,6 +572,13 @@ export function App() {
               onOpenConditionalModal={() => setIsConditionalModalOpen(true)}
               onOpenCharts={() => setActiveView('powerbi')}
               onOpenFindReplace={() => setIsFindReplaceOpen(true)}
+              onExecuteAgentActions={handleExecuteAgentActions}
+              onLoadTemplate={newSheet => {
+                pushHistory(sheets);
+                const recalculated = recalculateSheet(newSheet);
+                setSheets(prev => prev.map(s => s.id === activeSheetId ? recalculated : s));
+              }}
+              onOpenImportModal={() => setIsImportExportOpen(true)}
             />
 
 
@@ -464,6 +590,8 @@ export function App() {
               onInsertFormula={handleInsertFormulaFromCopilot}
               onOpenSettings={() => setIsApiKeyModalOpen(true)}
               onOpenPowerBI={() => setActiveView('powerbi')}
+              onExecuteAgentActions={handleExecuteAgentActions}
+              onCreateNewSheet={handleCreateNewSheetFromData}
             />
           </div>
 
@@ -499,6 +627,7 @@ export function App() {
         <DashboardStudio
           sheet={activeSheet}
           onClose={() => setActiveView('spreadsheet')}
+          onLoadSampleSales={handleLoadSampleSales}
         />
       )}
 
@@ -523,6 +652,8 @@ export function App() {
         onClose={() => setIsFormulaWizardOpen(false)}
         sheet={activeSheet}
         allSheets={sheets}
+        activeCell={activeCell}
+        selectedRange={selectedRange}
         onInsertFormula={handleInsertFormula}
       />
 
@@ -548,12 +679,10 @@ export function App() {
         activeSheetId={activeSheetId}
         onLoadSheet={newSheet => {
           pushHistory(sheets);
-          const { sheet: recognizedSheet, report } = autoRecognizeAndFormatSheet(newSheet);
+          const { sheet: recognizedSheet } = autoRecognizeAndFormatSheet(newSheet);
           const recalculated = recalculateSheet(recognizedSheet);
           setSheets([recalculated]);
           setActiveSheetId(recalculated.id);
-          setRecognitionReport(report);
-          confetti({ particleCount: 50, spread: 70, origin: { y: 0.6 } });
         }}
       />
 
@@ -564,11 +693,6 @@ export function App() {
         activeCell={activeCell}
         onSelectCell={setActiveCell}
         onUpdateSheet={handleUpdateSheet}
-      />
-
-      <AutoFormatNotificationToast
-        report={recognitionReport}
-        onClose={() => setRecognitionReport(null)}
       />
 
       <ShortcutsModal

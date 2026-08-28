@@ -1,0 +1,13 @@
+Data,Vendedor,Regiao,Produto,Categoria,Quantidade,PrecoUnitario,Faturamento
+2026-01-05,Carlos Silva,Sudeste,Power BI Pro,Software,5,120.0,600.0
+2026-01-08,Beatriz Lima,Sul,Consultoria Excel,Serviços,10,250.0,2500.0
+2026-01-12,Carlos Silva,Sudeste,Automação Python,Serviços,2,1500.0,3000.0
+2026-01-15,Mariana Souza,Nordeste,Power BI Pro,Software,8,120.0,960.0
+2026-01-20,João Pedro,Centro-Oeste,Treinamento DAX,Treinamento,15,80.0,1200.0
+2026-01-25,Beatriz Lima,Sul,Power BI Pro,Software,12,120.0,1440.0
+2026-02-02,Mariana Souza,Nordeste,Automação Python,Serviços,3,1500.0,4500.0
+2026-02-05,Carlos Silva,Sudeste,Treinamento DAX,Treinamento,20,80.0,1600.0
+2026-02-10,João Pedro,Centro-Oeste,Consultoria Excel,Serviços,8,250.0,2000.0
+2026-02-14,Beatriz Lima,Sul,Automação Python,Serviços,1,1500.0,1500.0
+2026-02-18,Mariana Souza,Nordeste,Treinamento DAX,Treinamento,25,80.0,2000.0
+2026-02-22,Carlos Silva,Sudeste,Consultoria Excel,Serviços,12,250.0,3000.0

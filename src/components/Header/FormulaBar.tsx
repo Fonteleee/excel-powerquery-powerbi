@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Check, X } from 'lucide-react';
 import { CellPosition, CellRange, Sheet } from '../../types/spreadsheet';
-import { cellPosToAddress, cellPosToKey, rangeToAddress, formatCellValue } from '../../engine/formulaParser';
+import { cellPosToAddress, cellPosToKey, rangeToAddress, formatCellValue, parseRangeAddress, parseCellAddress } from '../../engine/formulaParser';
 import { FormulaAutocomplete } from '../Grid/FormulaAutocomplete';
 
 interface FormulaBarProps {
@@ -10,6 +10,8 @@ interface FormulaBarProps {
   selectedRange: CellRange;
   onCommitFormula: (formula: string) => void;
   onOpenFormulaWizard: () => void;
+  onSelectCell?: (pos: CellPosition) => void;
+  onSelectRange?: (range: CellRange) => void;
 }
 
 export const FormulaBar: React.FC<FormulaBarProps> = ({
@@ -18,6 +20,8 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
   selectedRange,
   onCommitFormula,
   onOpenFormulaWizard,
+  onSelectCell,
+  onSelectRange,
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -38,6 +42,37 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
   const isFormula = inputValue.startsWith('=');
   const evaluatedDisplay = currentCell ? formatCellValue(currentCell.value, currentCell.format) : '';
 
+  // Name Box Jump State
+  const [nameBoxValue, setNameBoxValue] = useState(addressText);
+  const [isNameBoxEditing, setIsNameBoxEditing] = useState(false);
+
+  useEffect(() => {
+    if (!isNameBoxEditing) {
+      setNameBoxValue(addressText);
+    }
+  }, [addressText, isNameBoxEditing]);
+
+  const handleNameBoxKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const trimmed = nameBoxValue.trim().toUpperCase();
+      const range = parseRangeAddress(trimmed, sheet.rowCount);
+      if (range) {
+        if (onSelectCell) onSelectCell({ row: range.startRow, col: range.startCol });
+        if (onSelectRange) onSelectRange(range);
+      } else {
+        const cell = parseCellAddress(trimmed);
+        if (cell) {
+          if (onSelectCell) onSelectCell(cell);
+          if (onSelectRange) onSelectRange({ startRow: cell.row, startCol: cell.col, endRow: cell.row, endCol: cell.col });
+        }
+      }
+      setIsNameBoxEditing(false);
+    } else if (e.key === 'Escape') {
+      setNameBoxValue(addressText);
+      setIsNameBoxEditing(false);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       onCommitFormula(inputValue);
@@ -57,13 +92,24 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
 
   return (
     <div className="h-7 bg-[#f5f5f5] border-b border-[#e0e0e0] flex items-center px-2 gap-1.5 select-none z-20 relative font-sans">
-      {/* Name Box (Address with Chevron as in Image 2) */}
+      {/* Name Box (Interactive Cell Jump Input) */}
       <div
-        title={`Célula Ativa: ${addressText}`}
-        className="w-20 h-5.5 px-2 bg-white border border-[#e0e0e0] rounded-xs flex items-center justify-between text-xs text-[#242424] font-sans select-all shadow-2xs cursor-pointer hover:border-[#b0b0b0]"
+        title="Caixa de Nome: Digite uma célula (ex: B10, A1:D5) e pressione Enter para navegar"
+        className="w-22 h-5.5 px-1.5 bg-white border border-[#e0e0e0] rounded-xs flex items-center justify-between text-xs text-[#242424] font-sans shadow-2xs hover:border-[#b0b0b0] focus-within:border-[#107c41] focus-within:ring-1 focus-within:ring-[#107c41]/30"
       >
-        <span className="font-sans font-normal text-xs">{addressText}</span>
-        <span className="text-[10px] text-[#707070] scale-75">▼</span>
+        <input
+          type="text"
+          value={nameBoxValue}
+          onFocus={() => setIsNameBoxEditing(true)}
+          onBlur={() => {
+            setIsNameBoxEditing(false);
+            setNameBoxValue(addressText);
+          }}
+          onChange={e => setNameBoxValue(e.target.value.toUpperCase())}
+          onKeyDown={handleNameBoxKeyDown}
+          className="w-full text-xs font-sans font-semibold text-[#242424] uppercase bg-transparent focus:outline-hidden"
+        />
+        <span className="text-[10px] text-[#707070] scale-75 shrink-0 pointer-events-none">▼</span>
       </div>
 
       {/* Cancel / Commit buttons */}
@@ -127,15 +173,16 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
             </span>
           </div>
         )}
-      </div>
 
-      {/* Formula Autocomplete Dropdown */}
-      {isFocused && isFormula && (
-        <FormulaAutocomplete
-          input={inputValue}
-          onSelectFormula={handleSelectFormula}
-        />
-      )}
+        {/* Formula Autocomplete Dropdown */}
+        {isFocused && isFormula && (
+          <FormulaAutocomplete
+            input={inputValue}
+            onSelectFormula={handleSelectFormula}
+            className="left-0 top-full mt-1 absolute"
+          />
+        )}
+      </div>
     </div>
   );
 };

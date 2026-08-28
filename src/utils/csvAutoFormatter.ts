@@ -206,48 +206,6 @@ export function autoFormatTabularData(
     });
   });
 
-
-  // 3. Auto-generate "TOTAL GERAL" Summary row if there are numeric columns
-  const numericCols = columnTypes
-    .map((t, idx) => (t === 'currency' || t === 'number' ? idx : -1))
-    .filter(idx => idx !== -1);
-
-  if (numericCols.length > 0 && numRows > 2) {
-    const totalRowIndex = numRows;
-    const labelCol = Math.max(0, numericCols[0] - 1);
-    const labelKey = cellPosToKey(totalRowIndex, labelCol);
-
-    data[labelKey] = {
-      raw: 'TOTAL GERAL',
-      value: 'TOTAL GERAL',
-      format: {
-        bold: true,
-        align: 'right',
-        textColor: '#0f172a',
-      },
-    };
-
-    numericCols.forEach(colIdx => {
-      const colLetter = colIndexToLabel(colIdx);
-      const sumFormula = `=SOMA(${colLetter}2:${colLetter}${totalRowIndex})`;
-      const sumKey = cellPosToKey(totalRowIndex, colIdx);
-      const isCur = columnTypes[colIdx] === 'currency';
-
-      data[sumKey] = {
-        raw: sumFormula,
-        value: null,
-        format: {
-          bold: true,
-          align: 'right',
-          type: isCur ? 'currency' : 'number',
-          decimals: isCur ? 2 : 0,
-          bgColor: '#f0fdf4',
-          textColor: '#15803d',
-        },
-      };
-    });
-  }
-
   return {
     id: `sheet-${Date.now()}`,
     name: sheetName,

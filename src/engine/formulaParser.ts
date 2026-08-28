@@ -94,12 +94,60 @@ export function rangeToAddress(range: CellRange): string {
   return `${p1}:${p2}`;
 }
 
-// Get cell value from sheet
-export function getCellValue(sheet: Sheet, row: number, col: number): any {
+/**
+ * Accurately shifts relative cell and range references in a formula by deltaRow and deltaCol.
+ * Preserves absolute reference anchors ($) on columns and/or rows (e.g. $A$1, $A1, A$1).
+ */
+export function shiftFormula(formula: string, deltaRow: number, deltaCol: number): string {
+  if (!formula || !formula.startsWith('=')) return formula;
+  if (deltaRow === 0 && deltaCol === 0) return formula;
+
+  // Match cell coordinates with optional sheet prefix and $ anchors
+  const refRegex = /(?:([A-Za-z0-9_ÁÉÍÓÚÂÊÔÃÕÇ]+)!)?(\$?)([A-Za-z]+)(\$?)([0-9]+)/g;
+
+  return formula.replace(refRegex, (match, sheetPrefix, colDollar, colLetters, rowDollar, rowNumber) => {
+    let newColLetters = colLetters;
+    if (!colDollar && deltaCol !== 0) {
+      const curColIdx = labelToColIndex(colLetters);
+      const newColIdx = Math.max(0, curColIdx + deltaCol);
+      newColLetters = colIndexToLabel(newColIdx);
+    }
+
+    let newRowNum = parseInt(rowNumber, 10);
+    if (!rowDollar && deltaRow !== 0) {
+      newRowNum = Math.max(1, newRowNum + deltaRow);
+    }
+
+    const prefix = sheetPrefix ? `${sheetPrefix}!` : '';
+    return `${prefix}${colDollar}${newColLetters}${rowDollar}${newRowNum}`;
+  });
+}
+
+// Get cell value from sheet with automatic formula evaluation resolution
+export function getCellValue(
+  sheet: Sheet,
+  row: number,
+  col: number,
+  allSheets: Sheet[] = [sheet],
+  callStack: Set<string> = new Set()
+): any {
   const key = cellPosToKey(row, col);
   const cell = sheet.data[key];
   if (!cell) return null;
-  return cell.value !== undefined ? cell.value : cell.raw;
+  if (cell.value !== undefined && cell.value !== null) return cell.value;
+  if (cell.raw && typeof cell.raw === 'string' && cell.raw.startsWith('=')) {
+    if (callStack.has(`${sheet.id}:${key}`)) return 0;
+    const nextStack = new Set(callStack);
+    nextStack.add(`${sheet.id}:${key}`);
+    try {
+      const val = evaluateFormula(cell.raw, sheet, allSheets, nextStack);
+      cell.value = val;
+      return val;
+    } catch {
+      return 0;
+    }
+  }
+  return cell.raw;
 }
 
 // Get array of cell values in range
@@ -1397,26 +1445,37 @@ export function formatCellValue(value: any, format?: CellFormat): string {
 
 
 
-// Recalculate whole sheet
+// Recalculate whole sheet with multi-pass convergence
 export function recalculateSheet(sheet: Sheet, allSheets: Sheet[] = [sheet]): Sheet {
   const updatedData = { ...sheet.data };
-  for (const [key, cell] of Object.entries(updatedData)) {
-    if (cell.raw && cell.raw.startsWith('=')) {
-      try {
-        const val = evaluateFormula(cell.raw, sheet, allSheets);
-        updatedData[key] = {
-          ...cell,
-          value: val,
-          error: typeof val === 'string' && val.startsWith('#') ? val : null,
-        };
-      } catch (err: any) {
-        updatedData[key] = {
-          ...cell,
-          value: '#ERRO!',
-          error: err.message || '#ERRO!',
-        };
+  const workingSheet: Sheet = { ...sheet, data: updatedData };
+  const updatedAllSheets = allSheets.map(s => (s.id === sheet.id ? workingSheet : s));
+
+  // Perform up to 3 passes to resolve dependent formulas (e.g. SOMA of computed columns)
+  for (let pass = 0; pass < 3; pass++) {
+    let hasChanges = false;
+    for (const [key, cell] of Object.entries(updatedData)) {
+      if (cell.raw && typeof cell.raw === 'string' && cell.raw.startsWith('=')) {
+        try {
+          const val = evaluateFormula(cell.raw, workingSheet, updatedAllSheets);
+          if (updatedData[key]?.value !== val) {
+            hasChanges = true;
+            updatedData[key] = {
+              ...cell,
+              value: val,
+              error: typeof val === 'string' && val.startsWith('#') ? val : null,
+            };
+          }
+        } catch (err: any) {
+          updatedData[key] = {
+            ...cell,
+            value: '#ERRO!',
+            error: err.message || '#ERRO!',
+          };
+        }
       }
     }
+    if (!hasChanges) break;
   }
   return { ...sheet, data: updatedData };
 }
