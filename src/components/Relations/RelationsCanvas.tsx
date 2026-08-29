@@ -29,6 +29,7 @@ import { TableNodeCard } from './TableNodeCard';
 import { RelationConfigModal } from './RelationConfigModal';
 import { AddTableModal } from './AddTableModal';
 import { applyRelationToSpreadsheet, getColumnHeaderName } from '../../engine/relationFormulaEngine';
+import { saveRelationEdges, loadRelationEdges } from '../../utils/storageManager';
 
 interface RelationsCanvasProps {
   sheets: Sheet[];
@@ -93,10 +94,15 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
   }, [sheets]);
 
   // Edges (Relationships & Column-to-Column connections)
-  const [edges, setEdges] = useState<RelationEdge[]>([]);
+  const [edges, setEdges] = useState<RelationEdge[]>(() => loadRelationEdges());
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [editingEdge, setEditingEdge] = useState<Partial<RelationEdge> | null>(null);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState<boolean>(false);
+
+  // Auto-Save Edges to Storage
+  useEffect(() => {
+    saveRelationEdges(edges);
+  }, [edges]);
 
   // Connection drafting (live drawing wire)
   const [connectionDraft, setConnectionDraft] = useState<ConnectionDraft | null>(null);

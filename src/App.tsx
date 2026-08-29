@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Sheet, CellPosition, CellRange, ConditionalFormatRule } from './types/spreadsheet';
 import {
   createSalesSampleSheet,
@@ -51,16 +51,25 @@ import { NocoUserProfileModal } from './components/NocoLayout/NocoUserProfileMod
 import { NocoHistoryDrawer } from './components/NocoLayout/NocoHistoryDrawer';
 import { NocoFormatModal } from './components/NocoLayout/NocoFormatModal';
 import { RelationsCanvas } from './components/Relations/RelationsCanvas';
+import {
+  loadInitialSheetsSync,
+  loadSheetsFromStorageAsync,
+  saveSheetsToStorage,
+  saveActiveSheetId,
+  loadActiveSheetId,
+  saveStarredSheets,
+  loadStarredSheets,
+  saveUserPreferences,
+  loadUserPreferences,
+} from './utils/storageManager';
 
 export function App() {
+  const initialPrefs = useMemo(() => loadUserPreferences(), []);
+  const initialSheets = useMemo(() => loadInitialSheetsSync(), []);
 
-  // Initialize with the real domain dataset (Acompanhamento de Pausa Agente)
-  const [sheets, setSheets] = useState<Sheet[]>(() => {
-    const defaultSheet = createAgentPauseSampleSheet('sheet-1', 'Acompanhamento_de_Pausa_Agente_1787943161501');
-    return [defaultSheet];
-  });
-
-  const [activeSheetId, setActiveSheetId] = useState<string>(() => sheets[0]?.id || 'sheet-1');
+  // Initialize with persisted sheets or domain dataset
+  const [sheets, setSheets] = useState<Sheet[]>(initialSheets);
+  const [activeSheetId, setActiveSheetId] = useState<string>(() => loadActiveSheetId(initialSheets));
   const [activeCell, setActiveCell] = useState<CellPosition>({ row: 0, col: 0 });
   const [selectedRange, setSelectedRange] = useState<CellRange>({
     startRow: 0,
@@ -76,13 +85,13 @@ export function App() {
   // Navigation View: 'spreadsheet' | 'powerquery' | 'powerbi' | 'relations'
   const [activeView, setActiveView] = useState<'spreadsheet' | 'powerquery' | 'powerbi' | 'relations'>('spreadsheet');
   const [activeNav, setActiveNav] = useState<NocoNavView>('data');
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(initialPrefs.isSidebarOpen ?? true);
   const [searchFilter, setSearchFilter] = useState<string>('');
 
   // View settings
-  const [showGridlines, setShowGridlines] = useState(true);
-  const [showFormulaBar, setShowFormulaBar] = useState(true);
-  const [zoomLevel, setZoomLevel] = useState(100);
+  const [showGridlines, setShowGridlines] = useState(initialPrefs.showGridlines ?? true);
+  const [showFormulaBar, setShowFormulaBar] = useState(initialPrefs.showFormulaBar ?? true);
+  const [zoomLevel, setZoomLevel] = useState(initialPrefs.zoomLevel ?? 100);
 
   // Copilot AI state
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
@@ -105,7 +114,54 @@ export function App() {
   const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
   const [isFormatModalOpen, setIsFormatModalOpen] = useState(false);
-  const [starredSheetIds, setStarredSheetIds] = useState<Set<string>>(() => new Set());
+  const [starredSheetIds, setStarredSheetIds] = useState<Set<string>>(() => loadStarredSheets());
+
+  // Asynchronous IndexedDB re-hydration on mount
+  useEffect(() => {
+    let isMounted = true;
+    loadSheetsFromStorageAsync().then(storedSheets => {
+      if (isMounted && storedSheets && storedSheets.length > 0) {
+        setSheets(storedSheets);
+        setActiveSheetId(prev => {
+          if (storedSheets.some(s => s.id === prev)) return prev;
+          return loadActiveSheetId(storedSheets);
+        });
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Auto-Save Sheets to Persistent Storage
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      saveSheetsToStorage(sheets);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [sheets]);
+
+  // Persist Active Sheet ID
+  useEffect(() => {
+    if (activeSheetId) {
+      saveActiveSheetId(activeSheetId);
+    }
+  }, [activeSheetId]);
+
+  // Persist Starred Sheets
+  useEffect(() => {
+    saveStarredSheets(starredSheetIds);
+  }, [starredSheetIds]);
+
+  // Persist User Preferences
+  useEffect(() => {
+    saveUserPreferences({
+      showGridlines,
+      showFormulaBar,
+      zoomLevel,
+      isSidebarOpen,
+    });
+  }, [showGridlines, showFormulaBar, zoomLevel, isSidebarOpen]);
 
   const activeSheet = sheets.find(s => s.id === activeSheetId) || sheets[0];
 
