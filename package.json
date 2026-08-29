@@ -16,6 +16,7 @@
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "comlink": "^4.4.2",
+    "exceljs": "^4.4.0",
     "jotai": "^2.20.3",
     "lucide-react": "^1.32.0",
     "react": "^19.2.8",

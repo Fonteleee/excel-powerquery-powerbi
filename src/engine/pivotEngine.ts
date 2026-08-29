@@ -222,7 +222,7 @@ function aggregateValues(
   }
 
   const numbers = items
-    .map(r => parseNumberSafely(r[colIndex]))
+    .map(r => parseNumberSafely(r[colIndex], true))
     .filter((n): n is number => n !== null);
 
   if (numbers.length === 0) return 0;

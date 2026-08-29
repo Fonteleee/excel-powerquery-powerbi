@@ -1,7 +1,9 @@
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { Sheet } from '../types/spreadsheet';
 import { cellPosToKey, parseNumberSafely } from '../engine/formulaParser';
 import { PivotResult } from '../types/analytics';
+import { generateBarChartImage, generateDonutChartImage } from './chartImageGenerator';
 
 /**
  * Portuguese to Standard English Excel Formula Names Map
@@ -371,121 +373,248 @@ export interface PowerBIExportOptions {
 }
 
 /**
- * Export Comprehensive Multi-Sheet Power BI Analytics Report:
- * 1. Sheet: DASHBOARD E KPIS (Executive KPIs + Chart distribution datasets for Bar and Donut/Pie charts)
+ * Export Comprehensive Multi-Sheet Power BI Analytics Report with Embedded Visual Charts:
+ * 1. Sheet: DASHBOARD E KPIS (Executive KPIs, Data Table + Embedded High-Res Bar Chart & Donut Chart!)
  * 2. Sheet: TABELA DINAMICA (Pivot Table matrix with multi-dimensional dimensions, values, and grand totals)
  * 3. Sheet: [Raw Data Sheet Name] (Full raw data table with formulas, styles, and column widths)
  */
-export function exportPivotReportToExcel(
+export async function exportPivotReportToExcel(
   sheet: Sheet,
   pivotResult: PivotResult,
   kpis: { title: string; value: string }[],
   filename = 'Relatorio_PowerBI_Analytics',
   options?: PowerBIExportOptions
-): void {
-  const wb = XLSX.utils.book_new();
+): Promise<void> {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'NocoDB Power BI Studio';
+  wb.created = new Date();
 
-  const dimensionName = options?.dimensionName || 'Dimensão / Categoria';
-  const metricName = options?.metricName || 'Métrica / Valor';
+  const dimensionName = options?.dimensionName || 'Dimensão';
+  const metricName = options?.metricName || 'Valor';
   const chartData = options?.chartData || [];
   const fmtVal = options?.formatMetricValue || ((v: number) => String(v));
+
+  // Generate high-resolution Bar and Donut chart images
+  const barChartBase64 = generateBarChartImage(chartData, {
+    title: `Distribuição: ${dimensionName} por ${metricName}`,
+    metricLabel: metricName,
+    formatValue: fmtVal,
+  });
+
+  const donutChartBase64 = generateDonutChartImage(chartData, {
+    title: 'Participação Percentual (%)',
+    totalSum: options?.totalSum,
+    formatValue: fmtVal,
+  });
 
   // ==========================================
   // 1. ABA: DASHBOARD E KPIS
   // ==========================================
-  const dashRows: any[][] = [];
-  dashRows.push(['POWER BI VISUAL STUDIO - DASHBOARD E KPIS']);
-  dashRows.push(['Tabela / Fonte de Dados:', sheet.name, '', 'Data de Exportação:', new Date().toLocaleString('pt-BR')]);
-  dashRows.push([]);
-
-  // Seção de KPIs
-  dashRows.push(['INDICADORES PRINCIPAIS DE DESEMPENHO (KPIS)']);
-  dashRows.push(['Indicador', 'Valor / Métrica']);
-  kpis.forEach(kpi => {
-    dashRows.push([kpi.title, kpi.value]);
+  const wsDash = wb.addWorksheet('DASHBOARD E KPIS', {
+    views: [{ showGridLines: true }],
   });
-  dashRows.push([]);
 
-  // Seção de Dados dos Gráficos (Distribuição & Participação)
-  dashRows.push([`DISTRIBUIÇÃO: ${dimensionName.toUpperCase()} POR ${metricName.toUpperCase()} (DADOS DOS GRÁFICOS)`]);
-  dashRows.push([dimensionName, `${metricName} (Valor)`, 'Participação (%)']);
+  // Column Widths
+  wsDash.columns = [
+    { width: 32 }, // Col A
+    { width: 26 }, // Col B
+    { width: 20 }, // Col C
+    { width: 6 },  // Col D (Spacer)
+    { width: 14 }, // Col E
+    { width: 14 }, // Col F
+    { width: 14 }, // Col G
+    { width: 14 }, // Col H
+    { width: 14 }, // Col I
+    { width: 14 }, // Col J
+    { width: 14 }, // Col K
+    { width: 14 }, // Col L
+  ];
+
+  // Header Title
+  const titleRow = wsDash.addRow(['POWER BI VISUAL STUDIO - DASHBOARD E KPIS']);
+  titleRow.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+  titleRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF107C41' } };
+  wsDash.mergeCells('A1:C1');
+
+  // Metadata Row
+  wsDash.addRow(['Tabela / Fonte de Dados:', sheet.name, 'Data de Exportação:', new Date().toLocaleString('pt-BR')]);
+  wsDash.getCell('A2').font = { bold: true, size: 10, color: { argb: 'FF475569' } };
+  wsDash.getCell('B2').font = { bold: true, size: 10, color: { argb: 'FF0F172A' } };
+
+  wsDash.addRow([]);
+
+  // KPIs Section
+  const kpiHeader = wsDash.addRow(['INDICADORES PRINCIPAIS DE DESEMPENHO (KPIS)', '']);
+  kpiHeader.font = { bold: true, size: 11, color: { argb: 'FF065F46' } };
+  wsDash.mergeCells(`A${kpiHeader.number}:B${kpiHeader.number}`);
+
+  const kpiSubHeader = wsDash.addRow(['Indicador', 'Valor / Métrica']);
+  kpiSubHeader.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+  kpiSubHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF059669' } };
+
+  kpis.forEach(kpi => {
+    const row = wsDash.addRow([kpi.title, kpi.value]);
+    row.getCell(1).font = { size: 10, color: { argb: 'FF334155' } };
+    row.getCell(2).font = { bold: true, size: 11, color: { argb: 'FF0F172A' } };
+    row.getCell(1).border = { bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
+    row.getCell(2).border = { bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
+  });
+
+  wsDash.addRow([]);
+
+  // Distribution Data Table (Chart source table)
+  const distHeader = wsDash.addRow([`DISTRIBUIÇÃO: ${dimensionName.toUpperCase()} (DADOS DOS GRÁFICOS)`]);
+  distHeader.font = { bold: true, size: 11, color: { argb: 'FF065F46' } };
+  wsDash.mergeCells(`A${distHeader.number}:C${distHeader.number}`);
+
+  const distSubHeader = wsDash.addRow([dimensionName, `${metricName} (Valor)`, 'Participação (%)']);
+  distSubHeader.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+  distSubHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF059669' } };
 
   if (chartData.length > 0) {
     chartData.forEach(item => {
-      dashRows.push([
+      const row = wsDash.addRow([
         item.name,
         typeof item.value === 'number' ? fmtVal(item.value) : item.value,
         `${(item.percent ?? 0).toFixed(1)}%`,
       ]);
+      row.getCell(1).font = { size: 10, color: { argb: 'FF1E293B' } };
+      row.getCell(2).font = { bold: true, size: 10, color: { argb: 'FF0F172A' } };
+      row.getCell(3).font = { bold: true, size: 10, color: { argb: 'FF059669' } };
+      row.getCell(1).border = { bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
+      row.getCell(2).border = { bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
+      row.getCell(3).border = { bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
     });
+
     if (options?.totalSum !== undefined) {
-      dashRows.push([
-        'Total Geral',
-        fmtVal(options.totalSum),
-        '100.0%',
-      ]);
+      const totRow = wsDash.addRow(['Total Geral', fmtVal(options.totalSum), '100.0%']);
+      totRow.font = { bold: true, size: 11, color: { argb: 'FF065F46' } };
+      totRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECFDF5' } };
+      totRow.border = { top: { style: 'medium', color: { argb: 'FF059669' } } };
     }
-  } else if (pivotResult && pivotResult.rows.length > 0) {
-    pivotResult.rows.forEach(r => {
-      dashRows.push([
-        r.label.join(' - '),
-        r.cells[0]?.value !== undefined ? (typeof r.cells[0].value === 'number' ? fmtVal(r.cells[0].value) : r.cells[0].value) : '',
-      ]);
+  }
+
+  // EMBED CHARTS INTO EXCEL SHEET!
+  if (barChartBase64) {
+    const barImgId = wb.addImage({
+      base64: barChartBase64,
+      extension: 'png',
+    });
+    wsDash.addImage(barImgId, {
+      tl: { col: 4, row: 3 },
+      ext: { width: 580, height: 320 },
     });
   }
 
-  dashRows.push([]);
-  dashRows.push(['* Nota: Esta tabela alimenta os gráficos de Barras e Rosca/Pizza no Power BI Studio e pode ser usada no Excel para gerar gráficos dinâmicos (Inserir -> Gráficos).']);
-
-  const wsDash = XLSX.utils.aoa_to_sheet(dashRows);
-  wsDash['!cols'] = [
-    { wch: 38 },
-    { wch: 28 },
-    { wch: 20 },
-    { wch: 28 },
-  ];
-  XLSX.utils.book_append_sheet(wb, wsDash, 'DASHBOARD E KPIS');
+  if (donutChartBase64) {
+    const donutImgId = wb.addImage({
+      base64: donutChartBase64,
+      extension: 'png',
+    });
+    wsDash.addImage(donutImgId, {
+      tl: { col: 4, row: 20 },
+      ext: { width: 580, height: 320 },
+    });
+  }
 
   // ==========================================
   // 2. ABA: TABELA DINAMICA
   // ==========================================
-  const pivotRows: any[][] = [];
-  pivotRows.push(['POWER BI - TABELA DINÂMICA / MATRIZ ANALÍTICA']);
-  pivotRows.push(['Tabela de Origem:', sheet.name, 'Dimensão:', dimensionName, 'Métrica:', metricName]);
-  pivotRows.push([]);
+  const wsPivot = wb.addWorksheet('TABELA DINAMICA', {
+    views: [{ showGridLines: true }],
+  });
+  wsPivot.columns = [
+    { width: 35 },
+    { width: 28 },
+    { width: 28 },
+    { width: 28 },
+  ];
+
+  const pivotTitle = wsPivot.addRow(['POWER BI - TABELA DINÂMICA / MATRIZ ANALÍTICA']);
+  pivotTitle.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+  pivotTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF107C41' } };
+  wsPivot.mergeCells('A1:C1');
+
+  wsPivot.addRow(['Tabela de Origem:', sheet.name, 'Dimensão:', dimensionName, 'Métrica:', metricName]);
+  wsPivot.addRow([]);
 
   if (pivotResult && pivotResult.headers && pivotResult.headers.length > 0) {
-    pivotRows.push(pivotResult.headers);
+    const hRow = wsPivot.addRow(pivotResult.headers);
+    hRow.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+    hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF059669' } };
+
     pivotResult.rows.forEach(r => {
       const rowLabel = r.isGrandTotal ? 'Total Geral' : r.label.join(' - ') || '—';
-      const rowLine: any[] = [rowLabel];
+      const rowVals: any[] = [rowLabel];
       r.cells.forEach(c => {
         const cellDisplay = typeof c.value === 'number' ? fmtVal(c.value) : (c.value ?? '');
-        rowLine.push(cellDisplay);
+        rowVals.push(cellDisplay);
       });
-      pivotRows.push(rowLine);
+      const row = wsPivot.addRow(rowVals);
+      if (r.isGrandTotal) {
+        row.font = { bold: true, size: 11, color: { argb: 'FF065F46' } };
+        row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECFDF5' } };
+        row.border = { top: { style: 'medium', color: { argb: 'FF059669' } } };
+      } else {
+        row.getCell(1).font = { size: 10, color: { argb: 'FF1E293B' } };
+        for (let i = 2; i <= rowVals.length; i++) {
+          row.getCell(i).font = { bold: true, size: 10, color: { argb: 'FF0F172A' } };
+        }
+      }
     });
-  } else {
-    pivotRows.push(['Nenhum dado agregado disponível para tabela dinâmica.']);
   }
-
-  const wsPivot = XLSX.utils.aoa_to_sheet(pivotRows);
-  wsPivot['!cols'] = [
-    { wch: 35 },
-    { wch: 25 },
-    { wch: 25 },
-    { wch: 25 },
-  ];
-  XLSX.utils.book_append_sheet(wb, wsPivot, 'TABELA DINAMICA');
 
   // ==========================================
   // 3. ABA: DADOS BRUTOS (PLANILHA ORIGINAL COM FÓRMULAS)
   // ==========================================
-  const wsRaw = buildWorksheetFromSheet(sheet);
   const cleanSheetName = (sheet.name || 'Dados').replace(/[\\/?*[\]]/g, '').substring(0, 31);
-  XLSX.utils.book_append_sheet(wb, wsRaw, cleanSheetName);
+  const wsRaw = wb.addWorksheet(cleanSheetName, {
+    views: [{ showGridLines: true }],
+  });
 
-  // Write file
+  // Calculate Column Widths
+  const rawCols: { width: number }[] = [];
+  for (let c = 0; c < sheet.colCount; c++) {
+    const wPx = sheet.colWidths?.[c] || 110;
+    rawCols.push({ width: Math.max(Math.round(wPx / 8), 12) });
+  }
+  wsRaw.columns = rawCols;
+
+  // Export raw rows and formulas
+  for (let r = 0; r < sheet.rowCount; r++) {
+    const rowValues: any[] = [];
+    for (let c = 0; c < sheet.colCount; c++) {
+      const cell = sheet.data[cellPosToKey(r, c)];
+      if (!cell || (cell.raw === '' && cell.value === null)) {
+        rowValues.push('');
+      } else if (cell.raw && cell.raw.startsWith('=')) {
+        const enFormula = translateFormulaToExcelEn(cell.raw);
+        rowValues.push({ formula: enFormula, result: cell.value });
+      } else if (typeof cell.value === 'number') {
+        rowValues.push(cell.value);
+      } else if (cell.value !== null && cell.value !== undefined) {
+        rowValues.push(cell.value);
+      } else {
+        rowValues.push(cell.raw || '');
+      }
+    }
+    const row = wsRaw.addRow(rowValues);
+    if (r === 0) {
+      row.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+      row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF107C41' } };
+    }
+  }
+
+  // Write and trigger download in browser
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
   const finalName = filename.endsWith('.xlsx') ? filename : `${filename}.xlsx`;
-  XLSX.writeFile(wb, finalName);
+  anchor.download = finalName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  window.URL.revokeObjectURL(url);
 }
