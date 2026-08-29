@@ -105,22 +105,38 @@
   outline: 2px solid #107c41 !important;
   outline-offset: -2px;
   z-index: 20;
-  background-color: #ffffff;
 }
 
 .cell-range-anchor {
   z-index: 10;
-  background-color: #ffffff;
 }
 
 .cell-in-range {
-  background-color: rgba(16, 124, 65, 0.08) !important;
+  position: relative;
   z-index: 5;
 }
 
+.cell-in-range::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: rgba(16, 124, 65, 0.10);
+  pointer-events: none;
+  z-index: 1;
+}
+
 .cell-multi-selected {
-  background-color: rgba(16, 124, 65, 0.08) !important;
+  position: relative;
   z-index: 5;
+}
+
+.cell-multi-selected::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: rgba(16, 124, 65, 0.10);
+  pointer-events: none;
+  z-index: 1;
 }
 
 .cell-highlight-edit {

@@ -88,10 +88,10 @@ export const NocoFormatModal: React.FC<NocoFormatModalProps> = ({
   const handleApplyFormat = () => {
     const newData = { ...sheet.data };
 
-    let startR = selectedRange.startRow;
-    let endR = selectedRange.endRow;
-    let startC = selectedRange.startCol;
-    let endC = selectedRange.endCol;
+    let startR = Math.min(selectedRange.startRow, selectedRange.endRow);
+    let endR = Math.max(selectedRange.startRow, selectedRange.endRow);
+    let startC = Math.min(selectedRange.startCol, selectedRange.endCol);
+    let endC = Math.max(selectedRange.startCol, selectedRange.endCol);
 
     if (applyScope === 'row') {
       startC = 0;
