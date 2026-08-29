@@ -668,6 +668,8 @@ export function App() {
                 onToggleCopilot={() => setIsCopilotOpen(prev => !prev)}
                 onToggleSummary={() => setIsSummaryDrawerOpen(prev => !prev)}
                 onOpenFormatModal={() => setIsFormatModalOpen(true)}
+                searchFilter={searchFilter}
+                onClearSearchFilter={() => setSearchFilter('')}
               />
 
               <CopilotPanel

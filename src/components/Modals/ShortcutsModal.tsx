@@ -31,6 +31,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
         { key: 'Ctrl + E', desc: 'Preenchimento Relâmpago (Flash Fill com IA de padrões)' },
         { key: 'Ctrl + S', desc: 'Exportação Rápida / Salvar direto para Excel (.XLSX)' },
         { key: 'Ctrl + A', desc: 'Selecionar todas as células da planilha' },
+        { key: 'Duplo ESC', desc: 'Limpar todos os filtros ativos e pesquisas da tabela' },
       ],
     },
     {

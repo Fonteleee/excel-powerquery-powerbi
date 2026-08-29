@@ -26,6 +26,7 @@ import {
   User,
   CheckSquare,
   Paintbrush,
+  FilterX,
 } from 'lucide-react';
 import { Filter as FilterIcon, Search as SearchIcon } from 'lucide-react';
 import { Sheet, CellPosition, CellRange, CellData, CellFormat } from '../../types/spreadsheet';
@@ -101,6 +102,8 @@ interface SpreadsheetGridProps {
   onToggleCopilot?: () => void;
   onToggleSummary?: () => void;
   onOpenFormatModal?: () => void;
+  searchFilter?: string;
+  onClearSearchFilter?: () => void;
 }
 
 export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
@@ -127,6 +130,8 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   onToggleCopilot,
   onToggleSummary,
   onOpenFormatModal,
+  searchFilter = '',
+  onClearSearchFilter,
 }) => {
   const handleAddRow = () => {
     onUpdateSheet({
@@ -159,6 +164,11 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       ? extractReferencesFromFormula(editValue)
       : [];
   }, [isEditing, editValue]);
+
+  // Double ESC Filter Reset & Feedback State
+  const lastEscTimeRef = useRef<number>(0);
+  const [filterClearedToast, setFilterClearedToast] = useState(false);
+
   const [clipboard, setClipboard] = useState<{
     range: CellRange;
     data: { [relKey: string]: CellData };
@@ -375,9 +385,42 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       if (isEditing) return;
 
 
-      // ESCAPE: Limpar seleções ativas, multi-seleção e fechar menus
+      // ESCAPE: Double ESC clears all active filters! Single ESC clears selection/modals
       if (e.key === 'Escape') {
         e.preventDefault();
+        const now = Date.now();
+        const timeDiff = now - lastEscTimeRef.current;
+        lastEscTimeRef.current = now;
+
+        setClipboard(null);
+
+        // Check if double ESC was pressed (< 500ms and > 30ms)
+        if (timeDiff < 500 && timeDiff > 30) {
+          // Double ESC: Clear all active column filters & search query!
+          setOpenFilterCol(null);
+          setMultiSelectedKeys(new Set());
+          setContextMenu(null);
+          setFlashFillHint(null);
+
+          if (sheet.filters && Object.keys(sheet.filters).length > 0) {
+            onUpdateSheet({
+              ...sheet,
+              filters: {},
+              filterEnabled: false,
+            });
+          }
+
+          if (onClearSearchFilter) {
+            onClearSearchFilter();
+          }
+
+          // Show floating toast confirmation
+          setFilterClearedToast(true);
+          setTimeout(() => setFilterClearedToast(false), 2200);
+          return;
+        }
+
+        // Single ESC: Normal Excel escape behavior (clear selection, close popups)
         setMultiSelectedKeys(new Set());
         onSelectRange({
           startRow: activeCell.row,
@@ -507,11 +550,6 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         return;
       }
 
-      // ESC: Limpar clipboard marching ants
-      if (e.key === 'Escape') {
-        setClipboard(null);
-        return;
-      }
 
       // Shift + Space: Selecionar a linha toda
       if (e.shiftKey && e.code === 'Space' && !e.ctrlKey && !e.metaKey) {
@@ -1984,6 +2022,17 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
           </div>
         )}
       </div>
+
+      {/* Double ESC Active Filter Cleared Notification Toast */}
+      {filterClearedToast && (
+        <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-slate-900/95 px-4 py-2 text-xs font-semibold text-white shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-150">
+          <FilterX className="size-4 text-emerald-400" />
+          <span>Filtros eliminados com sucesso</span>
+          <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-emerald-300 border border-slate-700">
+            ESC 2x
+          </span>
+        </div>
+      )}
     </div>
   );
 };
