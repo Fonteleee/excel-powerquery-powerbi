@@ -9,6 +9,7 @@ import {
   GitBranch,
   MoreHorizontal,
   ChevronDown,
+  Sparkles,
 } from 'lucide-react';
 import { Sheet } from '../../types/spreadsheet';
 
@@ -19,8 +20,8 @@ interface NocoBaseSidebarProps {
   activeSheetId: string;
   onSelectSheet: (id: string) => void;
   onNewSheet: () => void;
-  activeView: 'spreadsheet' | 'powerquery' | 'powerbi';
-  onSelectView: (view: 'spreadsheet' | 'powerquery' | 'powerbi') => void;
+  activeView: 'spreadsheet' | 'powerquery' | 'powerbi' | 'relations';
+  onSelectView: (view: 'spreadsheet' | 'powerquery' | 'powerbi' | 'relations') => void;
 }
 
 export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
@@ -45,7 +46,7 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
   );
 
   return (
-    <aside className="w-60 shrink-0 bg-white border-r border-[#e2e8f0] flex flex-col select-none z-20 transition-all duration-200">
+    <aside className="w-56 h-full bg-white border-r border-[#e2e8f0] flex flex-col font-sans select-none shrink-0 z-20">
       {/* Header with Base Name & Search */}
       <div className="h-12 px-3 border-b border-[#f1f5f9] flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0 cursor-pointer hover:bg-slate-50 p-1 rounded-md transition-colors">
@@ -126,7 +127,7 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
                 <MoreHorizontal className="size-3.5 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-600 transition-opacity" />
               </div>
 
-              {/* Sub-views (Grid, PowerBI Dashboard, Power Query) when Table is Active */}
+              {/* Sub-views (Grid, Relational Diagram, PowerBI Dashboard, Power Query) when Table is Active */}
               {isActive && (
                 <div className="pl-4 space-y-0.5 pt-0.5 border-l border-slate-200 ml-3">
                   <button
@@ -139,6 +140,18 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
                   >
                     <TableIcon className="size-3 text-indigo-500" />
                     <span className="truncate">{cleanName} (Grid)</span>
+                  </button>
+
+                  <button
+                    onClick={() => onSelectView('relations')}
+                    className={`w-full flex items-center gap-2 px-2 py-1 rounded text-xs transition-colors cursor-pointer ${
+                      activeView === 'relations'
+                        ? 'bg-indigo-100/70 text-indigo-700 font-medium'
+                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                    }`}
+                  >
+                    <Sparkles className="size-3 text-indigo-500" />
+                    <span className="truncate">Relacionamentos</span>
                   </button>
 
                   <button

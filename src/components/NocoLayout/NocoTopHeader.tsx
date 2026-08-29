@@ -20,8 +20,8 @@ interface NocoTopHeaderProps {
   sheet: Sheet;
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
-  activeView: 'spreadsheet' | 'powerquery' | 'powerbi';
-  onSelectView: (view: 'spreadsheet' | 'powerquery' | 'powerbi') => void;
+  activeView: 'spreadsheet' | 'powerquery' | 'powerbi' | 'relations';
+  onSelectView: (view: 'spreadsheet' | 'powerquery' | 'powerbi' | 'relations') => void;
   onUndo: () => void;
   onRedo: () => void;
   canUndo?: boolean;
@@ -112,13 +112,13 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
           )}
         </div>
 
-        {/* View Switcher Tabs (Dados vs Painel BI) */}
+        {/* View Switcher Tabs (Dados vs Relacionamentos vs Painel BI) */}
         <div className="flex items-center bg-slate-100/90 p-0.5 rounded-lg border border-slate-200 ml-2">
           <button
             onClick={() => onSelectView('spreadsheet')}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
               activeView === 'spreadsheet'
-                ? 'bg-white text-indigo-700 shadow-xs'
+                ? 'bg-white text-indigo-700 shadow-xs font-bold'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -127,10 +127,22 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
           </button>
 
           <button
+            onClick={() => onSelectView('relations')}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+              activeView === 'relations'
+                ? 'bg-white text-indigo-700 shadow-xs font-bold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Sparkles className="size-3.5 text-indigo-600" />
+            <span>Relacionamentos</span>
+          </button>
+
+          <button
             onClick={() => onSelectView('powerbi')}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
               activeView === 'powerbi'
-                ? 'bg-white text-emerald-700 shadow-xs'
+                ? 'bg-white text-emerald-700 shadow-xs font-bold'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >

@@ -49,6 +49,7 @@ import { NocoSummaryDrawer } from './components/NocoLayout/NocoSummaryDrawer';
 import { NocoUserProfileModal } from './components/NocoLayout/NocoUserProfileModal';
 import { NocoHistoryDrawer } from './components/NocoLayout/NocoHistoryDrawer';
 import { NocoFormatModal } from './components/NocoLayout/NocoFormatModal';
+import { RelationsCanvas } from './components/Relations/RelationsCanvas';
 
 export function App() {
 
@@ -71,8 +72,8 @@ export function App() {
   const [historyPast, setHistoryPast] = useState<Sheet[][]>([]);
   const [historyFuture, setHistoryFuture] = useState<Sheet[][]>([]);
 
-  // Navigation View: 'spreadsheet' | 'powerquery' | 'powerbi'
-  const [activeView, setActiveView] = useState<'spreadsheet' | 'powerquery' | 'powerbi'>('spreadsheet');
+  // Navigation View: 'spreadsheet' | 'powerquery' | 'powerbi' | 'relations'
+  const [activeView, setActiveView] = useState<'spreadsheet' | 'powerquery' | 'powerbi' | 'relations'>('spreadsheet');
   const [activeNav, setActiveNav] = useState<NocoNavView>('data');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [searchFilter, setSearchFilter] = useState<string>('');
@@ -698,6 +699,21 @@ export function App() {
             sheet={activeSheet}
             onClose={() => setActiveView('spreadsheet')}
             onLoadSampleSales={handleLoadSampleSales}
+          />
+        )}
+
+        {/* RELATIONS CANVAS & NODE-GRAPH PIPELINE VIEW */}
+        {activeView === 'relations' && (
+          <RelationsCanvas
+            sheets={sheets}
+            activeSheet={activeSheet}
+            onUpdateSheets={newSheets => {
+              pushHistory(sheets);
+              setSheets(newSheets);
+            }}
+            onNavigateView={setActiveView}
+            onOpenShare={() => setIsShareModalOpen(true)}
+            onOpenCopilot={() => setIsCopilotOpen(true)}
           />
         )}
       </div>
