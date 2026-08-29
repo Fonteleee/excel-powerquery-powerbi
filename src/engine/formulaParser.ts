@@ -43,12 +43,14 @@ export function parseRangeAddress(rangeStr: string, maxRows = 100): CellRange | 
     return { startRow: single.row, startCol: single.col, endRow: single.row, endCol: single.col };
   }
   if (parts.length === 2) {
-    // Check if whole columns like "A:B" or "A:A"
-    const colOnlyMatch1 = parts[0].match(/^[A-Z]+$/);
-    const colOnlyMatch2 = parts[1].match(/^[A-Z]+$/);
+    // Check if whole columns like "A:B", "A:A", "$A:$A", "$B:$B"
+    const c1Str = parts[0].replace(/\$/g, '');
+    const c2Str = parts[1].replace(/\$/g, '');
+    const colOnlyMatch1 = c1Str.match(/^[A-Z]+$/);
+    const colOnlyMatch2 = c2Str.match(/^[A-Z]+$/);
     if (colOnlyMatch1 && colOnlyMatch2) {
-      const c1 = labelToColIndex(parts[0]);
-      const c2 = labelToColIndex(parts[1]);
+      const c1 = labelToColIndex(c1Str);
+      const c2 = labelToColIndex(c2Str);
       return {
         startRow: 0,
         startCol: Math.min(c1, c2),
@@ -462,6 +464,40 @@ export function parseNumberSafely(val: any, allowTimeAsSeconds = false): number 
   return null;
 }
 
+/**
+ * Normalizador e comparador universal de valores do Excel.
+ * Suporta string vs número ("100,00" == 100), trim de espaços, case-insensitivity e wildcards.
+ */
+export function valuesMatch(cellVal: any, criteriaVal: any): boolean {
+  if (cellVal === null || cellVal === undefined) return false;
+  if (criteriaVal === null || criteriaVal === undefined) return false;
+  if (cellVal === criteriaVal) return true;
+
+  // Normalização de string
+  const strCell = String(cellVal).trim().toLowerCase();
+  const strCriteria = String(criteriaVal).trim().toLowerCase();
+  if (strCell === strCriteria) return true;
+
+  // Comparação numérica segura (suporta formato PT-BR e US)
+  const numCell = parseNumberSafely(cellVal);
+  const numCriteria = parseNumberSafely(criteriaVal);
+  if (numCell !== null && numCriteria !== null && Math.abs(numCell - numCriteria) < 1e-9) {
+    return true;
+  }
+
+  // Suporte a Wildcards (* e ?)
+  if (typeof criteriaVal === 'string' && (criteriaVal.includes('*') || criteriaVal.includes('?'))) {
+    const regexPattern = '^' + strCriteria.replace(/[-[\]{}()+.,\\^$|#\s]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$';
+    try {
+      return new RegExp(regexPattern, 'i').test(strCell);
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
 // Resolve a range argument which might be local ("A1:B10") or cross-sheet ("'Acompanhamento'!A1:B10", "Acompanhamento!B:B", "'Planilha 2'!C5")
 export function resolveRangeAndValues(
   arg: string,
@@ -474,13 +510,15 @@ export function resolveRangeAndValues(
 
   if (trimmed.includes('!')) {
     const exclamationIdx = trimmed.indexOf('!');
-    const rawSheetName = trimmed.substring(0, exclamationIdx).trim().replace(/^'|'$/g, '');
+    const rawSheetName = trimmed.substring(0, exclamationIdx).trim().replace(/^'|'$/g, '').replace(/''/g, "'");
     address = trimmed.substring(exclamationIdx + 1).trim();
 
-    const clean = rawSheetName.toUpperCase().replace(/\.+$/, '');
+    const normalize = (s: string) => s.toUpperCase().replace(/[\s\-_]/g, '').replace(/\.+$/, '');
+    const cleanRaw = normalize(rawSheetName);
+
     const found = allSheets.find(s => {
-      const sName = s.name.toUpperCase();
-      return sName === rawSheetName.toUpperCase() || sName.startsWith(clean) || clean.startsWith(sName);
+      const sClean = normalize(s.name);
+      return sClean === cleanRaw || sClean.startsWith(cleanRaw) || cleanRaw.startsWith(sClean);
     });
     if (found) {
       targetSheet = found;
@@ -707,12 +745,11 @@ function executeFunction(
     const returnItems = returnRes.flatValues;
 
     let matchIndex = -1;
-    const lookupStr = String(lookupVal).trim().toLowerCase();
 
     for (let i = 0; i < lookupItems.length; i++) {
       const item = lookupItems[i];
       if (item === null || item === undefined) continue;
-      if (String(item).trim().toLowerCase() === lookupStr || item === lookupVal) {
+      if (valuesMatch(item, lookupVal)) {
         matchIndex = i;
         break;
       }
@@ -736,10 +773,9 @@ function executeFunction(
     }
 
     const matrix = tableRes.matrixValues;
-    const lookupStr = String(lookupVal).trim().toLowerCase();
     for (let r = 0; r < matrix.length; r++) {
       const firstColVal = matrix[r][0];
-      if (firstColVal !== null && firstColVal !== undefined && (String(firstColVal).trim().toLowerCase() === lookupStr || firstColVal === lookupVal)) {
+      if (firstColVal !== null && firstColVal !== undefined && valuesMatch(firstColVal, lookupVal)) {
         return matrix[r][colIdx - 1];
       }
     }
@@ -787,11 +823,10 @@ function executeFunction(
     if (!resolved) throw new Error('#VALOR!');
 
     const items = resolved.flatValues;
-    const lookupStr = String(lookupVal).trim().toLowerCase();
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      if (item !== null && item !== undefined && (String(item).trim().toLowerCase() === lookupStr || item === lookupVal)) {
+      if (item !== null && item !== undefined && valuesMatch(item, lookupVal)) {
         return i + 1; // 1-based index
       }
     }
@@ -852,6 +887,115 @@ function executeFunction(
     return sumProd / sumWeight;
   }
 
+  // MÉDIASE / AVERAGEIF
+  if (func === 'MÉDIASE' || func === 'MEDIASE' || func === 'AVERAGEIF') {
+    if (args.length < 2) throw new Error('#VALOR!');
+    const rangeRes = resolveRangeAndValues(args[0], sheet, allSheets);
+    if (!rangeRes) throw new Error('#VALOR!');
+    const criteriaRaw = evaluateExpression(args[1], sheet, allSheets, callStack);
+    const criteriaStr = String(criteriaRaw).trim();
+
+    const avgRes = args[2] ? resolveRangeAndValues(args[2], sheet, allSheets) : rangeRes;
+    const rangeVals = rangeRes.flatValues;
+    const avgVals = avgRes ? avgRes.flatValues : rangeVals;
+
+    let total = 0;
+    let count = 0;
+    for (let i = 0; i < rangeVals.length; i++) {
+      const v = rangeVals[i];
+      if (v === null || v === undefined) continue;
+
+      let match = false;
+      const numV = parseNumberSafely(v);
+
+      if (criteriaStr.startsWith('>=')) {
+        const target = parseFloat(criteriaStr.substring(2).replace(',', '.'));
+        match = numV !== null && numV >= target;
+      } else if (criteriaStr.startsWith('<=')) {
+        const target = parseFloat(criteriaStr.substring(2).replace(',', '.'));
+        match = numV !== null && numV <= target;
+      } else if (criteriaStr.startsWith('<>')) {
+        match = !valuesMatch(v, criteriaStr.substring(2));
+      } else if (criteriaStr.startsWith('>')) {
+        const target = parseFloat(criteriaStr.substring(1).replace(',', '.'));
+        match = numV !== null && numV > target;
+      } else if (criteriaStr.startsWith('<')) {
+        const target = parseFloat(criteriaStr.substring(1).replace(',', '.'));
+        match = numV !== null && numV < target;
+      } else if (criteriaStr.startsWith('=')) {
+        match = valuesMatch(v, criteriaStr.substring(1));
+      } else {
+        match = valuesMatch(v, criteriaRaw);
+      }
+
+      if (match && avgVals[i] !== undefined) {
+        const n = parseNumberSafely(avgVals[i], true);
+        if (n !== null) {
+          total += n;
+          count++;
+        }
+      }
+    }
+    if (count === 0) throw new Error('#DIV/0!');
+    return total / count;
+  }
+
+  // FILTRO / FILTER
+  if (func === 'FILTRO' || func === 'FILTER') {
+    if (args.length < 2) throw new Error('#VALOR!');
+    const returnRes = resolveRangeAndValues(args[0], sheet, allSheets);
+    if (!returnRes) throw new Error('#VALOR!');
+
+    const ifEmpty = args[2] !== undefined ? evaluateExpression(args[2], sheet, allSheets, callStack) : 'Nenhum';
+    const conditionExpr = args[1].trim();
+
+    const compMatch = conditionExpr.match(/^(.*?)(<=|>=|<>|=|<|>)(.*)$/);
+    if (!compMatch) throw new Error('#VALOR!');
+
+    const leftRangeStr = compMatch[1].trim();
+    const op = compMatch[2];
+    const rightValExpr = compMatch[3].trim();
+
+    const condRes = resolveRangeAndValues(leftRangeStr, sheet, allSheets);
+    if (!condRes) throw new Error('#VALOR!');
+
+    const targetVal = evaluateExpression(rightValExpr, sheet, allSheets, callStack);
+    const condVals = condRes.flatValues;
+    const returnVals = returnRes.flatValues;
+
+    const matchedItems: any[] = [];
+    for (let i = 0; i < condVals.length; i++) {
+      const v = condVals[i];
+      if (v === null || v === undefined) continue;
+
+      let match = false;
+      const numV = parseNumberSafely(v);
+
+      if (op === '=') match = valuesMatch(v, targetVal);
+      else if (op === '<>') match = !valuesMatch(v, targetVal);
+      else if (op === '>') {
+        const targetNum = typeof targetVal === 'number' ? targetVal : parseNumberSafely(targetVal);
+        match = numV !== null && targetNum !== null && numV > targetNum;
+      } else if (op === '<') {
+        const targetNum = typeof targetVal === 'number' ? targetVal : parseNumberSafely(targetVal);
+        match = numV !== null && targetNum !== null && numV < targetNum;
+      } else if (op === '>=') {
+        const targetNum = typeof targetVal === 'number' ? targetVal : parseNumberSafely(targetVal);
+        match = numV !== null && targetNum !== null && numV >= targetNum;
+      } else if (op === '<=') {
+        const targetNum = typeof targetVal === 'number' ? targetVal : parseNumberSafely(targetVal);
+        match = numV !== null && targetNum !== null && numV <= targetNum;
+      }
+
+      if (match && returnVals[i] !== undefined) {
+        matchedItems.push(returnVals[i]);
+      }
+    }
+
+    if (matchedItems.length === 0) return ifEmpty;
+    return matchedItems.length === 1 ? matchedItems[0] : matchedItems;
+  }
+
   // UNIRTEXTO / TEXTJOIN
   if (func === 'UNIRTEXTO' || func === 'TEXTJOIN') {
     if (args.length < 3) throw new Error('#VALOR!');
@@ -872,7 +1016,15 @@ function executeFunction(
         }
       } else {
         const val = evaluateExpression(args[i], sheet, allSheets, callStack);
-        if (val === null || val === undefined || val === '') {
+        if (Array.isArray(val)) {
+          for (const item of val) {
+            if (item === null || item === undefined || item === '') {
+              if (!ignoreEmpty) textItems.push('');
+            } else {
+              textItems.push(String(item));
+            }
+          }
+        } else if (val === null || val === undefined || val === '') {
           if (!ignoreEmpty) textItems.push('');
         } else {
           textItems.push(String(val));
@@ -906,12 +1058,12 @@ function executeFunction(
       const resolved = resolveRangeAndValues(arg, sheet, allSheets);
       if (resolved) {
         resolved.flatValues.forEach(v => {
-          const n = parseNumberSafely(v);
+          const n = parseNumberSafely(v, true);
           if (n !== null) sum += n;
         });
       } else {
         const v = evaluateExpression(arg, sheet, allSheets, callStack);
-        const n = parseNumberSafely(v);
+        const n = parseNumberSafely(v, true);
         if (n !== null) sum += n;
       }
     }
@@ -926,7 +1078,7 @@ function executeFunction(
       const resolved = resolveRangeAndValues(arg, sheet, allSheets);
       if (resolved) {
         resolved.flatValues.forEach(v => {
-          const n = parseNumberSafely(v);
+          const n = parseNumberSafely(v, true);
           if (n !== null) {
             sum += n;
             count++;
@@ -934,7 +1086,7 @@ function executeFunction(
         });
       } else {
         const v = evaluateExpression(arg, sheet, allSheets, callStack);
-        const n = parseNumberSafely(v);
+        const n = parseNumberSafely(v, true);
         if (n !== null) {
           sum += n;
           count++;
@@ -958,28 +1110,26 @@ function executeFunction(
 
     for (const v of vals) {
       if (v === null || v === undefined) continue;
+      const numV = parseNumberSafely(v);
+
       if (criteriaStr.startsWith('>=')) {
-        const num = parseFloat(criteriaStr.substring(2));
-        if (Number(v) >= num) count++;
+        const num = parseFloat(criteriaStr.substring(2).replace(',', '.'));
+        if (numV !== null && numV >= num) count++;
       } else if (criteriaStr.startsWith('<=')) {
-        const num = parseFloat(criteriaStr.substring(2));
-        if (Number(v) <= num) count++;
+        const num = parseFloat(criteriaStr.substring(2).replace(',', '.'));
+        if (numV !== null && numV <= num) count++;
       } else if (criteriaStr.startsWith('<>')) {
-        const target = criteriaStr.substring(2);
-        if (String(v).toLowerCase() !== target.toLowerCase()) count++;
+        if (!valuesMatch(v, criteriaStr.substring(2))) count++;
       } else if (criteriaStr.startsWith('>')) {
-        const num = parseFloat(criteriaStr.substring(1));
-        if (Number(v) > num) count++;
+        const num = parseFloat(criteriaStr.substring(1).replace(',', '.'));
+        if (numV !== null && numV > num) count++;
       } else if (criteriaStr.startsWith('<')) {
-        const num = parseFloat(criteriaStr.substring(1));
-        if (Number(v) < num) count++;
+        const num = parseFloat(criteriaStr.substring(1).replace(',', '.'));
+        if (numV !== null && numV < num) count++;
       } else if (criteriaStr.startsWith('=')) {
-        const target = criteriaStr.substring(1);
-        if (String(v).toLowerCase() === target.toLowerCase()) count++;
+        if (valuesMatch(v, criteriaStr.substring(1))) count++;
       } else {
-        if (String(v).toLowerCase() === criteriaStr.toLowerCase() || v === criteriaRaw) {
-          count++;
-        }
+        if (valuesMatch(v, criteriaRaw)) count++;
       }
     }
     return count;
@@ -1002,25 +1152,30 @@ function executeFunction(
       const v = rangeVals[i];
       if (v === null || v === undefined) continue;
       let match = false;
+      const numV = parseNumberSafely(v);
 
       if (criteriaStr.startsWith('>=')) {
-        match = Number(v) >= parseFloat(criteriaStr.substring(2));
+        const num = parseFloat(criteriaStr.substring(2).replace(',', '.'));
+        match = numV !== null && numV >= num;
       } else if (criteriaStr.startsWith('<=')) {
-        match = Number(v) <= parseFloat(criteriaStr.substring(2));
+        const num = parseFloat(criteriaStr.substring(2).replace(',', '.'));
+        match = numV !== null && numV <= num;
       } else if (criteriaStr.startsWith('<>')) {
-        match = String(v).toLowerCase() !== criteriaStr.substring(2).toLowerCase();
+        match = !valuesMatch(v, criteriaStr.substring(2));
       } else if (criteriaStr.startsWith('>')) {
-        match = Number(v) > parseFloat(criteriaStr.substring(1));
+        const num = parseFloat(criteriaStr.substring(1).replace(',', '.'));
+        match = numV !== null && numV > num;
       } else if (criteriaStr.startsWith('<')) {
-        match = Number(v) < parseFloat(criteriaStr.substring(1));
+        const num = parseFloat(criteriaStr.substring(1).replace(',', '.'));
+        match = numV !== null && numV < num;
       } else if (criteriaStr.startsWith('=')) {
-        match = String(v).toLowerCase() === criteriaStr.substring(1).toLowerCase();
+        match = valuesMatch(v, criteriaStr.substring(1));
       } else {
-        match = String(v).toLowerCase() === criteriaStr.toLowerCase() || v === criteriaRaw;
+        match = valuesMatch(v, criteriaRaw);
       }
 
       if (match && sumVals[i] !== undefined) {
-        const n = parseNumberSafely(sumVals[i]);
+        const n = parseNumberSafely(sumVals[i], true);
         if (n !== null) total += n;
       }
     }
@@ -1127,8 +1282,24 @@ function executeFunction(
   throw new Error('#NOME?');
 }
 
-// Split formula arguments handling nested brackets and quotes
+// Split formula arguments handling nested brackets, quotes and Portuguese semicolon/comma
 function splitFormulaArguments(raw: string): string[] {
+  let hasTopLevelSemicolon = false;
+  let d = 0;
+  let q = false;
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (c === '"') q = !q;
+    if (!q) {
+      if (c === '(' || c === '[' || c === '{') d++;
+      else if (c === ')' || c === ']' || c === '}') d--;
+      else if (c === ';' && d === 0) {
+        hasTopLevelSemicolon = true;
+        break;
+      }
+    }
+  }
+
   const args: string[] = [];
   let current = '';
   let depth = 0;
@@ -1140,7 +1311,7 @@ function splitFormulaArguments(raw: string): string[] {
     if (!inQuotes) {
       if (char === '(' || char === '[' || char === '{') depth++;
       else if (char === ')' || char === ']' || char === '}') depth--;
-      else if ((char === ',' || char === ';') && depth === 0) {
+      else if ((hasTopLevelSemicolon ? char === ';' : (char === ',' || char === ';')) && depth === 0) {
         args.push(current.trim());
         current = '';
         continue;

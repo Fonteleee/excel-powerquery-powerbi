@@ -1346,7 +1346,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   const topSpacerHeight = startVisibleIdx * defaultRowHeight;
   const bottomSpacerHeight = Math.max(0, (totalVisibleCount - 1 - endVisibleIdx) * defaultRowHeight);
 
-  const renderedCols = Math.min(sheet.colCount, 26);
+  const renderedCols = sheet.colCount;
   // Memoize column numeric values for conditional formatting (Data Bars, Color Scales, Average)
   const columnValueMap = useMemo(() => {
     const map: Record<number, any[]> = {};
@@ -1411,12 +1411,24 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
               const colHeaderTitle = headerCell?.value || colLabel;
               const colType = getNocoColType(sheet, colIdx);
 
+              const hasCustomHeaderBg = Boolean(headerCell?.format?.bgColor);
+              const headerBgColor = headerCell?.format?.bgColor;
+              const headerTextColor = headerCell?.format?.textColor;
+
               return (
                 <th
                   key={colIdx}
-                  style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
+                  style={{
+                    width: `${width}px`,
+                    minWidth: `${width}px`,
+                    maxWidth: `${width}px`,
+                    backgroundColor: hasCustomHeaderBg ? headerBgColor : undefined,
+                    color: hasCustomHeaderBg ? headerTextColor : undefined,
+                  }}
                   className={`relative h-7 border-r border-b border-[#e2e8f0] text-xs font-sans font-medium transition-colors cursor-pointer select-none group ${
-                    isColSelected || isColActive
+                    hasCustomHeaderBg
+                      ? 'shadow-xs font-bold'
+                      : isColSelected || isColActive
                       ? 'bg-indigo-50/80 text-indigo-900 font-semibold'
                       : 'bg-[#f8fafc] text-slate-700 hover:bg-slate-100'
                   }`}
@@ -1425,10 +1437,10 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                 >
                   <div className="flex items-center justify-between px-2 font-sans relative w-full h-full">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className={`size-4 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${colType.color}`}>
-                        {colType.badge}
+                      <span className={`size-4 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${hasCustomHeaderBg ? 'bg-white/20 text-white' : colType.color}`}>
+                        {hasCustomHeaderBg ? '⚡' : colType.badge}
                       </span>
-                      <span className="truncate text-xs font-medium text-slate-700">
+                      <span className={`truncate text-xs font-medium ${hasCustomHeaderBg ? 'text-white font-bold' : 'text-slate-700'}`}>
                         {headerCell?.value ? String(headerCell.value) : colLabel}
                       </span>
                     </div>

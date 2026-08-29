@@ -178,7 +178,7 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
   };
 
   // Connection Drag Start
-  const handleStartConnection = (sheetId: string, colIdx: number, e: React.MouseEvent) => {
+  const handleStartConnection = (sheetId: string, colIdx: number, e?: React.MouseEvent) => {
     const node = nodes.find(n => n.id === sheetId);
     if (!node || !canvasRef.current) return;
 
@@ -466,6 +466,11 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
                   showKeysOnly={showKeysOnly}
                   isSelected={selectedNodeId === sheet.id}
                   canDelete={sheets.length > 1}
+                  activeSourcePin={
+                    connectionDraft
+                      ? { sheetId: connectionDraft.sourceSheetId, colIdx: connectionDraft.sourceColIdx }
+                      : null
+                  }
                   onSelectNode={setSelectedNodeId}
                   onStartConnection={handleStartConnection}
                   onEndConnection={handleEndConnection}
@@ -476,6 +481,22 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
                     );
                   }}
                   onDeleteTable={handleDeleteTable}
+                  onQuickCross={sheetId => {
+                    const otherSheet = sheets.find(s => s.id !== sheetId) || sheet;
+                    setEditingEdge({
+                      id: `edge-${Date.now()}`,
+                      sourceSheetId: sheetId,
+                      sourceColIdx: 0,
+                      targetSheetId: otherSheet.id,
+                      targetColIdx: 0,
+                      formulaType: otherSheet.id === sheetId ? 'SUM_COLS' : 'PROCX',
+                      returnColIdx: 0,
+                      outputDestination: 'next_column',
+                      delimiter: ' - ',
+                      createdAt: Date.now(),
+                    });
+                    setIsConfigModalOpen(true);
+                  }}
                 />
               );
             })}

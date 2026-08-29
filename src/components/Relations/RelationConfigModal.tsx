@@ -7,7 +7,6 @@ import {
   Search,
   Sparkles,
   Layers,
-  Plus,
   Check,
   Split,
   Table2,
@@ -18,11 +17,14 @@ import {
   Diff,
   Combine,
   Info,
+  CheckCircle2,
+  ChevronRight,
+  Eye,
 } from 'lucide-react';
 import { Sheet } from '../../types/spreadsheet';
 import { RelationEdge, RelationFormulaType, RelationOutputDestination } from '../../types/relations';
 import { getColumnHeaderName, generateRelationFormula } from '../../engine/relationFormulaEngine';
-import { colIndexToLabel, evaluateFormula } from '../../engine/formulaParser';
+import { colIndexToLabel, cellPosToKey, evaluateFormula } from '../../engine/formulaParser';
 
 interface RelationConfigModalProps {
   isOpen: boolean;
@@ -45,6 +47,9 @@ export const RelationConfigModal: React.FC<RelationConfigModalProps> = ({
   const targetSheet = sheets.find(s => s.id === edgeDraft?.targetSheetId);
   const isSameSheet = sourceSheet && targetSheet && sourceSheet.id === targetSheet.id;
 
+  // Wizard active step (1 to 4)
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3 | 4>(1);
+
   const [formulaType, setFormulaType] = useState<RelationFormulaType>(isSameSheet ? 'SUM_COLS' : 'PROCX');
   const [sourceColIdx, setSourceColIdx] = useState<number>(0);
   const [targetColIdx, setTargetColIdx] = useState<number>(0);
@@ -54,8 +59,8 @@ export const RelationConfigModal: React.FC<RelationConfigModalProps> = ({
   const [delimiter, setDelimiter] = useState<string>(' - ');
   const [ifNotFound, setIfNotFound] = useState<string>('');
   const [compareOperator, setCompareOperator] = useState<'>' | '>=' | '<' | '<=' | '=' | '<>'>('>=');
-  const [ifTrueValue, setIfTrueValue] = useState<string>('Meta Atingida');
-  const [ifFalseValue, setIfFalseValue] = useState<string>('Pendente');
+  const [ifTrueValue, setIfTrueValue] = useState<string>('Sim');
+  const [ifFalseValue, setIfFalseValue] = useState<string>('Não');
 
   useEffect(() => {
     if (edgeDraft && sourceSheet && targetSheet) {
@@ -67,8 +72,7 @@ export const RelationConfigModal: React.FC<RelationConfigModalProps> = ({
       const initialFormula = edgeDraft.formulaType || (isSame ? 'SUM_COLS' : 'PROCX');
       setFormulaType(initialFormula);
 
-      if (initialFormula === 'PROCX' || initialFormula === 'PROCV' || initialFormula === 'SOMASE' || initialFormula === 'MEDIASE' || initialFormula === 'FILTRO') {
-        // Find matching key in targetSheet (same column name as source if exists)
+      if (['PROCX', 'PROCV', 'SOMASE', 'MEDIASE', 'FILTRO'].includes(initialFormula)) {
         const sourceColName = getColumnHeaderName(sourceSheet, srcIdx).toLowerCase();
         let matchedTargetKey = tgtIdx;
         for (let c = 0; c < targetSheet.colCount; c++) {
@@ -88,7 +92,7 @@ export const RelationConfigModal: React.FC<RelationConfigModalProps> = ({
       if (edgeDraft.outputDestination) setOutputDestination(edgeDraft.outputDestination);
       if (edgeDraft.customColName) setCustomColName(edgeDraft.customColName);
       if (edgeDraft.delimiter) setDelimiter(edgeDraft.delimiter);
-      if (edgeDraft.ifNotFound) setIfNotFound(edgeDraft.ifNotFound);
+      if (edgeDraft.ifNotFound !== undefined) setIfNotFound(edgeDraft.ifNotFound);
       if (edgeDraft.compareOperator) setCompareOperator(edgeDraft.compareOperator);
       if (edgeDraft.ifTrueValue) setIfTrueValue(edgeDraft.ifTrueValue);
       if (edgeDraft.ifFalseValue) setIfFalseValue(edgeDraft.ifFalseValue);
@@ -111,147 +115,111 @@ export const RelationConfigModal: React.FC<RelationConfigModalProps> = ({
 
   const isLookupType = ['PROCX', 'PROCV', 'SOMASE', 'CONT.SE', 'MEDIASE', 'FILTRO', 'UNIRTEXTO'].includes(formulaType);
 
-  // Formula Options for Intra-Table (Single Sheet) vs Cross-Table
-  const formulaOptions: {
-    type: RelationFormulaType;
-    name: string;
-    desc: string;
-    badge: string;
-    icon: React.ReactNode;
-  }[] = isSameSheet
+  const formulaCategories = isSameSheet
     ? [
         {
-          type: 'PROCX',
-          name: `Auto-PROCX na Mesma Tabela (Buscar por Chave)`,
-          desc: 'Busca um valor cruzando colunas da própria tabela (ex: Buscar Nome pelo ID).',
+          type: 'PROCX' as RelationFormulaType,
+          name: 'Auto-PROCX na Mesma Tabela',
+          desc: 'Busca um campo relacionado cruzando colunas da própria tabela.',
           badge: 'Cruzamento',
           icon: <Search className="size-4 text-emerald-600" />,
         },
         {
-          type: 'SUM_COLS',
-          name: `Soma das Colunas (A + B)`,
-          desc: 'Soma os valores numéricos das duas colunas linha a linha.',
-          badge: 'Aritmética',
+          type: 'SUM_COLS' as RelationFormulaType,
+          name: 'Soma das Colunas (A + B)',
+          desc: 'Soma os valores numéricos linha a linha em uma nova coluna.',
+          badge: 'Matemática',
           icon: <Calculator className="size-4 text-emerald-600" />,
         },
         {
-          type: 'SUB_COLS',
-          name: `Subtração / Diferença (A - B)`,
-          desc: 'Calcula a diferença entre os valores das duas colunas.',
+          type: 'SUB_COLS' as RelationFormulaType,
+          name: 'Subtração / Margem (A - B)',
+          desc: 'Calcula a diferença entre valores das duas colunas.',
           badge: 'Diferença',
           icon: <Diff className="size-4 text-sky-600" />,
         },
         {
-          type: 'MULT_COLS',
-          name: `Multiplicação (A * B)`,
-          desc: 'Multiplica os valores (ex: Quantidade * Preço Unitário).',
+          type: 'MULT_COLS' as RelationFormulaType,
+          name: 'Multiplicação (A * B)',
+          desc: 'Multiplica duas colunas (ex: Quantidade * Preço Unitário).',
           badge: 'Produto',
           icon: <Calculator className="size-4 text-purple-600" />,
         },
         {
-          type: 'DIV_COLS',
-          name: `Divisão / Razão (A / B)`,
-          desc: 'Calcula a proporção entre as colunas com proteção contra divisão por zero.',
+          type: 'DIV_COLS' as RelationFormulaType,
+          name: 'Divisão / Razão (A / B)',
+          desc: 'Calcula a razão proporcional protegida contra divisão por zero.',
           badge: 'Razão',
           icon: <Divide className="size-4 text-amber-600" />,
         },
         {
-          type: 'PCT_DIFF',
-          name: `Variação Percentual (Δ% entre Colunas)`,
+          type: 'PCT_DIFF' as RelationFormulaType,
+          name: 'Variação Percentual (Δ%)',
           desc: 'Calcula o crescimento/variação percentual relativa.',
           badge: 'Porcentagem',
           icon: <Percent className="size-4 text-indigo-600" />,
         },
         {
-          type: 'CONCAT',
-          name: `Juntar / Concatenar (A & B)`,
-          desc: 'Concatena os textos das duas colunas com espaço ou separador.',
+          type: 'CONCAT' as RelationFormulaType,
+          name: 'Juntar Textos / Concatenar',
+          desc: 'Une o texto de duas colunas com separador customizado.',
           badge: 'Texto',
           icon: <Combine className="size-4 text-rose-600" />,
         },
         {
-          type: 'IF_COMPARE',
-          name: `Condicional SE (A vs B)`,
+          type: 'IF_COMPARE' as RelationFormulaType,
+          name: 'Regra Condicional (SE)',
           desc: 'Avalia regra lógica e retorna status personalizado.',
           badge: 'Lógica',
           icon: <Sparkles className="size-4 text-indigo-600" />,
         },
-        {
-          type: 'ROW_LAG',
-          name: `Diferença com a Linha Anterior (Lag)`,
-          desc: 'Calcula o delta entre a linha atual e a linha anterior (A2 - A1).',
-          badge: 'Linha a Linha',
-          icon: <TrendingUp className="size-4 text-teal-600" />,
-        },
-        {
-          type: 'RUNNING_TOTAL',
-          name: `Soma Acumulada Linha a Linha`,
-          desc: 'Soma progressiva cumulativa ao longo das linhas da tabela.',
-          badge: 'Acumulado',
-          icon: <Layers className="size-4 text-emerald-600" />,
-        },
       ]
     : [
         {
-          type: 'PROCX',
+          type: 'PROCX' as RelationFormulaType,
           name: 'PROCX (Cruzamento Inteligente)',
-          desc: 'Cruza a chave da tabela de origem com a tabela destino e traz a coluna selecionada.',
-          badge: 'Recomendado',
+          desc: 'Cruza a chave da tabela de origem com a de destino e traz o dado desejado.',
+          badge: 'Recomendado ⭐',
           icon: <Search className="size-4 text-emerald-600" />,
         },
         {
-          type: 'SOMASE',
-          name: 'SOMASE (Soma Condicional)',
-          desc: 'Soma os valores da coluna de destino agrupados pela chave correspondente.',
+          type: 'SOMASE' as RelationFormulaType,
+          name: 'SOMASE (Soma Agrupada por Chave)',
+          desc: 'Soma os valores da outra tabela correspondentes a este registro.',
           badge: 'Agregação',
           icon: <Calculator className="size-4 text-indigo-600" />,
         },
         {
-          type: 'CONT.SE',
-          name: 'CONT.SE (Contagem de Registros)',
-          desc: 'Conta a quantidade de ocorrências da chave na tabela relacionada.',
+          type: 'CONT.SE' as RelationFormulaType,
+          name: 'CONT.SE (Contagem de Ocorrências)',
+          desc: 'Conta quantas vezes este registro aparece na outra tabela.',
           badge: 'Contagem',
           icon: <Layers className="size-4 text-purple-600" />,
         },
         {
-          type: 'MEDIASE',
+          type: 'MEDIASE' as RelationFormulaType,
           name: 'MÉDIASE (Média Condicional)',
-          desc: 'Calcula a média aritmética dos valores correspondentes da tabela relacionada.',
+          desc: 'Calcula a média aritmética dos valores correspondentes da outra tabela.',
           badge: 'Média',
           icon: <Calculator className="size-4 text-sky-600" />,
         },
         {
-          type: 'UNIRTEXTO',
-          name: 'UNIRTEXTO (Agrupar Textos)',
-          desc: 'Agrupa e concatena múltiplos valores encontrados separados por delimitador.',
+          type: 'UNIRTEXTO' as RelationFormulaType,
+          name: 'UNIRTEXTO (Agrupar Múltiplos Textos)',
+          desc: 'Agrupa vários registros vinculados separados por vírgula ou traço.',
           badge: 'Texto',
           icon: <Split className="size-4 text-amber-600" />,
         },
-        {
-          type: 'PROCV',
-          name: 'PROCV (Busca Clássica)',
-          desc: 'Cruzamento tradicional do Excel baseado em índice de colunas.',
-          badge: 'Legado',
-          icon: <Search className="size-4 text-slate-500" />,
-        },
-        {
-          type: 'FILTRO',
-          name: 'FILTRO (Matriz Dinâmica)',
-          desc: 'Retorna múltiplos registros relacionados derramando pelas células.',
-          badge: 'Matriz',
-          icon: <Sparkles className="size-4 text-rose-600" />,
-        },
       ];
 
-  // Draft edge for preview calculation
   const currentEdge: RelationEdge = {
-    id: edgeDraft.id || 'draft',
+    id: edgeDraft.id || `edge-${Date.now()}`,
     sourceSheetId: sourceSheet.id,
-    sourceColIdx: sourceColIdx,
+    sourceColIdx,
     targetSheetId: targetSheet.id,
-    targetColIdx: targetColIdx,
+    targetColIdx,
     formulaType,
-    returnColIdx: returnColIdx,
+    returnColIdx,
     outputDestination,
     customColName: customColName.trim() || undefined,
     delimiter,
@@ -262,16 +230,26 @@ export const RelationConfigModal: React.FC<RelationConfigModalProps> = ({
     createdAt: Date.now(),
   };
 
-  // Preview formula for row 1 (Excel row 2)
-  const previewFormula = generateRelationFormula(currentEdge, sourceSheet, targetSheet, 1);
+  // Gerar amostra de 3 linhas de teste reais para o Passo 4
+  const previewRows = [1, 2, 3].map(rowIdx => {
+    const srcCell = sourceSheet.data[cellPosToKey(rowIdx, sourceColIdx)];
+    const srcVal = srcCell?.value !== undefined && srcCell?.value !== null ? String(srcCell.value) : `[Vazio]`;
 
-  // Live evaluation of sample result
-  let previewCalculatedValue: any = '';
-  try {
-    previewCalculatedValue = evaluateFormula(previewFormula, sourceSheet, sheets);
-  } catch (err: any) {
-    previewCalculatedValue = '#ERRO!';
-  }
+    const formula = generateRelationFormula(currentEdge, sourceSheet, targetSheet, rowIdx);
+    let calculated = '';
+    try {
+      calculated = evaluateFormula(formula, sourceSheet, sheets);
+    } catch {
+      calculated = '#ERRO!';
+    }
+
+    return {
+      rowIdx: rowIdx + 1, // Excel row number (1-based header is row 1, data is 2, 3, 4)
+      sourceValue: srcVal,
+      formula,
+      calculatedValue: calculated !== undefined && calculated !== null && calculated !== '' ? String(calculated) : '—',
+    };
+  });
 
   const handleSave = () => {
     onSaveRelation(currentEdge);
@@ -280,255 +258,388 @@ export const RelationConfigModal: React.FC<RelationConfigModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-sans">
-      <div className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="size-9 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center shadow-xs">
-              <Zap className="size-4.5" />
+      <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+        {/* Header com Stepper */}
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/90 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="size-9 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center shadow-xs">
+                <Zap className="size-4.5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Assistente de Cruzamento & Fórmulas
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {sourceSheet.name} ➔ {targetSheet.name}
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">
-                {isSameSheet ? 'Configurar Cálculo & Cruzamento' : 'Configurar Cruzamento Relacional (PROCX)'}
-              </h3>
-              <p className="text-xs text-slate-500">
-                {isSameSheet
-                  ? `Transformação e fórmula na tabela ${sourceSheet.name}`
-                  : `Cruzamento de dados entre ${sourceSheet.name} e ${targetSheet.name}`}
-              </p>
-            </div>
+            <button
+              onClick={onClose}
+              className="size-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <X className="size-4" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="size-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-          >
-            <X className="size-4" />
-          </button>
+
+          {/* Stepper Progress Bar */}
+          <div className="grid grid-cols-4 gap-2 pt-1">
+            {[
+              { num: 1, label: '1. Ação' },
+              { num: 2, label: '2. Chaves' },
+              { num: 3, label: '3. Retorno' },
+              { num: 4, label: '4. Teste 3 Linhas' },
+            ].map(step => (
+              <button
+                key={step.num}
+                type="button"
+                onClick={() => setActiveStep(step.num as any)}
+                className={`py-1.5 px-2 rounded-xl text-[11px] font-bold text-center border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  activeStep === step.num
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                    : activeStep > step.num
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {activeStep > step.num ? <CheckCircle2 className="size-3 text-emerald-600" /> : null}
+                <span>{step.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* Column Mappings Configuration Panel */}
-          <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100 space-y-3">
-            <div className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
-              <Info className="size-3.5 text-indigo-600" />
-              <span>Mapeamento de Colunas do Cruzamento:</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              {/* Source Column (Lookup Key) */}
-              <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                  1. Chave de Busca ({sourceSheet.name}):
-                </label>
-                <select
-                  value={sourceColIdx}
-                  onChange={e => setSourceColIdx(parseInt(e.target.value, 10))}
-                  className="w-full px-2.5 py-2 bg-white border border-indigo-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                >
-                  {sourceColumns.map(col => (
-                    <option key={col.idx} value={col.idx}>
-                      {col.letter}: {col.name}
-                    </option>
-                  ))}
-                </select>
+        {/* Modal Body: Passo a Passo */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {/* PASSO 1: TIPO DE AÇÃO */}
+          {activeStep === 1 && (
+            <div className="space-y-3 animate-in fade-in duration-150">
+              <div className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+                Passo 1: Qual operação você deseja realizar?
               </div>
-
-              {/* Target Match Key */}
-              <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                  2. Chave de Destino ({targetSheet.name}):
-                </label>
-                <select
-                  value={targetColIdx}
-                  onChange={e => setTargetColIdx(parseInt(e.target.value, 10))}
-                  className="w-full px-2.5 py-2 bg-white border border-indigo-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                >
-                  {targetColumns.map(col => (
-                    <option key={col.idx} value={col.idx}>
-                      {col.letter}: {col.name}
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-1 gap-2.5">
+                {formulaCategories.map(opt => (
+                  <button
+                    key={opt.type}
+                    type="button"
+                    onClick={() => {
+                      setFormulaType(opt.type);
+                      setActiveStep(2);
+                    }}
+                    className={`p-3.5 rounded-2xl border text-left flex items-start justify-between transition-all cursor-pointer ${
+                      formulaType === opt.type
+                        ? 'bg-indigo-50/80 border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs'
+                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs shrink-0 mt-0.5">
+                        {opt.icon}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-900">{opt.name}</span>
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                            {opt.badge}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-1">{opt.desc}</p>
+                      </div>
+                    </div>
+                    {formulaType === opt.type && (
+                      <Check className="size-4 text-indigo-600 shrink-0 mt-1" />
+                    )}
+                  </button>
+                ))}
               </div>
             </div>
+          )}
 
-            {/* Return Column Selector for PROCX / Lookups */}
-            {isLookupType && (
-              <div className="pt-2 border-t border-indigo-100">
-                <label className="text-[11px] font-bold text-indigo-900 block mb-1 flex items-center justify-between">
-                  <span>3. Coluna de Retorno (Dado que você deseja trazer):</span>
-                  <span className="text-[10px] text-indigo-600 font-normal">Tabela: {targetSheet.name}</span>
-                </label>
-                <select
-                  value={returnColIdx}
-                  onChange={e => setReturnColIdx(parseInt(e.target.value, 10))}
-                  className="w-full px-2.5 py-2 bg-white border border-indigo-300 rounded-xl text-xs font-bold text-indigo-950 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 shadow-2xs"
-                >
-                  {targetColumns.map(col => (
-                    <option key={col.idx} value={col.idx}>
-                      👉 Trazer {col.letter}: {col.name}
-                    </option>
-                  ))}
-                </select>
+          {/* PASSO 2: PAREAMENTO DE CHAVES */}
+          {activeStep === 2 && (
+            <div className="space-y-5 animate-in fade-in duration-150">
+              <div className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Passo 2: Quais colunas fazem a ligação entre as tabelas?
               </div>
+
+              {/* Diagrama Visual de Ligação */}
+              <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between gap-4">
+                {/* Coluna Origem */}
+                <div className="flex-1 space-y-1.5">
+                  <span className="text-[11px] font-bold text-indigo-950 block truncate">
+                    Tabela Origem ({sourceSheet.name})
+                  </span>
+                  <select
+                    value={sourceColIdx}
+                    onChange={e => setSourceColIdx(parseInt(e.target.value, 10))}
+                    className="w-full px-3 py-2 bg-white border border-indigo-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+                  >
+                    {sourceColumns.map(col => (
+                      <option key={col.idx} value={col.idx}>
+                        {col.letter}: {col.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Ícone de Ligação */}
+                <div className="size-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                  <ArrowRight className="size-4" />
+                </div>
+
+                {/* Coluna Destino */}
+                <div className="flex-1 space-y-1.5">
+                  <span className="text-[11px] font-bold text-indigo-950 block truncate">
+                    Tabela Destino ({targetSheet.name})
+                  </span>
+                  <select
+                    value={targetColIdx}
+                    onChange={e => setTargetColIdx(parseInt(e.target.value, 10))}
+                    className="w-full px-3 py-2 bg-white border border-indigo-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+                  >
+                    {targetColumns.map(col => (
+                      <option key={col.idx} value={col.idx}>
+                        {col.letter}: {col.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-600 flex items-center gap-2">
+                <Info className="size-4 text-indigo-600 shrink-0" />
+                <span>
+                  O Excel irá comparar cada linha de <strong>{getColumnHeaderName(sourceSheet, sourceColIdx)}</strong> com a coluna <strong>{getColumnHeaderName(targetSheet, targetColIdx)}</strong>.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* PASSO 3: COLUNA DE RETORNO & DESTINO */}
+          {activeStep === 3 && (
+            <div className="space-y-4 animate-in fade-in duration-150">
+              <div className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Passo 3: Qual valor trazer e onde salvar o resultado?
+              </div>
+
+              {/* Coluna de Retorno para Lookups */}
+              {isLookupType && (
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                    Coluna que você quer trazer da tabela {targetSheet.name}:
+                  </label>
+                  <select
+                    value={returnColIdx}
+                    onChange={e => setReturnColIdx(parseInt(e.target.value, 10))}
+                    className="w-full px-3 py-2.5 bg-white border border-indigo-300 rounded-xl text-xs font-bold text-indigo-950 focus:ring-2 focus:ring-indigo-500 shadow-xs"
+                  >
+                    {targetColumns.map(col => (
+                      <option key={col.idx} value={col.idx}>
+                        👉 Trazer {col.letter}: {col.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Se não encontrar (Fallback opcional) */}
+              {isLookupType && (
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Texto se não encontrar correspondência (Opcional):
+                  </label>
+                  <input
+                    type="text"
+                    value={ifNotFound}
+                    onChange={e => setIfNotFound(e.target.value)}
+                    placeholder='Ex: "Não Encontrado" ou deixe em branco'
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:border-indigo-500 font-medium"
+                  />
+                </div>
+              )}
+
+              {/* Nome Personalizado da Nova Coluna */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Título do Cabeçalho da Nova Coluna:
+                </label>
+                <input
+                  type="text"
+                  value={customColName}
+                  onChange={e => setCustomColName(e.target.value)}
+                  placeholder={`Ex: ${targetSheet.name}_${getColumnHeaderName(targetSheet, returnColIdx)}`}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:border-indigo-500 font-semibold"
+                />
+              </div>
+
+              {/* Local de Destino */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5 uppercase tracking-wider">
+                  Onde inserir o resultado:
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setOutputDestination('next_column')}
+                    className={`p-2.5 rounded-2xl border text-xs font-semibold text-left transition-all cursor-pointer flex items-center gap-2 ${
+                      outputDestination === 'next_column'
+                        ? 'bg-indigo-50 border-indigo-500 text-indigo-900 shadow-xs'
+                        : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <Table2 className="size-4 text-indigo-600 shrink-0" />
+                    <div>
+                      <div className="font-bold">Próxima Coluna</div>
+                      <div className="text-[10px] text-slate-500 font-normal">Na tabela atual</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setOutputDestination('new_sheet')}
+                    className={`p-2.5 rounded-2xl border text-xs font-semibold text-left transition-all cursor-pointer flex items-center gap-2 ${
+                      outputDestination === 'new_sheet'
+                        ? 'bg-indigo-50 border-indigo-500 text-indigo-900 shadow-xs'
+                        : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <FileSpreadsheet className="size-4 text-emerald-600 shrink-0" />
+                    <div>
+                      <div className="font-bold">Nova Aba</div>
+                      <div className="text-[10px] text-slate-500 font-normal">Planilha gerada</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setOutputDestination('below_row')}
+                    className={`p-2.5 rounded-2xl border text-xs font-semibold text-left transition-all cursor-pointer flex items-center gap-2 ${
+                      outputDestination === 'below_row'
+                        ? 'bg-indigo-50 border-indigo-500 text-indigo-900 shadow-xs'
+                        : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <TrendingUp className="size-4 text-teal-600 shrink-0" />
+                    <div>
+                      <div className="font-bold">Rodapé</div>
+                      <div className="text-[10px] text-slate-500 font-normal">Linha de totais</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* PASSO 4: LIVE PREVIEW COM 3 LINHAS DE DADOS REAIS */}
+          {activeStep === 4 && (
+            <div className="space-y-4 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <Eye className="size-3.5 text-indigo-600" />
+                  <span>Passo 4: Simulação Real com as 3 Primeiras Linhas</span>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  Validação Ativa
+                </span>
+              </div>
+
+              {/* Tabela de Amostra de 3 Linhas */}
+              <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100/80 border-b border-slate-200 text-[11px] font-bold text-slate-700">
+                      <th className="p-2.5 w-12 text-center">Linha</th>
+                      <th className="p-2.5">Chave Origem ({getColumnHeaderName(sourceSheet, sourceColIdx)})</th>
+                      <th className="p-2.5 text-indigo-700 bg-indigo-50/50">Valor Retornado / Calculado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {previewRows.map(row => (
+                      <tr key={row.rowIdx} className="hover:bg-slate-50/60">
+                        <td className="p-2.5 text-center font-mono text-[10px] text-slate-400 font-bold">
+                          #{row.rowIdx}
+                        </td>
+                        <td className="p-2.5 font-semibold text-slate-800">
+                          {row.sourceValue}
+                        </td>
+                        <td className="p-2.5 font-bold text-emerald-600 bg-emerald-50/30">
+                          {row.calculatedValue}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Caixa da Fórmula Injetada */}
+              <div className="p-3 bg-slate-900 text-slate-100 rounded-2xl space-y-1.5 shadow-inner">
+                <div className="text-[10px] text-slate-400 font-mono flex items-center justify-between">
+                  <span>Fórmula Excel gerada dinamicamente:</span>
+                  <span className="text-emerald-400 font-bold">Injeção Automática</span>
+                </div>
+                <div className="p-2 bg-slate-950 rounded-xl font-mono text-xs text-emerald-400 overflow-x-auto select-all border border-slate-800">
+                  {previewRows[0]?.formula}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer com Navegação de Passos */}
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs">
+          <div>
+            {activeStep > 1 ? (
+              <button
+                type="button"
+                onClick={() => setActiveStep((activeStep - 1) as any)}
+                className="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-200 font-bold transition-colors cursor-pointer"
+              >
+                Voltar
+              </button>
+            ) : edgeDraft.id && onDeleteRelation ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onDeleteRelation(edgeDraft.id!);
+                  onClose();
+                }}
+                className="px-3 py-1.5 text-rose-600 hover:bg-rose-50 rounded-xl font-bold transition-colors cursor-pointer"
+              >
+                Excluir Conexão
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-200 font-semibold transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
             )}
           </div>
 
-          {/* Formula Type Selection */}
-          <div>
-            <label className="text-xs font-bold text-slate-700 block mb-2 uppercase tracking-wider">
-              {isSameSheet ? 'Escolha a Operação / Fórmula entre as Colunas:' : 'Operação de Cruzamento / Fórmula:'}
-            </label>
-            <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto p-0.5">
-              {formulaOptions.map(opt => (
-                <button
-                  key={opt.type}
-                  type="button"
-                  onClick={() => setFormulaType(opt.type)}
-                  className={`p-3 rounded-2xl border text-left flex items-start justify-between transition-all cursor-pointer ${
-                    formulaType === opt.type
-                      ? 'bg-indigo-50/70 border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs'
-                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs shrink-0 mt-0.5">
-                      {opt.icon}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-900">{opt.name}</span>
-                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                          {opt.badge}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">{opt.desc}</p>
-                    </div>
-                  </div>
-                  {formulaType === opt.type && (
-                    <Check className="size-4 text-indigo-600 shrink-0 mt-1" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Fallback text when not found */}
-          {isLookupType && (
-            <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
-                Texto se não encontrar correspondência (Opcional):
-              </label>
-              <input
-                type="text"
-                value={ifNotFound}
-                onChange={e => setIfNotFound(e.target.value)}
-                placeholder='Ex: "Não encontrado" ou deixe vazio para branco'
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-indigo-500"
-              />
-            </div>
-          )}
-
-          {/* Output Destination Selection */}
-          <div>
-            <label className="text-xs font-bold text-slate-700 block mb-1.5 uppercase tracking-wider">
-              Onde salvar o resultado do cálculo:
-            </label>
-            <div className="grid grid-cols-3 gap-2">
+          <div className="flex items-center gap-2">
+            {activeStep < 4 ? (
               <button
                 type="button"
-                onClick={() => setOutputDestination('next_column')}
-                className={`p-2.5 rounded-2xl border text-xs font-semibold text-left transition-all cursor-pointer flex items-center gap-2 ${
-                  outputDestination === 'next_column'
-                    ? 'bg-indigo-50 border-indigo-500 text-indigo-800 shadow-xs'
-                    : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                }`}
+                onClick={() => setActiveStep((activeStep + 1) as any)}
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-md transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
               >
-                <Table2 className="size-4 text-indigo-600 shrink-0" />
-                <div>
-                  <div className="font-bold">Próxima Coluna</div>
-                  <div className="text-[10px] text-slate-500 font-normal">Na tabela atual</div>
-                </div>
+                <span>Avançar</span>
+                <ChevronRight className="size-4" />
               </button>
-
+            ) : (
               <button
                 type="button"
-                onClick={() => setOutputDestination('below_row')}
-                className={`p-2.5 rounded-2xl border text-xs font-semibold text-left transition-all cursor-pointer flex items-center gap-2 ${
-                  outputDestination === 'below_row'
-                    ? 'bg-indigo-50 border-indigo-500 text-indigo-800 shadow-xs'
-                    : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                }`}
+                onClick={handleSave}
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 active:scale-95"
               >
-                <TrendingUp className="size-4 text-teal-600 shrink-0" />
-                <div>
-                  <div className="font-bold">Linha Abaixo</div>
-                  <div className="text-[10px] text-slate-500 font-normal">Totais no rodapé</div>
-                </div>
+                <Sparkles className="size-4" />
+                <span>Aplicar & Injetar Fórmulas</span>
               </button>
-
-              <button
-                type="button"
-                onClick={() => setOutputDestination('new_sheet')}
-                className={`p-2.5 rounded-2xl border text-xs font-semibold text-left transition-all cursor-pointer flex items-center gap-2 ${
-                  outputDestination === 'new_sheet'
-                    ? 'bg-indigo-50 border-indigo-500 text-indigo-800 shadow-xs'
-                    : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                }`}
-              >
-                <FileSpreadsheet className="size-4 text-emerald-600 shrink-0" />
-                <div>
-                  <div className="font-bold">Nova Aba</div>
-                  <div className="text-[10px] text-slate-500 font-normal">Planilha gerada</div>
-                </div>
-              </button>
-            </div>
+            )}
           </div>
-
-          {/* Formula Live Preview Box */}
-          <div className="p-3.5 bg-slate-900 text-slate-100 rounded-2xl space-y-2 shadow-inner">
-            <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
-              <span>Pré-visualização da Fórmula Excel (Linha 2):</span>
-              <span className="text-emerald-400 font-bold flex items-center gap-1">
-                <Sparkles className="size-3" />
-                <span>Resultado: {String(previewCalculatedValue || '""')}</span>
-              </span>
-            </div>
-            <div className="p-2.5 bg-slate-950/80 rounded-xl font-mono text-xs text-emerald-400 overflow-x-auto select-all border border-slate-800">
-              {previewFormula}
-            </div>
-          </div>
-        </div>
-
-        {/* Modal Footer */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs">
-          {edgeDraft.id && onDeleteRelation ? (
-            <button
-              onClick={() => {
-                onDeleteRelation(edgeDraft.id!);
-                onClose();
-              }}
-              className="px-3 py-1.5 text-rose-600 hover:bg-rose-50 rounded-xl font-bold transition-colors cursor-pointer"
-            >
-              Excluir Conexão
-            </button>
-          ) : (
-            <button
-              onClick={onClose}
-              className="px-3.5 py-1.5 rounded-xl text-slate-600 hover:bg-slate-200 transition-colors font-semibold cursor-pointer"
-            >
-              Cancelar
-            </button>
-          )}
-
-          <button
-            onClick={handleSave}
-            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 active:scale-95"
-          >
-            <Sparkles className="size-4" />
-            <span>Executar Cálculo & Injetar Fórmulas</span>
-          </button>
         </div>
       </div>
     </div>
