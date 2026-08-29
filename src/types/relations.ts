@@ -1,11 +1,20 @@
 export type RelationFormulaType =
   | 'PROCX'
-  | 'PROCV'
+  | 'SUM_COLS'
+  | 'SUB_COLS'
+  | 'MULT_COLS'
+  | 'DIV_COLS'
+  | 'PCT_DIFF'
+  | 'CONCAT'
+  | 'IF_COMPARE'
+  | 'ROW_LAG'
+  | 'RUNNING_TOTAL'
   | 'SOMASE'
   | 'CONT.SE'
   | 'MEDIASE'
   | 'FILTRO'
   | 'UNIRTEXTO'
+  | 'PROCV'
   | 'JOIN_ETL';
 
 export type RelationOutputDestination =
@@ -35,11 +44,14 @@ export interface RelationEdge {
   customColName?: string;
   delimiter?: string;
   ifNotFound?: string;
+  compareOperator?: '>' | '>=' | '<' | '<=' | '=' | '<>';
+  ifTrueValue?: string;
+  ifFalseValue?: string;
   createdAt: number;
 }
 
 export interface CanvasViewport {
-  zoom: number; // 0.5 to 2.0
+  zoom: number; // 0.4 to 2.0
   panX: number;
   panY: number;
 }

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Plus,
   Minus,
@@ -8,13 +8,14 @@ import {
   Zap,
   Layers,
   ArrowRight,
-  SlidersHorizontal,
   Share2,
   CheckSquare,
   HelpCircle,
   Eye,
   RefreshCw,
   FolderOpen,
+  Split,
+  Calculator,
 } from 'lucide-react';
 import { Sheet } from '../../types/spreadsheet';
 import {
@@ -26,6 +27,7 @@ import {
 import { TableNodeCard } from './TableNodeCard';
 import { RelationConfigModal } from './RelationConfigModal';
 import { applyRelationToSpreadsheet, getColumnHeaderName } from '../../engine/relationFormulaEngine';
+import { createSalesSampleSheet } from '../../data/sampleDatasets';
 
 interface RelationsCanvasProps {
   sheets: Sheet[];
@@ -47,8 +49,8 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
   // Canvas viewport state (Zoom & Pan)
   const [viewport, setViewport] = useState<CanvasViewport>({
     zoom: 1,
-    panX: 120,
-    panY: 80,
+    panX: 100,
+    panY: 50,
   });
 
   // Table Nodes position state
@@ -84,7 +86,7 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
     });
   }, [sheets]);
 
-  // Edges (Relationships)
+  // Edges (Relationships & Column-to-Column connections)
   const [edges, setEdges] = useState<RelationEdge[]>([]);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [editingEdge, setEditingEdge] = useState<Partial<RelationEdge> | null>(null);
@@ -109,7 +111,7 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
   // Zoom handlers
   const handleZoomIn = () => setViewport(prev => ({ ...prev, zoom: Math.min(prev.zoom + 0.15, 2.0) }));
   const handleZoomOut = () => setViewport(prev => ({ ...prev, zoom: Math.max(prev.zoom - 0.15, 0.4) }));
-  const handleResetZoom = () => setViewport({ zoom: 1, panX: 120, panY: 80 });
+  const handleResetZoom = () => setViewport({ zoom: 1, panX: 100, panY: 50 });
 
   // Pan Canvas Handlers
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
@@ -188,13 +190,17 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
     });
   };
 
-  // Connection Drop Target
+  // Connection Drop Target (supports BOTH single sheet intra-column and cross-sheet)
   const handleEndConnection = (targetSheetId: string, targetColIdx: number) => {
     if (!connectionDraft) return;
-    if (connectionDraft.sourceSheetId === targetSheetId) {
+
+    // Do not connect the exact same column to itself
+    if (connectionDraft.sourceSheetId === targetSheetId && connectionDraft.sourceColIdx === targetColIdx) {
       setConnectionDraft(null);
       return;
     }
+
+    const isSameSheet = connectionDraft.sourceSheetId === targetSheetId;
 
     const draftEdge: Partial<RelationEdge> = {
       id: `edge-${Date.now()}`,
@@ -202,10 +208,10 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
       sourceColIdx: connectionDraft.sourceColIdx,
       targetSheetId: targetSheetId,
       targetColIdx: targetColIdx,
-      formulaType: 'PROCX',
+      formulaType: isSameSheet ? 'SUM_COLS' : 'PROCX',
       returnColIdx: targetColIdx,
       outputDestination: 'next_column',
-      delimiter: ', ',
+      delimiter: ' - ',
       createdAt: Date.now(),
     };
 
@@ -218,7 +224,7 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
   const handleSaveRelation = (edge: RelationEdge) => {
     setEdges(prev => [...prev.filter(e => e.id !== edge.id), edge]);
 
-    // Apply the relation to actual spreadsheet data!
+    // Apply the calculation/formula directly to spreadsheet data!
     const updatedSheets = applyRelationToSpreadsheet(edge, sheets);
     onUpdateSheets(updatedSheets);
   };
@@ -226,6 +232,12 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
   const handleDeleteRelation = (edgeId: string) => {
     setEdges(prev => prev.filter(e => e.id !== edgeId));
     setSelectedEdgeId(null);
+  };
+
+  // Helper to add a sample secondary sheet if user wants to test multi-table joins as well
+  const handleAddSampleSecondSheet = () => {
+    const sample = createSalesSampleSheet(`sheet-${Date.now()}`, 'Tabela_Vendas_Auxiliar');
+    onUpdateSheets([...sheets, sample]);
   };
 
   // Calculate coordinates for curve rendering
@@ -243,59 +255,42 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
     >
-      {/* Top Header / Breadcrumbs & View Tabs */}
-      <div className="h-12 bg-white border-b border-slate-200 px-4 flex items-center justify-between shrink-0 z-20 shadow-2xs">
-        {/* Breadcrumb & Navigation Tabs */}
+      {/* Canvas Sub-Header & Controls Bar */}
+      <div className="h-10 bg-white border-b border-slate-200 px-4 flex items-center justify-between shrink-0 z-20 shadow-2xs">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-            <span className="text-slate-400">/</span>
-            <span className="text-slate-800 font-bold max-w-[200px] truncate">{activeSheet.name}</span>
-            <span className="text-slate-400">/</span>
-            <span className="text-indigo-600 font-bold flex items-center gap-1">
-              <Layers className="size-3.5" />
-              Diagrama Relacional
+          <div className="flex items-center gap-1.5 text-xs text-slate-700 font-bold">
+            <Zap className="size-3.5 text-indigo-600" />
+            <span>Pipeline de Fórmulas & Cruzamentos</span>
+            <span className="text-[10px] font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+              {sheets.length === 1 ? 'Modo Tabela Única (Coluna ➔ Coluna / Linhas)' : `${sheets.length} Tabelas Carregadas`}
             </span>
           </div>
 
-          {/* Tab Switcher Pills */}
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
-            <button
-              onClick={() => onNavigateView('spreadsheet')}
-              className="px-3 py-1 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <Table2 className="size-3.5" />
-              <span>Dados</span>
-            </button>
-            <button
-              onClick={() => onNavigateView('relations')}
-              className="px-3 py-1 text-xs font-bold bg-white text-indigo-700 rounded-lg shadow-2xs transition-all cursor-pointer flex items-center gap-1.5 border border-slate-200/60"
-            >
-              <Zap className="size-3.5 text-indigo-600" />
-              <span>Relacionamentos</span>
-            </button>
-            <button
-              onClick={() => onNavigateView('powerbi')}
-              className="px-3 py-1 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <span>Painel BI</span>
-            </button>
-          </div>
+          <div className="h-4 w-px bg-slate-200" />
+
+          {/* Action to add extra sheet */}
+          <button
+            onClick={handleAddSampleSecondSheet}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-indigo-700 hover:bg-indigo-50 bg-indigo-50/50 border border-indigo-200 transition-colors cursor-pointer"
+          >
+            <Plus className="size-3 text-indigo-600" />
+            <span>+ Adicionar 2ª Tabela</span>
+          </button>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-2">
-          {/* Sub-options check */}
-          <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer hover:text-slate-900 mr-2">
+        {/* View Toggles & Badges */}
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer hover:text-slate-900">
             <input
               type="checkbox"
               checked={showAllFields}
               onChange={e => setShowAllFields(e.target.checked)}
               className="rounded text-indigo-600 focus:ring-0 cursor-pointer"
             />
-            <span>Exibir Campos</span>
+            <span>Exibir Todos os Campos</span>
           </label>
 
-          <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer hover:text-slate-900 mr-3">
+          <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer hover:text-slate-900">
             <input
               type="checkbox"
               checked={showKeysOnly}
@@ -304,16 +299,6 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
             />
             <span>Apenas Chaves</span>
           </label>
-
-          {onOpenShare && (
-            <button
-              onClick={onOpenShare}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
-            >
-              <Share2 className="size-3.5" />
-              <span>Compartilhar</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -323,6 +308,21 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
         onMouseDown={handleCanvasMouseDown}
         className="flex-1 w-full h-full relative overflow-hidden bg-slate-50 cursor-default bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:18px_18px]"
       >
+        {/* Helper Banner for Single Table Mode */}
+        {sheets.length === 1 && edges.length === 0 && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 p-3 bg-white/90 backdrop-blur-md border border-indigo-200 rounded-2xl shadow-lg text-xs text-slate-700 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="size-7 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+              <Zap className="size-4" />
+            </div>
+            <div>
+              <div className="font-bold text-slate-900">Como conectar colunas na mesma tabela:</div>
+              <div className="text-slate-500 text-[11px]">
+                Arraste do pino azul à direita de um campo (ex: <strong className="text-slate-800">Campo_A</strong>) e solte no pino à esquerda de outro (ex: <strong className="text-slate-800">Campo_B</strong>) para criar fórmulas (Soma, PROCX, Diferença, Concatenação ou Totais).
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Transformable Canvas Container */}
         <div
           style={{
@@ -349,14 +349,28 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
 
             {/* Saved Relationship Edges */}
             {edges.map(edge => {
+              const isSameSheet = edge.sourceSheetId === edge.targetSheetId;
               const start = getNodePortPos(edge.sourceSheetId, edge.sourceColIdx, true);
-              const end = getNodePortPos(edge.targetSheetId, edge.targetColIdx, false);
+              const end = getNodePortPos(edge.targetSheetId, edge.targetColIdx, !isSameSheet ? false : true);
               const isSelected = selectedEdgeId === edge.id;
 
-              const dx = Math.abs(end.x - start.x) * 0.5;
-              const pathD = `M ${start.x} ${start.y} C ${start.x + dx} ${start.y}, ${end.x - dx} ${end.y}, ${end.x} ${end.y}`;
-              const midX = (start.x + end.x) / 2;
-              const midY = (start.y + end.y) / 2;
+              let pathD = '';
+              let midX = 0;
+              let midY = 0;
+
+              if (isSameSheet) {
+                // Intra-table self loop curve on the right side of the card
+                const loopSpread = 80;
+                pathD = `M ${start.x} ${start.y} C ${start.x + loopSpread} ${start.y}, ${end.x + loopSpread} ${end.y}, ${end.x} ${end.y}`;
+                midX = start.x + loopSpread * 0.75;
+                midY = (start.y + end.y) / 2;
+              } else {
+                // Cross-table smooth Bezier curve
+                const dx = Math.abs(end.x - start.x) * 0.5;
+                pathD = `M ${start.x} ${start.y} C ${start.x + dx} ${start.y}, ${end.x - dx} ${end.y}, ${end.x} ${end.y}`;
+                midX = (start.x + end.x) / 2;
+                midY = (start.y + end.y) / 2;
+              }
 
               return (
                 <g key={edge.id} className="group cursor-pointer">
@@ -377,9 +391,9 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
 
                   {/* Midpoint Formula Badge Button */}
                   <foreignObject
-                    x={midX - 36}
+                    x={midX - 40}
                     y={midY - 14}
-                    width={72}
+                    width={80}
                     height={28}
                     className="overflow-visible"
                   >
@@ -403,7 +417,7 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
             {connectionDraft && (
               <path
                 d={`M ${connectionDraft.startX} ${connectionDraft.startY} C ${
-                  connectionDraft.startX + Math.abs(connectionDraft.currentX - connectionDraft.startX) * 0.5
+                  connectionDraft.startX + Math.abs(connectionDraft.currentX - connectionDraft.startX) * 0.5 + 40
                 } ${connectionDraft.startY}, ${
                   connectionDraft.currentX - Math.abs(connectionDraft.currentX - connectionDraft.startX) * 0.5
                 } ${connectionDraft.currentY}, ${connectionDraft.currentX} ${connectionDraft.currentY}`}

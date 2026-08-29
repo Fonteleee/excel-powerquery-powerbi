@@ -26,7 +26,7 @@ export function formatSheetNameForFormula(sheetName: string): string {
 }
 
 /**
- * Gera a fórmula Excel correspondente para uma linha específica
+ * Gera a fórmula correspondente (suporta tanto mesma tabela quanto tabelas cruzadas)
  */
 export function generateRelationFormula(
   edge: RelationEdge,
@@ -34,55 +34,112 @@ export function generateRelationFormula(
   targetSheet: Sheet,
   rowIdx: number
 ): string {
+  const isSameSheet = sourceSheet.id === targetSheet.id;
   const sourceColLetter = colIndexToLabel(edge.sourceColIdx);
-  const targetKeyColLetter = colIndexToLabel(edge.targetColIdx);
+  const targetColLetter = colIndexToLabel(edge.targetColIdx);
   const targetReturnColLetter = colIndexToLabel(edge.returnColIdx);
   const targetSheetFormatted = formatSheetNameForFormula(targetSheet.name);
 
-  // Célula da chave na tabela de origem (ex: A2)
+  // Células da linha atual (ex: A2, B2)
   const sourceCellRef = `${sourceColLetter}${rowIdx + 1}`;
-
-  // Intervalos de coluna inteira na tabela de destino (ex: 'Vendas'!A:A)
-  const targetKeyRange = `${targetSheetFormatted}!${targetKeyColLetter}:${targetKeyColLetter}`;
-  const targetReturnRange = `${targetSheetFormatted}!${targetReturnColLetter}:${targetReturnColLetter}`;
+  const targetCellRef = `${targetColLetter}${rowIdx + 1}`;
 
   const notFoundText = edge.ifNotFound !== undefined ? edge.ifNotFound : '';
-  const delimiter = edge.delimiter || ', ';
+  const delimiter = edge.delimiter !== undefined ? edge.delimiter : ' - ';
+  const compareOp = edge.compareOperator || '>=';
+  const ifTrue = edge.ifTrueValue || 'Sim';
+  const ifFalse = edge.ifFalseValue || 'Não';
+
+  // --- 1. OPERAÇÕES INTRA-TABELA (MESMA PLANILHA) ---
+  if (isSameSheet) {
+    switch (edge.formulaType) {
+      case 'SUM_COLS':
+        // =A2 + B2
+        return `=${sourceCellRef} + ${targetCellRef}`;
+
+      case 'SUB_COLS':
+        // =A2 - B2
+        return `=${sourceCellRef} - ${targetCellRef}`;
+
+      case 'MULT_COLS':
+        // =A2 * B2
+        return `=${sourceCellRef} * ${targetCellRef}`;
+
+      case 'DIV_COLS':
+        // =SEERRO(A2 / B2; 0)
+        return `=SEERRO(${sourceCellRef} / ${targetCellRef}; 0)`;
+
+      case 'PCT_DIFF':
+        // =SEERRO((B2 - A2) / A2; 0)
+        return `=SEERRO((${targetCellRef} - ${sourceCellRef}) / ${sourceCellRef}; 0)`;
+
+      case 'CONCAT':
+        // =A2 & " " & B2
+        return `=${sourceCellRef} & "${delimiter}" & ${targetCellRef}`;
+
+      case 'IF_COMPARE':
+        // =SE(A2 >= B2; "Sim"; "Não")
+        return `=SE(${sourceCellRef} ${compareOp} ${targetCellRef}; "${ifTrue}"; "${ifFalse}")`;
+
+      case 'ROW_LAG':
+        // =A2 - A1 (Variação com a linha anterior)
+        if (rowIdx <= 1) return `=${sourceCellRef}`;
+        return `=${sourceCellRef} - ${sourceColLetter}${rowIdx}`;
+
+      case 'RUNNING_TOTAL':
+        // =SOMA($A$2:A2) (Soma acumulada)
+        return `=SOMA($${sourceColLetter}$2:${sourceCellRef})`;
+
+      case 'UNIRTEXTO':
+        return `=UNIRTEXTO("${delimiter}"; VERDADEIRO; ${sourceCellRef}; ${targetCellRef})`;
+
+      case 'PROCX':
+        // Auto-PROCX na mesma tabela (ex: buscar ID do Gerente na coluna de IDs de Funcionário)
+        return `=PROCX(${sourceCellRef}; ${targetColLetter}:${targetColLetter}; ${targetReturnColLetter}:${targetReturnColLetter}; "${notFoundText}")`;
+
+      case 'SOMASE':
+        return `=SOMASE(${targetColLetter}:${targetColLetter}; ${sourceCellRef}; ${targetReturnColLetter}:${targetReturnColLetter})`;
+
+      case 'CONT.SE':
+        return `=CONT.SE(${targetColLetter}:${targetColLetter}; ${sourceCellRef})`;
+
+      case 'MEDIASE':
+        return `=MÉDIASE(${targetColLetter}:${targetColLetter}; ${sourceCellRef}; ${targetReturnColLetter}:${targetReturnColLetter})`;
+
+      default:
+        return `=${sourceCellRef} + ${targetCellRef}`;
+    }
+  }
+
+  // --- 2. OPERAÇÕES ENTRE TABELAS DIFERENTES (CROSS-SHEET) ---
+  const targetKeyRange = `${targetSheetFormatted}!${targetColLetter}:${targetColLetter}`;
+  const targetReturnRange = `${targetSheetFormatted}!${targetReturnColLetter}:${targetReturnColLetter}`;
 
   switch (edge.formulaType) {
     case 'PROCX':
-      // =PROCX(A2; 'Tabela2'!A:A; 'Tabela2'!C:C; "")
       return `=PROCX(${sourceCellRef}; ${targetKeyRange}; ${targetReturnRange}; "${notFoundText}")`;
 
     case 'SOMASE':
-      // =SOMASE('Tabela2'!A:A; A2; 'Tabela2'!C:C)
       return `=SOMASE(${targetKeyRange}; ${sourceCellRef}; ${targetReturnRange})`;
 
     case 'CONT.SE':
-      // =CONT.SE('Tabela2'!A:A; A2)
       return `=CONT.SE(${targetKeyRange}; ${sourceCellRef})`;
 
     case 'MEDIASE':
-      // =MÉDIASE('Tabela2'!A:A; A2; 'Tabela2'!C:C)
       return `=MÉDIASE(${targetKeyRange}; ${sourceCellRef}; ${targetReturnRange})`;
 
     case 'PROCV': {
-      // PROCV clássico: precisa que a coluna chave seja a primeira do intervalo de busca
       const minColIdx = Math.min(edge.targetColIdx, edge.returnColIdx);
       const maxColIdx = Math.max(edge.targetColIdx, edge.returnColIdx);
-      const minColLetter = colIndexToLabel(minColIdx);
-      const maxColLetter = colIndexToLabel(maxColIdx);
-      const tableRange = `${targetSheetFormatted}!${minColLetter}:${maxColLetter}`;
+      const tableRange = `${targetSheetFormatted}!${colIndexToLabel(minColIdx)}:${colIndexToLabel(maxColIdx)}`;
       const colOffset = Math.abs(edge.returnColIdx - edge.targetColIdx) + 1;
       return `=PROCV(${sourceCellRef}; ${tableRange}; ${colOffset}; FALSO)`;
     }
 
     case 'UNIRTEXTO':
-      // =UNIRTEXTO(", "; VERDADEIRO; FILTRO('Tabela2'!C:C; 'Tabela2'!A:A=A2; ""))
       return `=UNIRTEXTO("${delimiter}"; VERDADEIRO; FILTRO(${targetReturnRange}; ${targetKeyRange}=${sourceCellRef}; "${notFoundText}"))`;
 
     case 'FILTRO':
-      // =FILTRO('Tabela2'!C:C; 'Tabela2'!A:A=A2; "Nenhum")
       return `=FILTRO(${targetReturnRange}; ${targetKeyRange}=${sourceCellRef}; "${notFoundText || 'Nenhum'}")`;
 
     default:
@@ -91,7 +148,7 @@ export function generateRelationFormula(
 }
 
 /**
- * Aplica o relacionamento diretamente na planilha, gerando as colunas e fórmulas correspondentes
+ * Aplica o relacionamento diretamente na planilha, gerando colunas/linhas calculadas
  */
 export function applyRelationToSpreadsheet(edge: RelationEdge, sheets: Sheet[]): Sheet[] {
   const sourceSheet = sheets.find(s => s.id === edge.sourceSheetId);
@@ -99,13 +156,32 @@ export function applyRelationToSpreadsheet(edge: RelationEdge, sheets: Sheet[]):
 
   if (!sourceSheet || !targetSheet) return sheets;
 
+  const isSameSheet = sourceSheet.id === targetSheet.id;
+  const sourceHeaderName = getColumnHeaderName(sourceSheet, edge.sourceColIdx);
   const targetHeaderName = getColumnHeaderName(targetSheet, edge.returnColIdx);
-  const generatedHeaderTitle = edge.customColName?.trim() || `${targetSheet.name}_${targetHeaderName}`;
 
+  // Default generated column title
+  let generatedHeaderTitle = edge.customColName?.trim();
+  if (!generatedHeaderTitle) {
+    if (isSameSheet) {
+      if (edge.formulaType === 'SUM_COLS') generatedHeaderTitle = `Soma_${sourceHeaderName}_${targetHeaderName}`;
+      else if (edge.formulaType === 'SUB_COLS') generatedHeaderTitle = `Dif_${sourceHeaderName}_${targetHeaderName}`;
+      else if (edge.formulaType === 'MULT_COLS') generatedHeaderTitle = `Prod_${sourceHeaderName}_${targetHeaderName}`;
+      else if (edge.formulaType === 'DIV_COLS') generatedHeaderTitle = `Razao_${sourceHeaderName}_${targetHeaderName}`;
+      else if (edge.formulaType === 'PCT_DIFF') generatedHeaderTitle = `VarPct_${targetHeaderName}`;
+      else if (edge.formulaType === 'CONCAT') generatedHeaderTitle = `Juncao_${sourceHeaderName}_${targetHeaderName}`;
+      else if (edge.formulaType === 'IF_COMPARE') generatedHeaderTitle = `Status_${sourceHeaderName}`;
+      else if (edge.formulaType === 'RUNNING_TOTAL') generatedHeaderTitle = `Acumulado_${sourceHeaderName}`;
+      else if (edge.formulaType === 'ROW_LAG') generatedHeaderTitle = `VarLinha_${sourceHeaderName}`;
+      else generatedHeaderTitle = `Calc_${sourceHeaderName}_${targetHeaderName}`;
+    } else {
+      generatedHeaderTitle = `${targetSheet.name}_${targetHeaderName}`;
+    }
+  }
+
+  // --- DESTINO: PRÓXIMA COLUNA VAZIA ---
   if (edge.outputDestination === 'next_column') {
-    // 1. Encontrar a próxima coluna livre na planilha de origem
     let targetCol = sourceSheet.colCount;
-    // Verifica se a última coluna atual possui algum dado; se não, pode reaproveitar
     for (let c = 0; c < sourceSheet.colCount; c++) {
       let colHasData = false;
       for (let r = 0; r < Math.min(sourceSheet.rowCount, 10); r++) {
@@ -115,7 +191,7 @@ export function applyRelationToSpreadsheet(edge: RelationEdge, sheets: Sheet[]):
           break;
         }
       }
-      if (!colHasData && c > edge.sourceColIdx) {
+      if (!colHasData && c > Math.max(edge.sourceColIdx, edge.targetColIdx)) {
         targetCol = c;
         break;
       }
@@ -124,48 +200,77 @@ export function applyRelationToSpreadsheet(edge: RelationEdge, sheets: Sheet[]):
     const newColCount = Math.max(sourceSheet.colCount, targetCol + 1);
     const newData = { ...sourceSheet.data };
 
-    // Define o cabeçalho na Linha 0
+    // Cabeçalho na linha 0
     newData[cellPosToKey(0, targetCol)] = {
       raw: generatedHeaderTitle,
       value: generatedHeaderTitle,
       format: { bold: true, bgColor: '#f1f5f9' },
     };
 
-    // Injeta a fórmula para todas as linhas preenchidas da tabela de origem
+    // Injeta a fórmula nas linhas
     const maxRowToApply = Math.max(sourceSheet.rowCount, 10);
     for (let r = 1; r < maxRowToApply; r++) {
       const sourceVal = sourceSheet.data[cellPosToKey(r, edge.sourceColIdx)]?.value;
-      // Aplica a fórmula se a linha de origem tiver valor ou até a linha 50
       if (sourceVal !== null && sourceVal !== undefined && sourceVal !== '' || r < 30) {
         const formula = generateRelationFormula(edge, sourceSheet, targetSheet, r);
         newData[cellPosToKey(r, targetCol)] = {
           raw: formula,
-          value: '', // será calculado pelo recalculateSheet
-          format: { type: 'general' },
+          value: '',
+          format: {
+            type: edge.formulaType === 'PCT_DIFF' ? 'percentage' : 'general',
+          },
         };
       }
     }
 
-    const updatedSourceSheet: Sheet = {
+    const updatedSheet: Sheet = {
       ...sourceSheet,
       colCount: newColCount,
       data: newData,
     };
 
-    const recalculated = recalculateSheet(updatedSourceSheet);
-
+    const recalculated = recalculateSheet(updatedSheet);
     return sheets.map(s => (s.id === sourceSheet.id ? recalculated : s));
   }
 
+  // --- DESTINO: LINHA ABAIXO (RODAPÉ / TOTAIS) ---
+  if (edge.outputDestination === 'below_row') {
+    const lastRow = sourceSheet.rowCount;
+    const newData = { ...sourceSheet.data };
+    const colLetter = colIndexToLabel(edge.sourceColIdx);
+
+    // Linha de total
+    newData[cellPosToKey(lastRow, 0)] = {
+      raw: `Total ${sourceHeaderName}`,
+      value: `Total ${sourceHeaderName}`,
+      format: { bold: true, bgColor: '#f8fafc' },
+    };
+
+    newData[cellPosToKey(lastRow, edge.sourceColIdx)] = {
+      raw: `=SOMA(${colLetter}2:${colLetter}${lastRow})`,
+      value: '',
+      format: { bold: true, bgColor: '#f1f5f9' },
+    };
+
+    const updatedSheet: Sheet = {
+      ...sourceSheet,
+      rowCount: lastRow + 1,
+      data: newData,
+    };
+
+    const recalculated = recalculateSheet(updatedSheet);
+    return sheets.map(s => (s.id === sourceSheet.id ? recalculated : s));
+  }
+
+  // --- DESTINO: NOVA ABA RELACIONAL ---
   if (edge.outputDestination === 'new_sheet') {
-    // Cria uma nova aba combinada
     const newSheetId = `sheet-rel-${Date.now()}`;
-    const newSheetName = `Rel_${sourceSheet.name.slice(0, 10)}_${targetSheet.name.slice(0, 10)}`;
+    const newSheetName = isSameSheet
+      ? `Calc_${sourceSheet.name.slice(0, 15)}`
+      : `Rel_${sourceSheet.name.slice(0, 10)}_${targetSheet.name.slice(0, 10)}`;
     const newSheet = createEmptySheet(newSheetId, newSheetName, sourceSheet.rowCount, sourceSheet.colCount + 1);
 
     const newData = { ...newSheet.data };
-
-    // Copia colunas da planilha de origem
     for (let r = 0; r < sourceSheet.rowCount; r++) {
       for (let c = 0; c < sourceSheet.colCount; c++) {
         const cell = sourceSheet.data[cellPosToKey(r, c)];
@@ -175,7 +280,6 @@ export function applyRelationToSpreadsheet(edge: RelationEdge, sheets: Sheet[]):
       }
     }
 
-    // Adiciona nova coluna de relacionamento
     const relCol = sourceSheet.colCount;
     newData[cellPosToKey(0, relCol)] = {
       raw: generatedHeaderTitle,
@@ -199,6 +303,5 @@ export function applyRelationToSpreadsheet(edge: RelationEdge, sheets: Sheet[]):
     return [...sheets, recalculatedNewSheet];
   }
 
-  // Fallback: next_column
   return sheets;
 }
