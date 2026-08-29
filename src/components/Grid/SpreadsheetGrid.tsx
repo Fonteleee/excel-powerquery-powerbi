@@ -30,9 +30,22 @@ import {
 import { Filter as FilterIcon, Search as SearchIcon } from 'lucide-react';
 import { Sheet, CellPosition, CellRange, CellData, CellFormat } from '../../types/spreadsheet';
 import { AgentAction } from '../../engine/agentActionProtocol';
-import { GridCell } from './GridCell';
+import { GridCell, FormulaCellHighlightInfo } from './GridCell';
 import { ColumnFilterDropdown } from './ColumnFilterDropdown';
-import { colIndexToLabel, cellPosToKey, recalculateSheet, getCellValue, parseNumberSafely, shiftFormula } from '../../engine/formulaParser';
+import {
+  colIndexToLabel,
+  cellPosToKey,
+  recalculateSheet,
+  getCellValue,
+  parseNumberSafely,
+  shiftFormula,
+  cellPosToAddress,
+  rangeToAddress,
+} from '../../engine/formulaParser';
+import {
+  insertOrUpdateReferenceInFormula,
+  extractReferencesFromFormula,
+} from '../../engine/formulaPointHelper';
 import { detectFlashFill, FlashFillPrediction } from '../../engine/flashFill';
 import { exportSheetToExcel } from '../../utils/excelExporter';
 
@@ -136,9 +149,16 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   const [isDraggingFill, setIsDraggingFill] = useState(false);
   const [fillRange, setFillRange] = useState<CellRange | null>(null);
 
+  // Formula Pointing & Reference Mode State (Excel-like mouse point-and-click / drag into formulas)
+  const [isFormulaPointing, setIsFormulaPointing] = useState(false);
+  const [pointAnchor, setPointAnchor] = useState<CellPosition | null>(null);
 
-
-  // Internal Clipboard state
+  // Computed Formula Reference Highlights (e.g. blue, red, purple, green argument highlights)
+  const formulaHighlights = useMemo(() => {
+    return (isEditing && editValue.startsWith('='))
+      ? extractReferencesFromFormula(editValue)
+      : [];
+  }, [isEditing, editValue]);
   const [clipboard, setClipboard] = useState<{
     range: CellRange;
     data: { [relKey: string]: CellData };
@@ -836,6 +856,21 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   const handleCellMouseDown = (e: React.MouseEvent, row: number, col: number) => {
     if (e.button !== 0) return;
     if (contextMenu?.isOpen) setContextMenu(null);
+
+    // POINTING / REFERENCE MODE: If currently editing a formula, clicking another cell inserts reference!
+    if (isEditing && editValue.startsWith('=')) {
+      if (row === activeCell.row && col === activeCell.col) {
+        return; // Allow cursor positioning inside active cell input
+      }
+      e.preventDefault();
+      setIsFormulaPointing(true);
+      setPointAnchor({ row, col });
+      const cellAddr = cellPosToAddress({ row, col });
+      const nextFormula = insertOrUpdateReferenceInFormula(editValue, cellAddr, false);
+      setEditValue(nextFormula);
+      return;
+    }
+
     if (!isEditing) {
       e.preventDefault(); // Prevents browser text drag interference
     }
@@ -843,7 +878,6 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     const key = cellPosToKey(row, col);
 
     if (e.shiftKey) {
-
       setIsCtrlSelecting(false);
       const startRow = Math.min(selectionAnchor.row, row);
       const endRow = Math.max(selectionAnchor.row, row);
@@ -870,7 +904,6 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       return;
     }
 
-
     // Normal single click or deliberate drag start:
     // Strictly locks active selection to THIS single cell on initial click
     setIsCtrlSelecting(false);
@@ -888,8 +921,26 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   };
 
   const handleCellMouseEnter = (e: React.MouseEvent, row: number, col: number) => {
+    // Pointing drag reference update (e.g. dragged from A2 to A10)
+    if (isFormulaPointing && pointAnchor && (e.buttons & 1) === 1) {
+      const r1 = Math.min(pointAnchor.row, row);
+      const r2 = Math.max(pointAnchor.row, row);
+      const c1 = Math.min(pointAnchor.col, col);
+      const c2 = Math.max(pointAnchor.col, col);
+      const refAddr = (r1 === r2 && c1 === c2)
+        ? cellPosToAddress({ row: r1, col: c1 })
+        : rangeToAddress({ startRow: r1, startCol: c1, endRow: r2, endCol: c2 });
+      const nextFormula = insertOrUpdateReferenceInFormula(editValue, refAddr, true);
+      setEditValue(nextFormula);
+      return;
+    }
+
     // Hard guard: if primary mouse button (left-click) is NOT actively held down, cancel dragging immediately
     if ((e.buttons & 1) !== 1) {
+      if (isFormulaPointing) {
+        setIsFormulaPointing(false);
+        setPointAnchor(null);
+      }
       dragAnchorRef.current = null;
       if (isSelecting) setIsSelecting(false);
       if (isCtrlSelecting) setIsCtrlSelecting(false);
@@ -954,6 +1005,14 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   const handleRowHeaderMouseDown = (e: React.MouseEvent, rowIdx: number) => {
     if (e.button !== 0) return;
     e.preventDefault();
+
+    if (isEditing && editValue.startsWith('=')) {
+      const rowAddr = `A${rowIdx + 1}:${colIndexToLabel(sheet.colCount - 1)}${rowIdx + 1}`;
+      const nextFormula = insertOrUpdateReferenceInFormula(editValue, rowAddr, false);
+      setEditValue(nextFormula);
+      return;
+    }
+
     setIsRowSelecting(true);
     setRowSelectAnchor(rowIdx);
     setMultiSelectedKeys(new Set());
@@ -990,6 +1049,15 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   const handleColHeaderMouseDown = (e: React.MouseEvent, colIdx: number) => {
     if (e.button !== 0) return;
     e.preventDefault();
+
+    if (isEditing && editValue.startsWith('=')) {
+      const colLabel = colIndexToLabel(colIdx);
+      const colAddr = `${colLabel}2:${colLabel}${Math.max(sheet.rowCount, 10)}`;
+      const nextFormula = insertOrUpdateReferenceInFormula(editValue, colAddr, false);
+      setEditValue(nextFormula);
+      return;
+    }
+
     setIsColSelecting(true);
     setColSelectAnchor(colIdx);
     setMultiSelectedKeys(new Set());
@@ -1582,6 +1650,25 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                     selectedRange.startRow === selectedRange.endRow &&
                     selectedRange.startCol === selectedRange.endCol;
 
+                  // Check if this cell is part of any formula argument highlighted reference (Excel Arg Highlighting)
+                  let cellFormulaHighlight: FormulaCellHighlightInfo | undefined = undefined;
+                  if (formulaHighlights.length > 0) {
+                    for (const fh of formulaHighlights) {
+                      const { startRow, startCol, endRow, endCol } = fh.range;
+                      if (rowIdx >= startRow && rowIdx <= endRow && colIdx >= startCol && colIdx <= endCol) {
+                        cellFormulaHighlight = {
+                          color: fh.color,
+                          bgColor: fh.bgColor,
+                          isTop: rowIdx === startRow,
+                          isBottom: rowIdx === endRow,
+                          isLeft: colIdx === startCol,
+                          isRight: colIdx === endCol,
+                        };
+                        break;
+                      }
+                    }
+                  }
+
                   return (
                     <GridCell
                       key={colIdx}
@@ -1597,6 +1684,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                       isRangeLeft={isCellInRange && colIdx === selectedRange.startCol}
                       isRangeRight={isCellInRange && colIdx === selectedRange.endCol}
                       isRangeBottomRight={isCellInRange && rowIdx === selectedRange.endRow && colIdx === selectedRange.endCol}
+                      formulaHighlight={cellFormulaHighlight}
                       isEditing={isCellEditing}
                       editValue={editValue}
                       mergedRegion={merged}

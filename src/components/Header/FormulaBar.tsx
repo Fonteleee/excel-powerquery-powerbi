@@ -98,7 +98,7 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
   };
 
   return (
-    <div className="h-8 bg-white border-b border-[#e2e8f0] flex items-center px-3 gap-2 select-none z-20 relative font-sans">
+    <div className="h-8 bg-white border-b border-[#e2e8f0] flex items-center px-3 gap-2 select-none z-30 relative font-sans">
       {/* Name Box (Interactive Cell Jump Input) */}
       <div
         title="Caixa de Nome: Digite uma célula (ex: B10, A1:D5) e pressione Enter para navegar"
@@ -189,7 +189,7 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
           <FormulaAutocomplete
             input={inputValue}
             onSelectFormula={handleSelectFormula}
-            className="left-0 top-full mt-1 absolute"
+            className="left-0 top-full mt-1 absolute z-100 shadow-2xl"
           />
         )}
       </div>

@@ -3,6 +3,15 @@ import { CellData, CellPosition, CellRange, ConditionalFormatRule, MergedRegion 
 import { formatCellValue, parseNumberSafely } from '../../engine/formulaParser';
 import { FormulaAutocomplete } from './FormulaAutocomplete';
 
+export interface FormulaCellHighlightInfo {
+  color: string;
+  bgColor: string;
+  isTop: boolean;
+  isBottom: boolean;
+  isLeft: boolean;
+  isRight: boolean;
+}
+
 interface GridCellProps {
   row: number;
   col: number;
@@ -16,6 +25,7 @@ interface GridCellProps {
   isRangeLeft?: boolean;
   isRangeRight?: boolean;
   isRangeBottomRight?: boolean;
+  formulaHighlight?: FormulaCellHighlightInfo;
   isEditing: boolean;
   editValue: string;
   mergedRegion?: MergedRegion;
@@ -45,6 +55,7 @@ const GridCellComponent: React.FC<GridCellProps> = ({
   isRangeLeft = false,
   isRangeRight = false,
   isRangeBottomRight = false,
+  formulaHighlight,
   isEditing,
   editValue,
   mergedRegion,
@@ -198,9 +209,15 @@ const GridCellComponent: React.FC<GridCellProps> = ({
   const colSpan = mergedRegion ? mergedRegion.endCol - mergedRegion.startCol + 1 : 1;
   const rowSpan = mergedRegion ? mergedRegion.endRow - mergedRegion.startRow + 1 : 1;
 
-  // Perimeter border style when inside a multi-cell selected range (Excel Online Style)
+  // Perimeter border style when inside a multi-cell selected range or formula argument reference (Excel Style)
   const rangeBorders: React.CSSProperties = {};
-  if (isInRange && !isSingleCellSelection) {
+  if (formulaHighlight) {
+    if (formulaHighlight.isTop) rangeBorders.borderTop = `2px solid ${formulaHighlight.color}`;
+    if (formulaHighlight.isBottom) rangeBorders.borderBottom = `2px solid ${formulaHighlight.color}`;
+    if (formulaHighlight.isLeft) rangeBorders.borderLeft = `2px solid ${formulaHighlight.color}`;
+    if (formulaHighlight.isRight) rangeBorders.borderRight = `2px solid ${formulaHighlight.color}`;
+    rangeBorders.backgroundColor = formulaHighlight.bgColor;
+  } else if (isInRange && !isSingleCellSelection) {
     if (isRangeTop) {
       rangeBorders.borderTop = '2px solid #107c41';
     }
