@@ -48,6 +48,7 @@ import {
   extractReferencesFromFormula,
 } from '../../engine/formulaPointHelper';
 import { detectFlashFill, FlashFillPrediction } from '../../engine/flashFill';
+import { computeSmartSeries } from '../../engine/autoFillEngine';
 import { exportSheetToExcel } from '../../utils/excelExporter';
 
 function getNocoColumnIcon(sheet: Sheet, colIdx: number): { icon: React.ReactNode; bg: string; label: string } {
@@ -1214,71 +1215,91 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
 
     // 1. Dragging Downwards
     if (targetRange.endRow > srcEndR) {
+      const targetLen = targetRange.endRow - srcEndR;
+
       for (let c = srcStartC; c <= srcEndC; c++) {
-        // Collect numeric series values if applicable
-        const numSeries: number[] = [];
+        // Collect source raw values and formats
+        const sourceRawVals: string[] = [];
+        let hasFormulas = false;
+
         for (let r = srcStartR; r <= srcEndR; r++) {
-          const val = sheet.data[cellPosToKey(r, c)]?.value;
-          const num = parseNumberSafely(val);
-          if (num !== null) numSeries.push(num);
+          const cell = sheet.data[cellPosToKey(r, c)];
+          const raw = cell?.raw || (cell?.value !== null && cell?.value !== undefined ? String(cell.value) : '');
+          sourceRawVals.push(raw);
+          if (raw.startsWith('=')) hasFormulas = true;
         }
 
-        const isLinearSeries = numSeries.length >= 2;
-        const step = isLinearSeries ? (numSeries[numSeries.length - 1] - numSeries[0]) / (numSeries.length - 1) : 1;
-
-        for (let r = srcEndR + 1; r <= targetRange.endRow; r++) {
-          const deltaR = r - srcEndR;
-          const sourceRow = srcStartR + ((r - srcEndR - 1) % srcRowCount);
-          const sourceKey = cellPosToKey(sourceRow, c);
-          const sourceCell = sheet.data[sourceKey];
-
-          if (sourceCell) {
-            let newRaw = sourceCell.raw;
-            let newVal = sourceCell.value;
-
-            if (typeof newRaw === 'string' && newRaw.startsWith('=')) {
+        if (hasFormulas) {
+          // Formula Relative Shifting
+          for (let r = srcEndR + 1; r <= targetRange.endRow; r++) {
+            const sourceRow = srcStartR + ((r - srcEndR - 1) % srcRowCount);
+            const sourceCell = sheet.data[cellPosToKey(sourceRow, c)];
+            if (sourceCell) {
               const shiftR = r - sourceRow;
-              newRaw = shiftFormula(newRaw, shiftR, 0);
-              newVal = null;
-            } else if (isLinearSeries && typeof sourceCell.value === 'number') {
-              const nextVal = numSeries[numSeries.length - 1] + step * deltaR;
-              newRaw = String(nextVal);
-              newVal = nextVal;
+              const newRaw = sourceCell.raw.startsWith('=') ? shiftFormula(sourceCell.raw, shiftR, 0) : sourceCell.raw;
+              updatedData[cellPosToKey(r, c)] = {
+                raw: newRaw,
+                value: null,
+                format: sourceCell.format ? { ...sourceCell.format } : undefined,
+              };
             }
-
-            updatedData[cellPosToKey(r, c)] = {
-              raw: newRaw,
-              value: newVal,
-              format: sourceCell.format ? { ...sourceCell.format } : undefined,
-            };
           }
+        } else {
+          // Smart AutoFill Series (Numbers, Dates, Codes, Days of Week, Months)
+          const smartSeries = computeSmartSeries(sourceRawVals, targetLen, 'series');
+
+          smartSeries.forEach((val, idx) => {
+            const r = srcEndR + 1 + idx;
+            const sourceTemplateCell = sheet.data[cellPosToKey(srcStartR + (idx % srcRowCount), c)];
+            updatedData[cellPosToKey(r, c)] = {
+              raw: String(val),
+              value: typeof val === 'number' ? val : (parseNumberSafely(val) ?? val),
+              format: sourceTemplateCell?.format ? { ...sourceTemplateCell.format } : undefined,
+            };
+          });
         }
       }
     }
     // 2. Dragging to the Right
     else if (targetRange.endCol > srcEndC) {
+      const targetLen = targetRange.endCol - srcEndC;
+
       for (let r = srcStartR; r <= srcEndR; r++) {
-        for (let c = srcEndC + 1; c <= targetRange.endCol; c++) {
-          const sourceCol = srcStartC + ((c - srcEndC - 1) % srcColCount);
-          const sourceKey = cellPosToKey(r, sourceCol);
-          const sourceCell = sheet.data[sourceKey];
+        const sourceRawVals: string[] = [];
+        let hasFormulas = false;
 
-          if (sourceCell) {
-            let newRaw = sourceCell.raw;
-            let newVal = sourceCell.value;
+        for (let c = srcStartC; c <= srcEndC; c++) {
+          const cell = sheet.data[cellPosToKey(r, c)];
+          const raw = cell?.raw || (cell?.value !== null && cell?.value !== undefined ? String(cell.value) : '');
+          sourceRawVals.push(raw);
+          if (raw.startsWith('=')) hasFormulas = true;
+        }
 
-            if (typeof newRaw === 'string' && newRaw.startsWith('=')) {
+        if (hasFormulas) {
+          for (let c = srcEndC + 1; c <= targetRange.endCol; c++) {
+            const sourceCol = srcStartC + ((c - srcEndC - 1) % srcColCount);
+            const sourceCell = sheet.data[cellPosToKey(r, sourceCol)];
+            if (sourceCell) {
               const shiftC = c - sourceCol;
-              newRaw = shiftFormula(newRaw, 0, shiftC);
-              newVal = null;
+              const newRaw = sourceCell.raw.startsWith('=') ? shiftFormula(sourceCell.raw, 0, shiftC) : sourceCell.raw;
+              updatedData[cellPosToKey(r, c)] = {
+                raw: newRaw,
+                value: null,
+                format: sourceCell.format ? { ...sourceCell.format } : undefined,
+              };
             }
-
-            updatedData[cellPosToKey(r, c)] = {
-              raw: newRaw,
-              value: newVal,
-              format: sourceCell.format ? { ...sourceCell.format } : undefined,
-            };
           }
+        } else {
+          const smartSeries = computeSmartSeries(sourceRawVals, targetLen, 'series');
+          smartSeries.forEach((val, idx) => {
+            const c = srcEndC + 1 + idx;
+            const sourceTemplateCell = sheet.data[cellPosToKey(r, srcStartC + (idx % srcColCount))];
+            updatedData[cellPosToKey(r, c)] = {
+              raw: String(val),
+              value: typeof val === 'number' ? val : (parseNumberSafely(val) ?? val),
+              format: sourceTemplateCell?.format ? { ...sourceTemplateCell.format } : undefined,
+            };
+          });
         }
       }
     }

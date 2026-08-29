@@ -941,6 +941,110 @@ function executeFunction(
   }
 
   // FILTRO / FILTER
+  // ÚNICO / UNIQUE
+  if (func === 'ÚNICO' || func === 'UNICO' || func === 'UNIQUE') {
+    if (args.length < 1) throw new Error('#VALOR!');
+    const res = resolveRangeAndValues(args[0], sheet, allSheets);
+    if (!res) throw new Error('#VALOR!');
+
+    if (res.matrixValues && res.matrixValues[0] && res.matrixValues[0].length > 1) {
+      const seen = new Set<string>();
+      const uniqueMatrix: any[][] = [];
+      for (const row of res.matrixValues) {
+        const key = JSON.stringify(row);
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniqueMatrix.push(row);
+        }
+      }
+      return uniqueMatrix;
+    } else {
+      const seen = new Set<string>();
+      const uniqueVals: any[] = [];
+      for (const v of res.flatValues) {
+        if (v === null || v === undefined || v === '') continue;
+        const s = String(v);
+        if (!seen.has(s)) {
+          seen.add(s);
+          uniqueVals.push(v);
+        }
+      }
+      return uniqueVals.map(v => [v]);
+    }
+  }
+
+  // CLASSIFICAR / SORT
+  if (func === 'CLASSIFICAR' || func === 'SORT') {
+    if (args.length < 1) throw new Error('#VALOR!');
+    const res = resolveRangeAndValues(args[0], sheet, allSheets);
+    if (!res) throw new Error('#VALOR!');
+
+    const sortIndex = args[1] ? Number(evaluateExpression(args[1], sheet, allSheets, callStack)) - 1 : 0;
+    const sortOrder = args[2] ? Number(evaluateExpression(args[2], sheet, allSheets, callStack)) : 1;
+
+    if (res.matrixValues && res.matrixValues.length > 0) {
+      const sorted = [...res.matrixValues].sort((a, b) => {
+        const valA = a[sortIndex];
+        const valB = b[sortIndex];
+        const numA = parseNumberSafely(valA, true);
+        const numB = parseNumberSafely(valB, true);
+        if (numA !== null && numB !== null) {
+          return sortOrder >= 0 ? numA - numB : numB - numA;
+        }
+        const strA = String(valA ?? '');
+        const strB = String(valB ?? '');
+        return sortOrder >= 0 ? strA.localeCompare(strB) : strB.localeCompare(strA);
+      });
+      return sorted;
+    } else {
+      const sorted = [...res.flatValues].sort((a, b) => {
+        const numA = parseNumberSafely(a, true);
+        const numB = parseNumberSafely(b, true);
+        if (numA !== null && numB !== null) {
+          return sortOrder >= 0 ? numA - numB : numB - numA;
+        }
+        return sortOrder >= 0 ? String(a ?? '').localeCompare(String(b ?? '')) : String(b ?? '').localeCompare(String(a ?? ''));
+      });
+      return sorted.map(v => [v]);
+    }
+  }
+
+  // SEQUÊNCIA / SEQUENCIA / SEQUENCE
+  if (func === 'SEQUÊNCIA' || func === 'SEQUENCIA' || func === 'SEQUENCE') {
+    if (args.length < 1) throw new Error('#VALOR!');
+    const rows = Math.max(1, Math.min(1000, Number(evaluateExpression(args[0], sheet, allSheets, callStack)) || 1));
+    const cols = args[1] ? Math.max(1, Math.min(100, Number(evaluateExpression(args[1], sheet, allSheets, callStack)) || 1)) : 1;
+    const start = args[2] ? Number(evaluateExpression(args[2], sheet, allSheets, callStack)) || 1 : 1;
+    const step = args[3] ? Number(evaluateExpression(args[3], sheet, allSheets, callStack)) || 1 : 1;
+
+    const seqMatrix: number[][] = [];
+    let current = start;
+    for (let r = 0; r < rows; r++) {
+      const rowArr: number[] = [];
+      for (let c = 0; c < cols; c++) {
+        rowArr.push(current);
+        current += step;
+      }
+      seqMatrix.push(rowArr);
+    }
+    return seqMatrix;
+  }
+
+  // DIVIDIRTEXTO / TEXTSPLIT
+  if (func === 'DIVIDIRTEXTO' || func === 'TEXTSPLIT') {
+    if (args.length < 2) throw new Error('#VALOR!');
+    const text = String(evaluateExpression(args[0], sheet, allSheets, callStack) ?? '');
+    const colDelim = String(evaluateExpression(args[1], sheet, allSheets, callStack) ?? ',');
+    const rowDelim = args[2] ? String(evaluateExpression(args[2], sheet, allSheets, callStack)) : null;
+
+    if (rowDelim) {
+      const rowParts = text.split(rowDelim);
+      return rowParts.map(r => r.split(colDelim));
+    }
+    return [text.split(colDelim)];
+  }
+
+  // FILTRO / FILTER
   if (func === 'FILTRO' || func === 'FILTER') {
     if (args.length < 2) throw new Error('#VALOR!');
     const returnRes = resolveRangeAndValues(args[0], sheet, allSheets);
@@ -961,9 +1065,11 @@ function executeFunction(
 
     const targetVal = evaluateExpression(rightValExpr, sheet, allSheets, callStack);
     const condVals = condRes.flatValues;
-    const returnVals = returnRes.flatValues;
+    const returnVals = returnRes.matrixValues && returnRes.matrixValues[0]?.length > 1
+      ? returnRes.matrixValues
+      : returnRes.flatValues.map(v => [v]);
 
-    const matchedItems: any[] = [];
+    const matchedItems: any[][] = [];
     for (let i = 0; i < condVals.length; i++) {
       const v = condVals[i];
       if (v === null || v === undefined) continue;
@@ -992,8 +1098,8 @@ function executeFunction(
       }
     }
 
-    if (matchedItems.length === 0) return ifEmpty;
-    return matchedItems.length === 1 ? matchedItems[0] : matchedItems;
+    if (matchedItems.length === 0) return [[ifEmpty]];
+    return matchedItems;
   }
 
   // UNIRTEXTO / TEXTJOIN
@@ -1616,32 +1722,119 @@ export function formatCellValue(value: any, format?: CellFormat): string {
 
 
 
-// Recalculate whole sheet with multi-pass convergence
+// Recalculate whole sheet with multi-pass convergence and Dynamic Array Spilling
 export function recalculateSheet(sheet: Sheet, allSheets: Sheet[] = [sheet]): Sheet {
   const updatedData = { ...sheet.data };
   const workingSheet: Sheet = { ...sheet, data: updatedData };
   const updatedAllSheets = allSheets.map(s => (s.id === sheet.id ? workingSheet : s));
 
-  // Perform up to 3 passes to resolve dependent formulas (e.g. SOMA of computed columns)
+  // 1. Clear previous spill cells so they can be freshly re-evaluated
+  for (const [key, cell] of Object.entries(updatedData)) {
+    if (cell.isSpill) {
+      delete updatedData[key];
+    }
+  }
+
+  // 2. Multi-pass calculation
   for (let pass = 0; pass < 3; pass++) {
     let hasChanges = false;
     for (const [key, cell] of Object.entries(updatedData)) {
       if (cell.raw && typeof cell.raw === 'string' && cell.raw.startsWith('=')) {
         try {
           const val = evaluateFormula(cell.raw, workingSheet, updatedAllSheets);
-          if (updatedData[key]?.value !== val) {
-            hasChanges = true;
-            updatedData[key] = {
-              ...cell,
-              value: val,
-              error: typeof val === 'string' && val.startsWith('#') ? val : null,
-            };
+
+          // Check if result is a 2D Matrix / Dynamic Array
+          if (Array.isArray(val) && val.length > 0) {
+            const matrix: any[][] = Array.isArray(val[0]) ? val : val.map(item => [item]);
+            const numRows = matrix.length;
+            const numCols = matrix[0]?.length || 1;
+
+            const posMatch = key.match(/^R(\d+)C(\d+)$/);
+            const pos = posMatch
+              ? { row: parseInt(posMatch[1], 10), col: parseInt(posMatch[2], 10) }
+              : parseCellAddress(key);
+            if (pos && (numRows > 1 || numCols > 1)) {
+              // Collision detection in spill range
+              let hasCollision = false;
+              for (let r = 0; r < numRows; r++) {
+                for (let c = 0; c < numCols; c++) {
+                  if (r === 0 && c === 0) continue;
+                  const targetKey = cellPosToKey(pos.row + r, pos.col + c);
+                  const existing = updatedData[targetKey];
+                  if (existing && existing.raw && !existing.isSpill && existing.raw !== '') {
+                    hasCollision = true;
+                    break;
+                  }
+                }
+                if (hasCollision) break;
+              }
+
+              if (hasCollision) {
+                updatedData[key] = {
+                  ...cell,
+                  value: '#DESPEJAR!',
+                  error: '#DESPEJAR!',
+                  spillRange: {
+                    startRow: pos.row,
+                    startCol: pos.col,
+                    endRow: pos.row + numRows - 1,
+                    endCol: pos.col + numCols - 1,
+                  },
+                };
+              } else {
+                // Populate origin cell
+                updatedData[key] = {
+                  ...cell,
+                  value: matrix[0][0],
+                  error: null,
+                  spillRange: {
+                    startRow: pos.row,
+                    startCol: pos.col,
+                    endRow: pos.row + numRows - 1,
+                    endCol: pos.col + numCols - 1,
+                  },
+                };
+
+                // Populate spilled cells
+                for (let r = 0; r < numRows; r++) {
+                  for (let c = 0; c < numCols; c++) {
+                    if (r === 0 && c === 0) continue;
+                    const targetKey = cellPosToKey(pos.row + r, pos.col + c);
+                    updatedData[targetKey] = {
+                      raw: '',
+                      value: matrix[r][c],
+                      isSpill: true,
+                      spillParent: key,
+                    };
+                  }
+                }
+              }
+            } else {
+              const scalar = Array.isArray(val[0]) ? val[0][0] : val[0];
+              updatedData[key] = {
+                ...cell,
+                value: scalar,
+                error: null,
+                spillRange: undefined,
+              };
+            }
+          } else {
+            if (updatedData[key]?.value !== val) {
+              hasChanges = true;
+              updatedData[key] = {
+                ...cell,
+                value: val,
+                error: typeof val === 'string' && val.startsWith('#') ? val : null,
+                spillRange: undefined,
+              };
+            }
           }
         } catch (err: any) {
           updatedData[key] = {
             ...cell,
             value: '#ERRO!',
             error: err.message || '#ERRO!',
+            spillRange: undefined,
           };
         }
       }

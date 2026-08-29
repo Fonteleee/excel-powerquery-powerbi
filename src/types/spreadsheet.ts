@@ -62,6 +62,9 @@ export interface CellData {
   format?: CellFormat;
   comment?: string;
   error?: string | null;
+  isSpill?: boolean; // True if this cell is populated by dynamic array spill from another parent cell
+  spillParent?: string; // Key of the parent formula cell (e.g. "R1C0")
+  spillRange?: CellRange; // Full spill range (present on the parent cell)
 }
 
 export interface MergedRegion {

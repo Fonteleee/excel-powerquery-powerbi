@@ -17,6 +17,8 @@ import {
   Split,
   Calculator,
   X,
+  Sigma,
+  Filter,
 } from 'lucide-react';
 import { Sheet } from '../../types/spreadsheet';
 import {
@@ -28,7 +30,14 @@ import {
 import { TableNodeCard } from './TableNodeCard';
 import { RelationConfigModal } from './RelationConfigModal';
 import { AddTableModal } from './AddTableModal';
+import { ActionBlockCard, ActionBlockData, ActionBlockType } from './ActionBlockCard';
 import { applyRelationToSpreadsheet, getColumnHeaderName } from '../../engine/relationFormulaEngine';
+import {
+  extractSheetRecords,
+  executeGroupBy,
+  executeFilter,
+  createSheetFromDataset,
+} from '../../engine/pipelineEngine';
 import { saveRelationEdges, loadRelationEdges } from '../../utils/storageManager';
 
 interface RelationsCanvasProps {
@@ -199,6 +208,19 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
           return node;
         })
       );
+    } else if (draggingBlockId) {
+      setActionBlocks(prev =>
+        prev.map(block => {
+          if (block.id === draggingBlockId) {
+            return {
+              ...block,
+              x: e.clientX / viewport.zoom - blockDragOffset.x,
+              y: e.clientY / viewport.zoom - blockDragOffset.y,
+            };
+          }
+          return block;
+        })
+      );
     } else if (connectionDraft && canvasRef.current) {
       const rect = canvasRef.current.getBoundingClientRect();
       const currentX = (e.clientX - rect.left - viewport.panX) / viewport.zoom;
@@ -210,6 +232,7 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
   const handleMouseUp = () => {
     setIsPanning(false);
     setDraggingNodeId(null);
+    setDraggingBlockId(null);
     if (connectionDraft) {
       setConnectionDraft(null);
     }
@@ -307,32 +330,124 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
     return { x, y };
   };
 
+  // Action Blocks state (ETL visual nodes)
+  const [actionBlocks, setActionBlocks] = useState<ActionBlockData[]>([]);
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
+  const [blockDragOffset, setBlockDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [executionToast, setExecutionToast] = useState<string | null>(null);
+
+  const handleAddActionBlock = (type: ActionBlockType) => {
+    const newBlock: ActionBlockData = {
+      id: `block-${Date.now()}`,
+      type,
+      x: 120 + actionBlocks.length * 30,
+      y: 120 + actionBlocks.length * 30,
+      sourceSheetId: activeSheet.id,
+      groupByCols: [0],
+      aggregations: [{ colIdx: 1, aggType: 'SUM' }],
+      filterConditions: [{ colIdx: 0, operator: '>', value: '0' }],
+      outputSheetName: `${type === 'groupby' ? 'Agrupado' : type === 'filter' ? 'Filtrado' : 'Consolidado'}_${activeSheet.name.slice(0, 10)}`,
+    };
+    setActionBlocks(prev => [...prev, newBlock]);
+    setSelectedBlockId(newBlock.id);
+  };
+
+  const handleExecuteBlock = (block: ActionBlockData) => {
+    const srcSheet = sheets.find(s => s.id === block.sourceSheetId) || activeSheet;
+    const recordsData = extractSheetRecords(srcSheet);
+
+    let outHeaders: string[] = recordsData.headers;
+    let outRows: Record<string, any>[] = recordsData.rows;
+
+    if (block.type === 'groupby') {
+      const groupCols = (block.groupByCols || [0]).map(idx => getColumnHeaderName(srcSheet, idx));
+      const aggs = (block.aggregations || [{ colIdx: 1, aggType: 'SUM' }]).map(a => ({
+        colName: getColumnHeaderName(srcSheet, a.colIdx),
+        aggType: a.aggType,
+        outputName: a.outputName || `${a.aggType}_${getColumnHeaderName(srcSheet, a.colIdx)}`,
+      }));
+      const res = executeGroupBy(recordsData.rows, groupCols, aggs);
+      outHeaders = res.headers;
+      outRows = res.rows;
+    } else if (block.type === 'filter') {
+      const conditions = (block.filterConditions || []).map(c => ({
+        colName: getColumnHeaderName(srcSheet, c.colIdx),
+        operator: c.operator,
+        value: c.value,
+      }));
+      outRows = executeFilter(recordsData.rows, conditions);
+    }
+
+    const outSheetName = block.outputSheetName || `${block.type}_${srcSheet.name.slice(0, 10)}`;
+    const existingSheet = sheets.find(s => s.name === outSheetName);
+    const outSheetId = existingSheet ? existingSheet.id : `sheet-etl-${Date.now()}`;
+
+    const generatedSheet = createSheetFromDataset(outSheetId, outSheetName, outHeaders, outRows);
+    const updatedSheets = existingSheet
+      ? sheets.map(s => (s.id === existingSheet.id ? generatedSheet : s))
+      : [...sheets, generatedSheet];
+
+    onUpdateSheets(updatedSheets);
+    setExecutionToast(`✓ Bloco executado! Planilha gerada: "${outSheetName}" (${outRows.length} linhas)`);
+    setTimeout(() => setExecutionToast(null), 3500);
+  };
+
   return (
     <div
       className="flex-1 flex flex-col h-full bg-slate-100 overflow-hidden select-none font-sans relative"
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
     >
+      {/* Toast de Execução */}
+      {executionToast && (
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-50 rounded-2xl bg-slate-900/90 text-white px-4 py-2.5 shadow-2xl text-xs font-bold flex items-center gap-2 animate-in fade-in slide-in-from-top-2 border border-slate-700">
+          <Sparkles className="size-4 text-emerald-400" />
+          <span>{executionToast}</span>
+        </div>
+      )}
+
       {/* Canvas Sub-Header & Controls Bar */}
       <div className="h-10 bg-white border-b border-slate-200 px-4 flex items-center justify-between shrink-0 z-20 shadow-2xs">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 text-xs text-slate-700 font-bold">
             <Zap className="size-3.5 text-indigo-600" />
-            <span>Pipeline de Fórmulas & Cruzamentos</span>
-            <span className="text-[10px] font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-              {sheets.length === 1 ? 'Modo Tabela Única (Coluna ➔ Coluna / Linhas)' : `${sheets.length} Tabelas Carregadas`}
-            </span>
+            <span>Pipeline ETL & Relacionamentos</span>
           </div>
 
           <div className="h-4 w-px bg-slate-200" />
 
-          {/* Action to add extra sheet */}
+          {/* Action buttons */}
           <button
             onClick={() => setIsAddTableModalOpen(true)}
-            className="flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-bold text-indigo-700 hover:bg-indigo-50 bg-indigo-50/60 border border-indigo-200 shadow-2xs transition-all cursor-pointer active:scale-95"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold text-indigo-700 hover:bg-indigo-50 bg-indigo-50/60 border border-indigo-200 shadow-2xs transition-all cursor-pointer active:scale-95"
           >
             <Plus className="size-3.5 text-indigo-600" />
-            <span>+ Adicionar Tabela</span>
+            <span>+ Tabela</span>
+          </button>
+
+          <button
+            onClick={() => handleAddActionBlock('groupby')}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold text-indigo-700 hover:bg-indigo-50 bg-white border border-slate-200 shadow-2xs transition-all cursor-pointer active:scale-95"
+          >
+            <Sigma className="size-3.5 text-indigo-600" />
+            <span>+ Agrupar</span>
+          </button>
+
+          <button
+            onClick={() => handleAddActionBlock('filter')}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold text-amber-700 hover:bg-amber-50 bg-white border border-slate-200 shadow-2xs transition-all cursor-pointer active:scale-95"
+          >
+            <Filter className="size-3.5 text-amber-600" />
+            <span>+ Filtrar</span>
+          </button>
+
+          <button
+            onClick={() => handleAddActionBlock('output')}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold text-emerald-700 hover:bg-emerald-50 bg-white border border-slate-200 shadow-2xs transition-all cursor-pointer active:scale-95"
+          >
+            <Table2 className="size-3.5 text-emerald-600" />
+            <span>+ Saída</span>
           </button>
         </div>
 
@@ -546,6 +661,33 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
                 />
               );
             })}
+
+            {/* Action Blocks (ETL Transformations) Layer */}
+            {actionBlocks.map(block => (
+              <ActionBlockCard
+                key={block.id}
+                block={block}
+                sheets={sheets}
+                isSelected={selectedBlockId === block.id}
+                onSelect={() => setSelectedBlockId(block.id)}
+                onUpdate={updated => {
+                  setActionBlocks(prev => prev.map(b => (b.id === block.id ? updated : b)));
+                }}
+                onDelete={() => {
+                  setActionBlocks(prev => prev.filter(b => b.id !== block.id));
+                }}
+                onExecute={() => handleExecuteBlock(block)}
+                onMouseDown={e => {
+                  e.stopPropagation();
+                  setSelectedBlockId(block.id);
+                  setDraggingBlockId(block.id);
+                  setBlockDragOffset({
+                    x: e.clientX / viewport.zoom - block.x,
+                    y: e.clientY / viewport.zoom - block.y,
+                  });
+                }}
+              />
+            ))}
           </div>
         </div>
 
