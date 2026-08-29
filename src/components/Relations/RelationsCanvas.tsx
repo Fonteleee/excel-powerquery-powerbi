@@ -225,6 +225,9 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
     setConnectionDraft(null);
   };
 
+  // Success notification toast after relation execution
+  const [savedSuccessToast, setSavedSuccessToast] = useState<{ formulaType: string; customName?: string } | null>(null);
+
   // Save Relation & Apply to Spreadsheets
   const handleSaveRelation = (edge: RelationEdge) => {
     setEdges(prev => [...prev.filter(e => e.id !== edge.id), edge]);
@@ -232,6 +235,15 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
     // Apply the calculation/formula directly to spreadsheet data!
     const updatedSheets = applyRelationToSpreadsheet(edge, sheets);
     onUpdateSheets(updatedSheets);
+
+    // Show instant success banner
+    setSavedSuccessToast({
+      formulaType: edge.formulaType,
+      customName: edge.customColName,
+    });
+    setTimeout(() => {
+      setSavedSuccessToast(null);
+    }, 8000);
   };
 
   const handleDeleteRelation = (edgeId: string) => {
@@ -502,6 +514,26 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
             <Maximize2 className="size-3.5" />
           </button>
         </div>
+
+        {/* Floating Success Notification Toast */}
+        {savedSuccessToast && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 px-4 py-2.5 bg-slate-900/95 text-white rounded-2xl shadow-2xl border border-indigo-500/50 backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200">
+            <div className="size-6 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-xs font-bold">
+              ✓
+            </div>
+            <div className="text-xs">
+              <span className="font-bold text-emerald-400">Conexão {savedSuccessToast.formulaType} Criada:</span>{' '}
+              <span>Fórmulas injetadas e calculadas com sucesso na tabela de dados!</span>
+            </div>
+            <button
+              onClick={() => onNavigateView('spreadsheet')}
+              className="ml-2 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+            >
+              <span>Ver na Tabela de Dados</span>
+              <ArrowRight className="size-3" />
+            </button>
+          </div>
+        )}
 
         {/* Bottom-Right Floating AI Assistant Pill */}
         {onOpenCopilot && (

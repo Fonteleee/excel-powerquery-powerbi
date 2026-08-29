@@ -12,7 +12,7 @@ export function getColumnHeaderName(sheet: Sheet, colIdx: number): string {
   if (cell && cell.value !== null && cell.value !== undefined && String(cell.value).trim() !== '') {
     return String(cell.value).trim();
   }
-  return `Campo_${colIndexToLabel(colIdx)}`;
+  return `Coluna_${colIndexToLabel(colIdx)}`;
 }
 
 /**
@@ -149,6 +149,7 @@ export function generateRelationFormula(
 
 /**
  * Aplica o relacionamento diretamente na planilha, gerando colunas/linhas calculadas
+ * e recalculando com TODAS as planilhas do grafo.
  */
 export function applyRelationToSpreadsheet(edge: RelationEdge, sheets: Sheet[]): Sheet[] {
   const sourceSheet = sheets.find(s => s.id === edge.sourceSheetId);
@@ -160,7 +161,7 @@ export function applyRelationToSpreadsheet(edge: RelationEdge, sheets: Sheet[]):
   const sourceHeaderName = getColumnHeaderName(sourceSheet, edge.sourceColIdx);
   const targetHeaderName = getColumnHeaderName(targetSheet, edge.returnColIdx);
 
-  // Default generated column title
+  // Nome do cabeçalho gerado
   let generatedHeaderTitle = edge.customColName?.trim();
   if (!generatedHeaderTitle) {
     if (isSameSheet) {
@@ -173,38 +174,31 @@ export function applyRelationToSpreadsheet(edge: RelationEdge, sheets: Sheet[]):
       else if (edge.formulaType === 'IF_COMPARE') generatedHeaderTitle = `Status_${sourceHeaderName}`;
       else if (edge.formulaType === 'RUNNING_TOTAL') generatedHeaderTitle = `Acumulado_${sourceHeaderName}`;
       else if (edge.formulaType === 'ROW_LAG') generatedHeaderTitle = `VarLinha_${sourceHeaderName}`;
+      else if (edge.formulaType === 'PROCX') generatedHeaderTitle = `PROCX_${targetHeaderName}`;
       else generatedHeaderTitle = `Calc_${sourceHeaderName}_${targetHeaderName}`;
     } else {
       generatedHeaderTitle = `${targetSheet.name}_${targetHeaderName}`;
     }
   }
 
-  // --- DESTINO: PRÓXIMA COLUNA VAZIA ---
+  // --- DESTINO: PRÓXIMA COLUNA VAZIA (IMEDIATAMENTE APÓS O ÚLTIMO CABEÇALHO) ---
   if (edge.outputDestination === 'next_column') {
-    let targetCol = sourceSheet.colCount;
+    let lastHeaderCol = 0;
     for (let c = 0; c < sourceSheet.colCount; c++) {
-      let colHasData = false;
-      for (let r = 0; r < Math.min(sourceSheet.rowCount, 10); r++) {
-        const val = sourceSheet.data[cellPosToKey(r, c)]?.value;
-        if (val !== null && val !== undefined && val !== '') {
-          colHasData = true;
-          break;
-        }
-      }
-      if (!colHasData && c > Math.max(edge.sourceColIdx, edge.targetColIdx)) {
-        targetCol = c;
-        break;
+      const headerVal = sourceSheet.data[cellPosToKey(0, c)]?.value;
+      if (headerVal !== null && headerVal !== undefined && String(headerVal).trim() !== '') {
+        lastHeaderCol = Math.max(lastHeaderCol, c);
       }
     }
-
+    const targetCol = lastHeaderCol + 1;
     const newColCount = Math.max(sourceSheet.colCount, targetCol + 1);
     const newData = { ...sourceSheet.data };
 
-    // Cabeçalho na linha 0
+    // Cabeçalho destacado na linha 0
     newData[cellPosToKey(0, targetCol)] = {
       raw: generatedHeaderTitle,
       value: generatedHeaderTitle,
-      format: { bold: true, bgColor: '#f1f5f9' },
+      format: { bold: true, bgColor: '#4f46e5', textColor: '#ffffff' },
     };
 
     // Injeta a fórmula nas linhas
@@ -229,8 +223,10 @@ export function applyRelationToSpreadsheet(edge: RelationEdge, sheets: Sheet[]):
       data: newData,
     };
 
-    const recalculated = recalculateSheet(updatedSheet);
-    return sheets.map(s => (s.id === sourceSheet.id ? recalculated : s));
+    // Recalcula passando a lista completa de sheets para que referências cruzadas ('OutraAba'!A:A) sejam resolvidas!
+    const allWithUpdated = sheets.map(s => (s.id === sourceSheet.id ? updatedSheet : s));
+    const recalculated = recalculateSheet(updatedSheet, allWithUpdated);
+    return allWithUpdated.map(s => (s.id === sourceSheet.id ? recalculated : s));
   }
 
   // --- DESTINO: LINHA ABAIXO (RODAPÉ / TOTAIS) ---
@@ -258,8 +254,9 @@ export function applyRelationToSpreadsheet(edge: RelationEdge, sheets: Sheet[]):
       data: newData,
     };
 
-    const recalculated = recalculateSheet(updatedSheet);
-    return sheets.map(s => (s.id === sourceSheet.id ? recalculated : s));
+    const allWithUpdated = sheets.map(s => (s.id === sourceSheet.id ? updatedSheet : s));
+    const recalculated = recalculateSheet(updatedSheet, allWithUpdated);
+    return allWithUpdated.map(s => (s.id === sourceSheet.id ? recalculated : s));
   }
 
   // --- DESTINO: NOVA ABA RELACIONAL ---
@@ -284,7 +281,7 @@ export function applyRelationToSpreadsheet(edge: RelationEdge, sheets: Sheet[]):
     newData[cellPosToKey(0, relCol)] = {
       raw: generatedHeaderTitle,
       value: generatedHeaderTitle,
-      format: { bold: true, bgColor: '#e0e7ff', textColor: '#3730a3' },
+      format: { bold: true, bgColor: '#4f46e5', textColor: '#ffffff' },
     };
 
     for (let r = 1; r < sourceSheet.rowCount; r++) {
@@ -295,10 +292,11 @@ export function applyRelationToSpreadsheet(edge: RelationEdge, sheets: Sheet[]):
       };
     }
 
-    const recalculatedNewSheet = recalculateSheet({
-      ...newSheet,
-      data: newData,
-    });
+    const allWithNew = [...sheets, newSheet];
+    const recalculatedNewSheet = recalculateSheet(
+      { ...newSheet, data: newData },
+      allWithNew
+    );
 
     return [...sheets, recalculatedNewSheet];
   }
