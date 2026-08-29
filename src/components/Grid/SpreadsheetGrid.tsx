@@ -765,6 +765,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         clearSelectedCells();
         return;
       } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
         startEditing(e.key);
         return;
       } else {
