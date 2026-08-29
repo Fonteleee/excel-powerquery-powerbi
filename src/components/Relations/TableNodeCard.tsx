@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Table2,
   Key,
@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronUp,
   MoreVertical,
+  Trash2,
   Plus,
 } from 'lucide-react';
 import { Sheet } from '../../types/spreadsheet';
@@ -24,11 +25,13 @@ interface TableNodeCardProps {
   showAllFields: boolean;
   showKeysOnly: boolean;
   isSelected?: boolean;
+  canDelete?: boolean;
   onSelectNode: (sheetId: string) => void;
   onStartConnection: (sheetId: string, colIdx: number, e: React.MouseEvent) => void;
   onEndConnection: (sheetId: string, colIdx: number) => void;
   onNodeMouseDown: (e: React.MouseEvent, sheetId: string) => void;
   onToggleCollapse: (sheetId: string) => void;
+  onDeleteTable?: (sheetId: string) => void;
 }
 
 export const TableNodeCard: React.FC<TableNodeCardProps> = ({
@@ -37,12 +40,16 @@ export const TableNodeCard: React.FC<TableNodeCardProps> = ({
   showAllFields,
   showKeysOnly,
   isSelected,
+  canDelete = false,
   onSelectNode,
   onStartConnection,
   onEndConnection,
   onNodeMouseDown,
   onToggleCollapse,
+  onDeleteTable,
 }) => {
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+
   const getFieldTypeIcon = (colIdx: number) => {
     // Detect type by sample values or column name
     const header = getColumnHeaderName(sheet, colIdx).toLowerCase();
@@ -112,6 +119,30 @@ export const TableNodeCard: React.FC<TableNodeCardProps> = ({
           <span className="text-[10px] px-1.5 py-0.2 bg-slate-200/70 text-slate-600 font-semibold rounded-full">
             {sheet.colCount}
           </span>
+
+          {/* Delete Table Button */}
+          {canDelete && onDeleteTable && (
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                if (showConfirmDelete) {
+                  onDeleteTable(sheet.id);
+                } else {
+                  setShowConfirmDelete(true);
+                  setTimeout(() => setShowConfirmDelete(false), 3000);
+                }
+              }}
+              title={showConfirmDelete ? 'Clique novamente para confirmar a exclusão' : 'Excluir Tabela'}
+              className={`size-5 rounded flex items-center justify-center transition-colors cursor-pointer ${
+                showConfirmDelete
+                  ? 'bg-rose-600 text-white font-bold animate-pulse'
+                  : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
+              }`}
+            >
+              <Trash2 className="size-3" />
+            </button>
+          )}
+
           <button
             onClick={e => {
               e.stopPropagation();

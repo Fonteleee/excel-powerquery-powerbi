@@ -26,8 +26,8 @@ import {
 } from '../../types/relations';
 import { TableNodeCard } from './TableNodeCard';
 import { RelationConfigModal } from './RelationConfigModal';
+import { AddTableModal } from './AddTableModal';
 import { applyRelationToSpreadsheet, getColumnHeaderName } from '../../engine/relationFormulaEngine';
-import { createSalesSampleSheet } from '../../data/sampleDatasets';
 
 interface RelationsCanvasProps {
   sheets: Sheet[];
@@ -36,6 +36,7 @@ interface RelationsCanvasProps {
   onNavigateView: (view: 'spreadsheet' | 'powerquery' | 'powerbi' | 'relations') => void;
   onOpenShare?: () => void;
   onOpenCopilot?: () => void;
+  onOpenImportModal?: () => void;
 }
 
 export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
@@ -45,6 +46,7 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
   onNavigateView,
   onOpenShare,
   onOpenCopilot,
+  onOpenImportModal,
 }) => {
   // Canvas viewport state (Zoom & Pan)
   const [viewport, setViewport] = useState<CanvasViewport>({
@@ -64,6 +66,9 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
       isCollapsed: false,
     }));
   });
+
+  // Add Table Modal state
+  const [isAddTableModalOpen, setIsAddTableModalOpen] = useState(false);
 
   // Sync nodes if sheets are added/removed
   useEffect(() => {
@@ -234,10 +239,13 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
     setSelectedEdgeId(null);
   };
 
-  // Helper to add a sample secondary sheet if user wants to test multi-table joins as well
-  const handleAddSampleSecondSheet = () => {
-    const sample = createSalesSampleSheet(`sheet-${Date.now()}`, 'Tabela_Vendas_Auxiliar');
-    onUpdateSheets([...sheets, sample]);
+  // Delete table from diagram and workbook
+  const handleDeleteTable = (sheetId: string) => {
+    if (sheets.length <= 1) return;
+    const remainingSheets = sheets.filter(s => s.id !== sheetId);
+    setEdges(prev => prev.filter(e => e.sourceSheetId !== sheetId && e.targetSheetId !== sheetId));
+    setNodes(prev => prev.filter(n => n.id !== sheetId));
+    onUpdateSheets(remainingSheets);
   };
 
   // Calculate coordinates for curve rendering
@@ -270,11 +278,11 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
 
           {/* Action to add extra sheet */}
           <button
-            onClick={handleAddSampleSecondSheet}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-indigo-700 hover:bg-indigo-50 bg-indigo-50/50 border border-indigo-200 transition-colors cursor-pointer"
+            onClick={() => setIsAddTableModalOpen(true)}
+            className="flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-bold text-indigo-700 hover:bg-indigo-50 bg-indigo-50/60 border border-indigo-200 shadow-2xs transition-all cursor-pointer active:scale-95"
           >
-            <Plus className="size-3 text-indigo-600" />
-            <span>+ Adicionar 2ª Tabela</span>
+            <Plus className="size-3.5 text-indigo-600" />
+            <span>+ Adicionar Tabela</span>
           </button>
         </div>
 
@@ -445,6 +453,7 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
                   showAllFields={showAllFields}
                   showKeysOnly={showKeysOnly}
                   isSelected={selectedNodeId === sheet.id}
+                  canDelete={sheets.length > 1}
                   onSelectNode={setSelectedNodeId}
                   onStartConnection={handleStartConnection}
                   onEndConnection={handleEndConnection}
@@ -454,6 +463,7 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
                       prev.map(n => (n.id === id ? { ...n, isCollapsed: !n.isCollapsed } : n))
                     );
                   }}
+                  onDeleteTable={handleDeleteTable}
                 />
               );
             })}
@@ -519,6 +529,16 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
           onDeleteRelation={handleDeleteRelation}
         />
       )}
+
+      {/* Add Table Modal */}
+      <AddTableModal
+        isOpen={isAddTableModalOpen}
+        onClose={() => setIsAddTableModalOpen(false)}
+        onAddSheet={newSheet => {
+          onUpdateSheets([...sheets, newSheet]);
+        }}
+        onOpenImport={onOpenImportModal}
+      />
     </div>
   );
 };

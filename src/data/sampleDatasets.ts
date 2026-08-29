@@ -321,3 +321,102 @@ export function createFinancialBudgetSheet(id = 'sheet-finance', name = 'Orçame
 
   return sheet;
 }
+
+export function createAgentPauseSampleSheet(
+  id = 'sheet-1',
+  name = 'Acompanhamento_de_Pausa_Agente_1787943161501'
+): Sheet {
+  const sheet = createEmptySheet(id, name, 50, 16);
+
+  sheet.colWidths = {
+    0: 65,   // Id
+    1: 130,  // CreatedAt
+    2: 130,  // UpdatedAt
+    3: 75,   // nc_order
+    4: 150,  // Nome
+    5: 95,   // Agente ID
+    6: 130,  // Estado Atual
+    7: 150,  // Motivo da Pausa
+    8: 150,  // Tempo Total em Pausa
+    9: 140,  // Tempo Total Logado
+    10: 160, // Tempo Total Disponivel
+    11: 110, // Faturamento
+    12: 95,  // Meta
+    13: 95,  // Status
+  };
+
+  const headers = [
+    'Id',
+    'CreatedAt',
+    'UpdatedAt',
+    'nc_order',
+    'Nome',
+    'Agente ID',
+    'Estado Atual',
+    'Motivo da Pausa',
+    'Tempo Total em Pausa',
+    'Tempo Total Logado',
+    'Tempo Total Disponivel',
+    'Faturamento',
+    'Meta',
+    'Status',
+  ];
+
+  headers.forEach((h, col) => {
+    const key = cellPosToKey(0, col);
+    sheet.data[key] = {
+      raw: h,
+      value: h,
+      format: {
+        bold: true,
+        bgColor: '#4f46e5',
+        textColor: '#ffffff',
+        align: col === 0 || col === 3 ? 'center' : col >= 8 && col <= 12 ? 'right' : 'left',
+        fontSize: 11,
+      },
+    };
+  });
+
+  const agentRows = [
+    [101, '29/08/2026 08:00', '29/08/2026 09:15', 1, 'João Silva', 'AG-001', 'Em Atendimento', 'Nenhum', '00:00:00', '06:30:00', '05:50:00', 12500, 10000, 'Atingida'],
+    [102, '29/08/2026 08:00', '29/08/2026 09:20', 2, 'Mariana Santos', 'AG-002', 'Pausa Lanche', 'Lanche da Manhã', '00:20:15', '05:45:00', '04:40:00', 9800, 10000, 'Pendente'],
+    [103, '29/08/2026 08:00', '29/08/2026 09:10', 3, 'Carlos Oliveira', 'AG-003', 'Disponível', 'Nenhum', '00:10:00', '06:15:00', '05:30:00', 14200, 10000, 'Atingida'],
+    [104, '29/08/2026 08:00', '29/08/2026 09:05', 4, 'Beatriz Lima', 'AG-004', 'Pausa Banheiro', 'Necessidades Fisiológicas', '00:08:45', '04:50:00', '04:10:00', 8500, 10000, 'Pendente'],
+    [105, '29/08/2026 08:00', '29/08/2026 09:30', 5, 'Lucas Ferreira', 'AG-005', 'Disponível', 'Nenhum', '00:15:30', '06:00:00', '05:15:00', 11300, 10000, 'Atingida'],
+    [106, '29/08/2026 08:00', '29/08/2026 09:25', 6, 'Fernanda Souza', 'AG-006', 'Em Atendimento', 'Nenhum', '00:00:00', '05:30:00', '04:50:00', 10500, 10000, 'Atingida'],
+    [107, '29/08/2026 08:00', '29/08/2026 09:12', 7, 'Rafael Costa', 'AG-007', 'Treinamento', 'Treinamento de Produto', '01:00:00', '06:45:00', '05:00:00', 13800, 10000, 'Atingida'],
+    [108, '29/08/2026 08:00', '29/08/2026 09:18', 8, 'Juliana Rocha', 'AG-008', 'Disponível', 'Nenhum', '00:05:20', '05:10:00', '04:30:00', 9200, 10000, 'Pendente'],
+    [109, '29/08/2026 08:00', '29/08/2026 09:40', 9, 'Gabriel Alves', 'AG-009', 'Pausa Descanso', 'Descanso NR17', '00:20:00', '06:20:00', '05:20:00', 11900, 10000, 'Atingida'],
+    [110, '29/08/2026 08:00', '29/08/2026 09:35', 10, 'Camila Ribeiro', 'AG-010', 'Em Atendimento', 'Nenhum', '00:00:00', '05:50:00', '05:10:00', 12800, 10000, 'Atingida'],
+  ];
+
+  agentRows.forEach((row, rIndex) => {
+    const rowNum = rIndex + 1;
+    row.forEach((val, colIndex) => {
+      const key = cellPosToKey(rowNum, colIndex);
+      let format: CellData['format'] = {
+        align: colIndex === 0 || colIndex === 3 ? 'center' : colIndex >= 8 && colIndex <= 12 ? 'right' : 'left',
+        textColor: '#1e293b',
+      };
+
+      if (colIndex === 8 || colIndex === 9 || colIndex === 10) {
+        format.type = 'time_hh_mm_ss';
+      } else if (colIndex === 11 || colIndex === 12) {
+        format.type = 'currency';
+        format.decimals = 2;
+      } else if (colIndex === 13) {
+        format.align = 'center';
+        format.textColor = val === 'Atingida' ? '#15803d' : '#d97706';
+        format.bold = true;
+      }
+
+      sheet.data[key] = {
+        raw: String(val),
+        value: typeof val === 'string' && val.startsWith('=') ? null : (val as any),
+        format,
+      };
+    });
+  });
+
+  return sheet;
+}

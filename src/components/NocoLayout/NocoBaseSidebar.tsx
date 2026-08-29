@@ -10,6 +10,7 @@ import {
   MoreHorizontal,
   ChevronDown,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 import { Sheet } from '../../types/spreadsheet';
 
@@ -20,6 +21,7 @@ interface NocoBaseSidebarProps {
   activeSheetId: string;
   onSelectSheet: (id: string) => void;
   onNewSheet: () => void;
+  onDeleteSheet?: (id: string) => void;
   activeView: 'spreadsheet' | 'powerquery' | 'powerbi' | 'relations';
   onSelectView: (view: 'spreadsheet' | 'powerquery' | 'powerbi' | 'relations') => void;
 }
@@ -31,6 +33,7 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
   activeSheetId,
   onSelectSheet,
   onNewSheet,
+  onDeleteSheet,
   activeView,
   onSelectView,
 }) => {
@@ -109,22 +112,34 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
           return (
             <div key={sheet.id} className="space-y-0.5">
               {/* Table Root Item */}
-              <div
-                onClick={() => {
-                  onSelectSheet(sheet.id);
-                  onSelectView('spreadsheet');
-                }}
-                className={`group flex items-center justify-between px-2 py-1.5 rounded-md text-xs cursor-pointer transition-colors ${
-                  isActive && activeView === 'spreadsheet'
-                    ? 'bg-indigo-50/80 text-indigo-900 font-semibold'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <div className="flex items-center gap-2 min-w-0">
+              <div className="group flex items-center justify-between rounded-md">
+                <div
+                  onClick={() => {
+                    onSelectSheet(sheet.id);
+                    onSelectView('spreadsheet');
+                  }}
+                  className={`flex-1 flex items-center gap-2 px-2 py-1.5 rounded-md text-xs cursor-pointer transition-colors ${
+                    isActive && activeView === 'spreadsheet'
+                      ? 'bg-indigo-50/80 text-indigo-900 font-semibold'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
                   <TableIcon className={`size-3.5 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
                   <span className="truncate">{cleanName}</span>
                 </div>
-                <MoreHorizontal className="size-3.5 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-600 transition-opacity" />
+                {onDeleteSheet && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`Deseja realmente excluir a tabela "${cleanName}"?`)) {
+                        onDeleteSheet(sheet.id);
+                      }
+                    }}
+                    className="p-1 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded cursor-pointer transition-all"
+                  >
+                    <Trash2 className="size-3" />
+                  </button>
+                )}
               </div>
 
               {/* Sub-views (Grid, Relational Diagram, PowerBI Dashboard, Power Query) when Table is Active */}

@@ -5,6 +5,7 @@ import {
   createEmptySheet,
   createHRStaffSampleSheet,
   createFinancialBudgetSheet,
+  createAgentPauseSampleSheet,
 } from './data/sampleDatasets';
 import {
   recalculateSheet,
@@ -53,10 +54,10 @@ import { RelationsCanvas } from './components/Relations/RelationsCanvas';
 
 export function App() {
 
-  // Initialize with a clean blank sheet (Planilha1)
+  // Initialize with the real domain dataset (Acompanhamento de Pausa Agente)
   const [sheets, setSheets] = useState<Sheet[]>(() => {
-    const blank = createEmptySheet('sheet-1', 'Acompanhamento_de_Pausa_Agente_1787943161501', 100, 26);
-    return [blank];
+    const defaultSheet = createAgentPauseSampleSheet('sheet-1', 'Acompanhamento_de_Pausa_Agente_1787943161501');
+    return [defaultSheet];
   });
 
   const [activeSheetId, setActiveSheetId] = useState<string>(() => sheets[0]?.id || 'sheet-1');
@@ -566,6 +567,7 @@ export function App() {
         activeSheetId={activeSheetId}
         onSelectSheet={setActiveSheetId}
         onNewSheet={handleAddSheet}
+        onDeleteSheet={handleDeleteSheet}
         activeView={activeView}
         onSelectView={setActiveView}
       />
@@ -587,7 +589,7 @@ export function App() {
             const recalculated = recalculateSheet(activeSheet);
             handleUpdateSheet(recalculated);
           }}
-          onExportExcel={() => exportSheetToExcel(activeSheet, activeSheet.name)}
+          onExportExcel={() => exportSheetToExcel(sheets.length > 1 ? sheets : activeSheet, activeSheet.name)}
           onOpenImportModal={() => setIsImportExportOpen(true)}
           onToggleCopilot={() => setIsCopilotOpen(prev => !prev)}
           onOpenShare={() => setIsShareModalOpen(true)}
@@ -636,8 +638,8 @@ export function App() {
               />
             )}
 
-            {/* Grid + Copilot Container */}
-            <div className="flex-1 flex overflow-hidden relative">
+            {/* Main Spreadsheet Grid + Inline Copilot Layout */}
+            <div className="flex-1 flex min-h-0 overflow-hidden relative">
               <SpreadsheetGrid
                 sheet={activeSheet}
                 allSheets={sheets}
@@ -714,6 +716,7 @@ export function App() {
             onNavigateView={setActiveView}
             onOpenShare={() => setIsShareModalOpen(true)}
             onOpenCopilot={() => setIsCopilotOpen(true)}
+            onOpenImportModal={() => setIsImportExportOpen(true)}
           />
         )}
       </div>
