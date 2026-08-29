@@ -1602,24 +1602,17 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
               const colHeaderTitle = headerCell?.value || colLabel;
               const colMeta = getNocoColumnIcon(sheet, colIdx);
 
-              const hasCustomHeaderBg = Boolean(headerCell?.format?.bgColor);
-              const headerBgColor = headerCell?.format?.bgColor;
-              const headerTextColor = headerCell?.format?.textColor;
-
               return (
                 <th
                   key={colIdx}
+                  title={`Coluna ${colLabel}: ${colHeaderTitle}`}
                   style={{
                     width: `${width}px`,
                     minWidth: `${width}px`,
                     maxWidth: `${width}px`,
-                    backgroundColor: hasCustomHeaderBg ? headerBgColor : undefined,
-                    color: hasCustomHeaderBg ? headerTextColor : undefined,
                   }}
                   className={`relative h-8 border-r border-b border-[#e2e8f0] text-xs font-sans font-semibold transition-colors cursor-pointer select-none group ${
-                    hasCustomHeaderBg
-                      ? 'shadow-xs font-bold'
-                      : isColSelected || isColActive
+                    isColSelected || isColActive
                       ? 'bg-indigo-50 text-indigo-950 font-bold'
                       : 'bg-[#f8fafc] text-slate-800 hover:bg-slate-100'
                   }`}
@@ -1628,11 +1621,11 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                 >
                   <div className="flex items-center justify-between px-2 font-sans relative w-full h-full">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className={`size-4 rounded flex items-center justify-center shrink-0 ${hasCustomHeaderBg ? 'bg-white/20 text-white backdrop-blur-xs' : colMeta.bg}`} title={`Tipo: ${colMeta.label}`}>
+                      <span className={`size-4 rounded flex items-center justify-center shrink-0 ${colMeta.bg}`} title={`Tipo: ${colMeta.label}`}>
                         {colMeta.icon}
                       </span>
-                      <span className={`truncate text-xs ${hasCustomHeaderBg ? 'text-white font-bold' : 'text-slate-800 font-bold group-hover:text-slate-950'}`}>
-                        {headerCell?.value ? String(headerCell.value) : colLabel}
+                      <span className="truncate text-xs text-slate-700 font-bold group-hover:text-slate-950">
+                        {colLabel}
                       </span>
                     </div>
 
