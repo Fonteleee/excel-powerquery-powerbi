@@ -237,14 +237,14 @@ export const TableNodeCard: React.FC<TableNodeCardProps> = ({
                 {/* Field Label & Icon */}
                 <div className="flex items-center gap-2 truncate pr-2">
                   {getFieldTypeIcon(col.idx)}
-                  <span className={`truncate text-xs ${col.isKey ? 'font-bold text-slate-900' : 'text-slate-600'}`}>
+                  <span className={`truncate text-xs ${col.isKey ? 'font-bold text-slate-900' : 'text-slate-800 font-semibold'}`}>
                     {col.name}
                   </span>
-                  {col.isKey && <span className="text-amber-500 text-[10px] font-bold">*</span>}
+                  {col.isKey && <span className="text-amber-600 text-[10px] font-bold">*</span>}
                 </div>
 
                 {/* Column Letter Badge */}
-                <span className="text-[10px] text-slate-400 font-mono shrink-0 group-hover/field:text-indigo-600">
+                <span className="text-[10px] text-slate-600 font-mono font-bold shrink-0 group-hover/field:text-indigo-700">
                   {col.letter}
                 </span>
 

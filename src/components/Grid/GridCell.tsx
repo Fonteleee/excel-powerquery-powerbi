@@ -174,7 +174,7 @@ const GridCellComponent: React.FC<GridCellProps> = ({
   }
 
   const cellStyle: React.CSSProperties = {
-    fontWeight: fmt?.bold ? 700 : 400,
+    fontWeight: fmt?.bold ? 700 : 500,
     fontStyle: fmt?.italic ? 'italic' : 'normal',
     textDecoration: `${fmt?.underline ? 'underline' : ''} ${fmt?.strike ? 'line-through' : ''}`.trim() || 'none',
     color: effectiveTextColor,
@@ -243,7 +243,7 @@ const GridCellComponent: React.FC<GridCellProps> = ({
       onMouseEnter={e => onMouseEnter(e, row, col)}
       onDoubleClick={() => onDoubleClick(row, col)}
       style={mergedStyle}
-      className={`relative px-1.5 py-0.5 text-xs font-sans border-r border-b border-[#e1dfdd] transition-colors select-none overflow-visible ${selectionClass} ${
+      className={`relative px-2 py-1 text-[13px] font-sans border-r border-b border-[#e2e8f0] transition-colors select-none overflow-visible ${selectionClass} ${
         isError ? 'text-rose-600 font-semibold bg-rose-50' : ''
       }`}
     >
@@ -262,7 +262,7 @@ const GridCellComponent: React.FC<GridCellProps> = ({
             e.stopPropagation();
             if (onFillDoubleClick) onFillDoubleClick(row, col);
           }}
-          className="absolute -bottom-0.5 -right-0.5 size-1.5 bg-[#107c41] border border-white z-30 cursor-crosshair shadow-2xs hover:scale-125 transition-transform"
+          className="absolute -bottom-0.5 -right-0.5 size-2 bg-[#107c41] border border-white z-30 cursor-crosshair shadow-2xs hover:scale-125 transition-transform"
         />
       )}
 
@@ -298,7 +298,7 @@ const GridCellComponent: React.FC<GridCellProps> = ({
             onChange={e => onEditChange(e.target.value)}
             onKeyDown={onEditKeyDown}
             onBlur={onEditBlur}
-            className="w-full h-full px-1.5 bg-white text-[#201f1e] text-xs font-sans border-2 border-[#107c41] focus:outline-hidden shadow-md"
+            className="w-full h-full px-2 bg-white text-slate-900 text-[13px] font-sans border-2 border-[#107c41] focus:outline-hidden shadow-md"
           />
           {editValue.startsWith('=') && (
             <FormulaAutocomplete
@@ -312,7 +312,7 @@ const GridCellComponent: React.FC<GridCellProps> = ({
         <div className={`relative z-1 truncate w-full flex items-center ${
           cellStyle.textAlign === 'center' ? 'justify-center' : cellStyle.textAlign === 'right' ? 'justify-end' : 'justify-start'
         }`}>
-          <span className={`truncate ${typeof cellVal === 'number' || /^\d{2}:\d{2}/.test(String(cellVal)) ? 'font-mono tabular-nums' : 'font-sans'}`}>
+          <span className={`truncate text-slate-900 ${typeof cellVal === 'number' || /^\d{2}:\d{2}/.test(String(cellVal)) ? 'font-mono tabular-nums font-semibold text-[13px]' : 'font-sans text-[13px]'}`}>
             {displayFormatted}
           </span>
         </div>

@@ -121,11 +121,11 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
                   }}
                   className={`flex-1 flex items-center gap-2 px-2 py-1.5 rounded-md text-xs cursor-pointer transition-colors ${
                     isActive && activeView === 'spreadsheet'
-                      ? 'bg-indigo-50/80 text-indigo-900 font-semibold'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      ? 'bg-indigo-50 text-indigo-950 font-bold border border-indigo-200/50'
+                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-950 font-semibold'
                   }`}
                 >
-                  <TableIcon className={`size-3.5 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
+                  <TableIcon className={`size-3.5 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-500'}`} />
                   <span className="truncate">{cleanName}</span>
                 </div>
                 {onDeleteSheet && (
@@ -136,7 +136,7 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
                         onDeleteSheet(sheet.id);
                       }
                     }}
-                    className="p-1 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded cursor-pointer transition-all"
+                    className="p-1 opacity-0 group-hover:opacity-100 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded cursor-pointer transition-all"
                   >
                     <Trash2 className="size-3" />
                   </button>
@@ -150,11 +150,11 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
                     onClick={() => onSelectView('spreadsheet')}
                     className={`w-full min-h-[32px] flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors btn-tactile cursor-pointer ${
                       activeView === 'spreadsheet'
-                        ? 'bg-indigo-100/70 text-indigo-700 font-semibold shadow-2xs'
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                        ? 'bg-indigo-100/80 text-indigo-900 font-bold shadow-2xs'
+                        : 'text-slate-700 font-semibold hover:bg-slate-50 hover:text-slate-950'
                     }`}
                   >
-                    <TableIcon className="size-3.5 text-indigo-500 shrink-0" />
+                    <TableIcon className="size-3.5 text-indigo-600 shrink-0" />
                     <span className="truncate">{cleanName} (Grid)</span>
                   </button>
 
@@ -162,11 +162,11 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
                     onClick={() => onSelectView('relations')}
                     className={`w-full min-h-[32px] flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors btn-tactile cursor-pointer ${
                       activeView === 'relations'
-                        ? 'bg-indigo-100/70 text-indigo-700 font-semibold shadow-2xs'
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                        ? 'bg-indigo-100/80 text-indigo-900 font-bold shadow-2xs'
+                        : 'text-slate-700 font-semibold hover:bg-slate-50 hover:text-slate-950'
                     }`}
                   >
-                    <GitBranch className="size-3.5 text-indigo-500 shrink-0" />
+                    <GitBranch className="size-3.5 text-indigo-600 shrink-0" />
                     <span className="truncate">Relacionamentos</span>
                   </button>
 
@@ -174,11 +174,11 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
                     onClick={() => onSelectView('powerbi')}
                     className={`w-full min-h-[32px] flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors btn-tactile cursor-pointer ${
                       activeView === 'powerbi'
-                        ? 'bg-emerald-100/70 text-emerald-700 font-semibold shadow-2xs'
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                        ? 'bg-emerald-100/80 text-emerald-900 font-bold shadow-2xs'
+                        : 'text-slate-700 font-semibold hover:bg-slate-50 hover:text-slate-950'
                     }`}
                   >
-                    <LayoutDashboard className="size-3.5 text-emerald-500 shrink-0" />
+                    <LayoutDashboard className="size-3.5 text-emerald-600 shrink-0" />
                     <span className="truncate">Painel Analítico (BI)</span>
                   </button>
 
@@ -186,11 +186,11 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
                     onClick={() => onSelectView('powerquery')}
                     className={`w-full min-h-[32px] flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors btn-tactile cursor-pointer ${
                       activeView === 'powerquery'
-                        ? 'bg-purple-100/70 text-purple-700 font-semibold shadow-2xs'
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                        ? 'bg-purple-100/80 text-purple-900 font-bold shadow-2xs'
+                        : 'text-slate-700 font-semibold hover:bg-slate-50 hover:text-slate-950'
                     }`}
                   >
-                    <Layers className="size-3.5 text-purple-500 shrink-0" />
+                    <Layers className="size-3.5 text-purple-600 shrink-0" />
                     <span className="truncate">Power Query (ETL)</span>
                   </button>
                 </div>

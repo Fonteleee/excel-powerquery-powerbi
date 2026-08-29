@@ -70,7 +70,7 @@ export function createSalesSampleSheet(id = 'sheet-sales', name = 'Consolidado c
         bgColor: '#107c41', // Classic Microsoft Excel Green
         textColor: '#ffffff',
         align: col >= 6 && col <= 10 ? 'right' : 'left',
-        fontSize: 11,
+        fontSize: 13,
       },
     };
   });
@@ -197,7 +197,7 @@ export function createHRStaffSampleSheet(id = 'sheet-hr', name = 'RH & Folha de 
         bgColor: '#1e40af', // Deep blue
         textColor: '#ffffff',
         align: col >= 4 && col <= 9 ? 'right' : 'left',
-        fontSize: 11,
+        fontSize: 13,
       },
     };
   });
@@ -276,7 +276,7 @@ export function createFinancialBudgetSheet(id = 'sheet-finance', name = 'Orçame
         bgColor: '#7c3aed', // Purple
         textColor: '#ffffff',
         align: col >= 3 && col <= 6 ? 'right' : col === 7 ? 'center' : 'left',
-        fontSize: 11,
+        fontSize: 13,
       },
     };
   });
@@ -297,7 +297,7 @@ export function createFinancialBudgetSheet(id = 'sheet-finance', name = 'Orçame
       const key = cellPosToKey(rowNum, colIndex);
       let format: CellData['format'] = {
         align: colIndex >= 3 && colIndex <= 6 ? 'right' : colIndex === 7 ? 'center' : 'left',
-        textColor: '#1e293b',
+        textColor: '#0f172a',
       };
 
       if (colIndex === 3 || colIndex === 4 || colIndex === 5) {
@@ -369,9 +369,9 @@ export function createAgentPauseSampleSheet(
       value: h,
       format: {
         bold: true,
-        textColor: '#334155',
+        textColor: '#0f172a',
         align: col === 0 || col === 3 ? 'center' : col >= 8 && col <= 12 ? 'right' : 'left',
-        fontSize: 11,
+        fontSize: 13,
       },
     };
   });

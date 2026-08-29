@@ -1414,7 +1414,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                   endCol: sheet.colCount - 1,
                 });
               }}
-              className="sticky left-0 z-30 w-10 h-7 bg-[#f8fafc] border-r border-b border-[#e2e8f0] select-none cursor-pointer hover:bg-slate-100 transition-colors text-center text-slate-500 font-mono text-xs"
+              className="sticky left-0 z-30 w-10 h-8 bg-[#f8fafc] border-r border-b border-[#e2e8f0] select-none cursor-pointer hover:bg-slate-100 transition-colors text-center text-slate-700 font-mono text-xs font-bold"
             >
               #
             </th>
@@ -1444,12 +1444,12 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                     backgroundColor: hasCustomHeaderBg ? headerBgColor : undefined,
                     color: hasCustomHeaderBg ? headerTextColor : undefined,
                   }}
-                  className={`relative h-7 border-r border-b border-[#e2e8f0] text-xs font-sans font-medium transition-colors cursor-pointer select-none group ${
+                  className={`relative h-8 border-r border-b border-[#e2e8f0] text-xs font-sans font-semibold transition-colors cursor-pointer select-none group ${
                     hasCustomHeaderBg
                       ? 'shadow-xs font-bold'
                       : isColSelected || isColActive
-                      ? 'bg-indigo-50/80 text-indigo-900 font-semibold'
-                      : 'bg-[#f8fafc] text-slate-700 hover:bg-slate-100'
+                      ? 'bg-indigo-50 text-indigo-950 font-bold'
+                      : 'bg-[#f8fafc] text-slate-800 hover:bg-slate-100'
                   }`}
                   onMouseDown={e => handleColHeaderMouseDown(e, colIdx)}
                   onMouseEnter={e => handleColHeaderMouseEnter(e, colIdx)}
@@ -1459,7 +1459,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                       <span className={`size-4 rounded flex items-center justify-center shrink-0 ${hasCustomHeaderBg ? 'bg-white/20 text-white backdrop-blur-xs' : colMeta.bg}`} title={`Tipo: ${colMeta.label}`}>
                         {colMeta.icon}
                       </span>
-                      <span className={`truncate text-xs ${hasCustomHeaderBg ? 'text-white font-bold' : 'text-slate-700 font-semibold group-hover:text-slate-900'}`}>
+                      <span className={`truncate text-xs ${hasCustomHeaderBg ? 'text-white font-bold' : 'text-slate-800 font-bold group-hover:text-slate-950'}`}>
                         {headerCell?.value ? String(headerCell.value) : colLabel}
                       </span>
                     </div>
@@ -1477,7 +1477,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                         className={`absolute right-1 p-0.5 rounded transition-all cursor-pointer ${
                           isColFiltered
                             ? 'bg-indigo-600 text-white shadow-2xs'
-                            : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-200'
+                            : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-200'
                         }`}
                       >
                         <FilterIcon className="size-2.5" />
@@ -1527,21 +1527,21 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
             const isRowSelected =
               rowIdx >= selectedRange.startRow && rowIdx <= selectedRange.endRow;
             const isRowActive = rowIdx === activeCell.row;
-            const height = sheet.rowHeights[rowIdx] || 24;
+            const height = sheet.rowHeights[rowIdx] || 26;
 
             return (
               <tr key={rowIdx} style={{ height: `${height}px` }}>
                 {/* Sticky Row Number (Left column) - NocoDB # Column */}
                 <th
-                  className={`sticky left-0 z-10 w-10 border-r border-b border-[#e2e8f0] text-[11px] font-mono select-none transition-colors cursor-pointer text-center ${
+                  className={`sticky left-0 z-10 w-10 border-r border-b border-[#e2e8f0] text-xs font-mono select-none transition-colors cursor-pointer text-center ${
                     isRowSelected || isRowActive
-                      ? 'bg-indigo-50 text-indigo-700 font-bold border-r-2 border-r-indigo-600'
-                      : 'bg-[#f8fafc] text-slate-500 hover:bg-slate-100'
+                      ? 'bg-indigo-50 text-indigo-950 font-bold border-r-2 border-r-indigo-600'
+                      : 'bg-[#f8fafc] text-slate-700 font-bold hover:bg-slate-100'
                   }`}
                   onMouseDown={e => handleRowHeaderMouseDown(e, rowIdx)}
                   onMouseEnter={e => handleRowHeaderMouseEnter(e, rowIdx)}
                 >
-                  <div className="relative h-full flex items-center justify-center font-mono text-[11px]">
+                  <div className="relative h-full flex items-center justify-center font-mono text-xs font-bold">
                     {rowIdx + 1}
                     <div
                       onMouseDown={e => handleRowResizeMouseDown(e, rowIdx)}

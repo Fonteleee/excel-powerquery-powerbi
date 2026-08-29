@@ -300,11 +300,11 @@ export const RelationConfigModal: React.FC<RelationConfigModalProps> = ({
                   activeStep === step.num
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                     : activeStep > step.num
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
               >
-                {activeStep > step.num ? <CheckCircle2 className="size-3 text-emerald-600" /> : null}
+                {activeStep > step.num ? <CheckCircle2 className="size-3 text-emerald-700" /> : null}
                 <span>{step.label}</span>
               </button>
             ))}
@@ -316,7 +316,7 @@ export const RelationConfigModal: React.FC<RelationConfigModalProps> = ({
           {/* PASSO 1: TIPO DE AÇÃO */}
           {activeStep === 1 && (
             <div className="space-y-3 animate-in fade-in duration-150">
-              <div className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+              <div className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
                 Passo 1: Qual operação você deseja realizar?
               </div>
               <div className="grid grid-cols-1 gap-2.5">
@@ -341,11 +341,11 @@ export const RelationConfigModal: React.FC<RelationConfigModalProps> = ({
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-slate-900">{opt.name}</span>
-                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                             {opt.badge}
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-1">{opt.desc}</p>
+                        <p className="text-[11px] text-slate-600 font-medium mt-1">{opt.desc}</p>
                       </div>
                     </div>
                     {formulaType === opt.type && (

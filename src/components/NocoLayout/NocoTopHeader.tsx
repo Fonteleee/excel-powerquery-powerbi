@@ -82,9 +82,9 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
         </div>
 
         {/* Breadcrumb Path */}
-        <div className="flex items-center gap-1.5 text-xs text-slate-600">
-          <span className="hover:text-slate-900 cursor-pointer font-medium">Espaço_de_Trabalho</span>
-          <span className="text-slate-300">/</span>
+        <div className="flex items-center gap-1.5 text-xs text-slate-800 font-semibold">
+          <span className="hover:text-slate-950 cursor-pointer">Espaço_de_Trabalho</span>
+          <span className="text-slate-400">/</span>
           
           {isRenaming ? (
             <input
@@ -117,13 +117,13 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
         </div>
 
         {/* View Switcher Tabs (Dados vs Relacionamentos vs Painel BI) */}
-        <div className="flex items-center bg-slate-100/90 p-0.5 rounded-lg border border-slate-200 ml-2">
+        <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 ml-2">
           <button
             onClick={() => onSelectView('spreadsheet')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all btn-tactile cursor-pointer ${
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all btn-tactile cursor-pointer ${
               activeView === 'spreadsheet'
-                ? 'bg-white text-indigo-700 shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-indigo-900 shadow-xs font-bold border border-slate-200/60'
+                : 'text-slate-700 hover:text-slate-950'
             }`}
           >
             <TableIcon className="size-3.5 text-indigo-600" />
@@ -132,10 +132,10 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
 
           <button
             onClick={() => onSelectView('relations')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all btn-tactile cursor-pointer ${
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all btn-tactile cursor-pointer ${
               activeView === 'relations'
-                ? 'bg-white text-indigo-700 shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-indigo-900 shadow-xs font-bold border border-slate-200/60'
+                : 'text-slate-700 hover:text-slate-950'
             }`}
           >
             <GitBranch className="size-3.5 text-indigo-600" />
@@ -144,10 +144,10 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
 
           <button
             onClick={() => onSelectView('powerbi')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all btn-tactile cursor-pointer ${
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all btn-tactile cursor-pointer ${
               activeView === 'powerbi'
-                ? 'bg-white text-emerald-700 shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-emerald-900 shadow-xs font-bold border border-slate-200/60'
+                : 'text-slate-700 hover:text-slate-950'
             }`}
           >
             <LayoutDashboard className="size-3.5 text-emerald-600" />
@@ -162,14 +162,14 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
         <button
           onClick={onUndo}
           title="Desfazer (Ctrl+Z)"
-          className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors btn-tactile cursor-pointer"
+          className="p-1.5 rounded-md text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors btn-tactile cursor-pointer"
         >
           <Undo2 className="size-3.5" />
         </button>
         <button
           onClick={onRedo}
           title="Refazer (Ctrl+Y)"
-          className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors btn-tactile cursor-pointer"
+          className="p-1.5 rounded-md text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors btn-tactile cursor-pointer"
         >
           <Redo2 className="size-3.5" />
         </button>
@@ -178,7 +178,7 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
         <button
           onClick={onRefresh}
           title="Recalcular Planilha / Atualizar"
-          className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors btn-tactile cursor-pointer"
+          className="p-1.5 rounded-md text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors btn-tactile cursor-pointer"
         >
           <RefreshCw className="size-3.5" />
         </button>
@@ -187,9 +187,9 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
         <button
           onClick={onOpenImportModal}
           title="Importar Arquivo (CSV / Excel)"
-          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors btn-tactile cursor-pointer"
+          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold text-slate-800 hover:bg-slate-100 border border-slate-200 transition-colors btn-tactile cursor-pointer"
         >
-          <Upload className="size-3.5 text-slate-500" />
+          <Upload className="size-3.5 text-slate-700" />
           <span>Importar</span>
         </button>
 
@@ -197,9 +197,9 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
         <button
           onClick={onExportExcel}
           title="Exportar para Excel (.XLSX)"
-          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors btn-tactile cursor-pointer"
+          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold text-slate-800 hover:bg-slate-100 border border-slate-200 transition-colors btn-tactile cursor-pointer"
         >
-          <Download className="size-3.5 text-slate-500" />
+          <Download className="size-3.5 text-slate-700" />
           <span>Exportar</span>
         </button>
 
