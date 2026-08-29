@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Sparkles,
   Trash2,
+  Layers,
 } from 'lucide-react';
 import { Sheet } from '../../types/spreadsheet';
 
@@ -144,52 +145,52 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
 
               {/* Sub-views (Grid, Relational Diagram, PowerBI Dashboard, Power Query) when Table is Active */}
               {isActive && (
-                <div className="pl-4 space-y-0.5 pt-0.5 border-l border-slate-200 ml-3">
+                <div className="pl-4 space-y-1 pt-1 border-l border-slate-200 ml-3">
                   <button
                     onClick={() => onSelectView('spreadsheet')}
-                    className={`w-full flex items-center gap-2 px-2 py-1 rounded text-xs transition-colors cursor-pointer ${
+                    className={`w-full min-h-[32px] flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors btn-tactile cursor-pointer ${
                       activeView === 'spreadsheet'
-                        ? 'bg-indigo-100/70 text-indigo-700 font-medium'
-                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                        ? 'bg-indigo-100/70 text-indigo-700 font-semibold shadow-2xs'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                     }`}
                   >
-                    <TableIcon className="size-3 text-indigo-500" />
+                    <TableIcon className="size-3.5 text-indigo-500 shrink-0" />
                     <span className="truncate">{cleanName} (Grid)</span>
                   </button>
 
                   <button
                     onClick={() => onSelectView('relations')}
-                    className={`w-full flex items-center gap-2 px-2 py-1 rounded text-xs transition-colors cursor-pointer ${
+                    className={`w-full min-h-[32px] flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors btn-tactile cursor-pointer ${
                       activeView === 'relations'
-                        ? 'bg-indigo-100/70 text-indigo-700 font-medium'
-                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                        ? 'bg-indigo-100/70 text-indigo-700 font-semibold shadow-2xs'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                     }`}
                   >
-                    <Sparkles className="size-3 text-indigo-500" />
+                    <GitBranch className="size-3.5 text-indigo-500 shrink-0" />
                     <span className="truncate">Relacionamentos</span>
                   </button>
 
                   <button
                     onClick={() => onSelectView('powerbi')}
-                    className={`w-full flex items-center gap-2 px-2 py-1 rounded text-xs transition-colors cursor-pointer ${
+                    className={`w-full min-h-[32px] flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors btn-tactile cursor-pointer ${
                       activeView === 'powerbi'
-                        ? 'bg-indigo-100/70 text-indigo-700 font-medium'
-                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                        ? 'bg-emerald-100/70 text-emerald-700 font-semibold shadow-2xs'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                     }`}
                   >
-                    <LayoutDashboard className="size-3 text-emerald-500" />
+                    <LayoutDashboard className="size-3.5 text-emerald-500 shrink-0" />
                     <span className="truncate">Painel Analítico (BI)</span>
                   </button>
 
                   <button
                     onClick={() => onSelectView('powerquery')}
-                    className={`w-full flex items-center gap-2 px-2 py-1 rounded text-xs transition-colors cursor-pointer ${
+                    className={`w-full min-h-[32px] flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors btn-tactile cursor-pointer ${
                       activeView === 'powerquery'
-                        ? 'bg-indigo-100/70 text-indigo-700 font-medium'
-                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                        ? 'bg-purple-100/70 text-purple-700 font-semibold shadow-2xs'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                     }`}
                   >
-                    <GitBranch className="size-3 text-purple-500" />
+                    <Layers className="size-3.5 text-purple-500 shrink-0" />
                     <span className="truncate">Power Query (ETL)</span>
                   </button>
                 </div>

@@ -277,7 +277,8 @@ export const RelationConfigModal: React.FC<RelationConfigModalProps> = ({
             </div>
             <button
               onClick={onClose}
-              className="size-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              aria-label="Fechar assistente de cruzamento"
+              className="size-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors btn-tactile cursor-pointer"
             >
               <X className="size-4" />
             </button>
@@ -557,7 +558,7 @@ export const RelationConfigModal: React.FC<RelationConfigModalProps> = ({
                   <tbody className="divide-y divide-slate-100">
                     {previewRows.map(row => (
                       <tr key={row.rowIdx} className="hover:bg-slate-50/60">
-                        <td className="p-2.5 text-center font-mono text-[10px] text-slate-400 font-bold">
+                        <td className="p-2.5 text-center font-mono text-[10px] text-slate-600 font-bold">
                           #{row.rowIdx}
                         </td>
                         <td className="p-2.5 font-semibold text-slate-800">

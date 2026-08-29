@@ -5,6 +5,7 @@ import {
   Layers,
   ArrowUpDown,
   Palette,
+  Paintbrush,
   Rows3,
   Search,
   FunctionSquare,
@@ -58,18 +59,18 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
   };
 
   return (
-    <div className="h-10 bg-white border-b border-[#e2e8f0] px-3 flex items-center justify-between gap-2 select-none z-10 font-sans">
+    <div className="h-9 bg-white border-b border-[#e2e8f0] px-3 flex items-center justify-between gap-2 select-none z-10 font-sans">
       {/* Left Action Buttons */}
       <div className="flex items-center gap-1">
         {/* Campos (Colunas) */}
         <button
           onClick={onOpenFields}
           title="Configurar e visualizar campos"
-          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors btn-tactile cursor-pointer"
         >
-          <SlidersHorizontal className="size-3.5 text-slate-500" />
+          <SlidersHorizontal className="size-3.5 text-slate-500" strokeWidth={1.85} />
           <span>Campos</span>
-          <span className="px-1.5 py-0.2 bg-indigo-50 text-indigo-700 font-bold rounded-full text-[10px]">
+          <span className="h-4 px-1.5 inline-flex items-center justify-center bg-indigo-50 text-indigo-700 font-bold rounded-full text-[10px] leading-none">
             {sheet.colCount}
           </span>
         </button>
@@ -78,9 +79,9 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
         <button
           onClick={onOpenFindReplace}
           title="Filtrar dados da tabela"
-          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors btn-tactile cursor-pointer"
         >
-          <Filter className="size-3.5 text-slate-500" />
+          <Filter className="size-3.5 text-slate-500" strokeWidth={1.85} />
           <span>Filtro</span>
         </button>
 
@@ -88,9 +89,9 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
         <button
           onClick={onOpenSort}
           title="Agrupar e ordenar registros"
-          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors btn-tactile cursor-pointer"
         >
-          <Layers className="size-3.5 text-slate-500" />
+          <Layers className="size-3.5 text-slate-500" strokeWidth={1.85} />
           <span>Agrupar</span>
         </button>
 
@@ -98,9 +99,9 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
         <button
           onClick={onOpenSort}
           title="Classificar e ordenar linhas"
-          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors btn-tactile cursor-pointer"
         >
-          <ArrowUpDown className="size-3.5 text-slate-500" />
+          <ArrowUpDown className="size-3.5 text-slate-500" strokeWidth={1.85} />
           <span>Ordenar</span>
         </button>
 
@@ -109,9 +110,9 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
           <button
             onClick={onOpenFormat}
             title="Formatação de Células, Cores, Fontes, Moeda e Tempo"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold text-indigo-700 hover:bg-indigo-50 bg-indigo-50/50 border border-indigo-200 transition-colors cursor-pointer"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold text-indigo-700 hover:bg-indigo-50 bg-indigo-50/50 border border-indigo-200 transition-colors btn-tactile cursor-pointer"
           >
-            <Palette className="size-3.5 text-indigo-600" />
+            <Paintbrush className="size-3.5 text-indigo-600" strokeWidth={1.85} />
             <span>Formatar</span>
           </button>
         )}
@@ -120,9 +121,9 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
         <button
           onClick={onOpenConditionalFormat}
           title="Formatação Condicional & Escala de Cores"
-          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors btn-tactile cursor-pointer"
         >
-          <Palette className="size-3.5 text-slate-500" />
+          <Palette className="size-3.5 text-slate-500" strokeWidth={1.85} />
           <span>Cores</span>
         </button>
 
@@ -130,9 +131,9 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
         <button
           onClick={onOpenFormulaWizard}
           title="Assistente Inteligente de Fórmulas (fx)"
-          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold text-emerald-700 hover:bg-emerald-50 bg-emerald-50/50 border border-emerald-200 transition-colors cursor-pointer"
+          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold text-emerald-700 hover:bg-emerald-50 bg-emerald-50/50 border border-emerald-200 transition-colors btn-tactile cursor-pointer"
         >
-          <FunctionSquare className="size-3.5 text-emerald-600" />
+          <FunctionSquare className="size-3.5 text-emerald-600" strokeWidth={1.85} />
           <span>fx Fórmulas</span>
         </button>
 
@@ -140,9 +141,9 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
         <button
           onClick={onOpenQuickAnalysis}
           title="Análise Rápida (Ctrl+Q)"
-          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-indigo-700 hover:bg-indigo-50 transition-colors cursor-pointer"
+          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-indigo-700 hover:bg-indigo-50 transition-colors btn-tactile cursor-pointer"
         >
-          <Wand2 className="size-3.5 text-indigo-600" />
+          <Wand2 className="size-3.5 text-indigo-600" strokeWidth={1.85} />
           <span>Análise Rápida</span>
         </button>
       </div>
@@ -167,7 +168,8 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
                   onSearchChange('');
                   setIsSearchActive(false);
                 }}
-                className="text-slate-400 hover:text-slate-600 ml-1 cursor-pointer"
+                aria-label="Limpar pesquisa"
+                className="size-5 rounded flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200 ml-1 cursor-pointer"
               >
                 <X className="size-3" />
               </button>
@@ -176,7 +178,8 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
             <button
               onClick={() => setIsSearchActive(true)}
               title="Pesquisar (Ctrl+F)"
-              className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer"
+              aria-label="Abrir pesquisa"
+              className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors btn-tactile cursor-pointer"
             >
               <Search className="size-3.5" />
             </button>

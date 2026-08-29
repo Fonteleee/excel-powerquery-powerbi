@@ -16,6 +16,16 @@ import {
   Download,
   FileSpreadsheet,
   ChevronDown,
+  Key,
+  Calendar,
+  Clock,
+  DollarSign,
+  Hash,
+  Type,
+  Tag,
+  User,
+  CheckSquare,
+  Paintbrush,
 } from 'lucide-react';
 import { Filter as FilterIcon, Search as SearchIcon } from 'lucide-react';
 import { Sheet, CellPosition, CellRange, CellData, CellFormat } from '../../types/spreadsheet';
@@ -26,23 +36,32 @@ import { colIndexToLabel, cellPosToKey, recalculateSheet, getCellValue, parseNum
 import { detectFlashFill, FlashFillPrediction } from '../../engine/flashFill';
 import { exportSheetToExcel } from '../../utils/excelExporter';
 
-function getNocoColType(sheet: Sheet, colIdx: number): { badge: string; color: string } {
+function getNocoColumnIcon(sheet: Sheet, colIdx: number): { icon: React.ReactNode; bg: string; label: string } {
   const headerCell = sheet.data[cellPosToKey(0, colIdx)];
   const title = String(headerCell?.value || '').toLowerCase();
   
   if (/hora|tempo|dura[cç]|perman|pausa|time/i.test(title)) {
-    return { badge: '⏱', color: 'text-amber-600 bg-amber-50' };
+    return { icon: <Clock className="size-2.5 text-sky-600" strokeWidth={2} />, bg: 'bg-sky-100 border border-sky-200', label: 'Hora' };
   }
-  if (/data|nasc|admiss|date/i.test(title)) {
-    return { badge: '📅', color: 'text-blue-600 bg-blue-50' };
+  if (/data|nasc|admiss|date|criado|created/i.test(title)) {
+    return { icon: <Calendar className="size-2.5 text-emerald-600" strokeWidth={2} />, bg: 'bg-emerald-100 border border-emerald-200', label: 'Data' };
   }
   if (/valor|sal[aá]|pre[cç]|custo|lucro|fatur|r\$|\$/i.test(title)) {
-    return { badge: '💲', color: 'text-emerald-600 bg-emerald-50' };
+    return { icon: <DollarSign className="size-2.5 text-emerald-600" strokeWidth={2} />, bg: 'bg-emerald-100 border border-emerald-200', label: 'Moeda' };
   }
-  if (/agente|id|c[oó]d|num|qtd|total|quant/i.test(title) || typeof headerCell?.value === 'number') {
-    return { badge: '#', color: 'text-purple-600 bg-purple-50' };
+  if (colIdx === 0 || /id|c[oó]d|pk|chave/i.test(title)) {
+    return { icon: <Key className="size-2.5 text-amber-600" strokeWidth={2} />, bg: 'bg-amber-100 border border-amber-200', label: 'ID' };
   }
-  return { badge: 'T', color: 'text-slate-500 bg-slate-100' };
+  if (/agente|user|usuario|autor/i.test(title)) {
+    return { icon: <User className="size-2.5 text-cyan-600" strokeWidth={2} />, bg: 'bg-cyan-100 border border-cyan-200', label: 'Usuário' };
+  }
+  if (/estado|status|motivo|tipo|setor/i.test(title)) {
+    return { icon: <Tag className="size-2.5 text-indigo-600" strokeWidth={2} />, bg: 'bg-indigo-100 border border-indigo-200', label: 'Status' };
+  }
+  if (/num|qtd|total|quant|order|nc_/i.test(title) || typeof headerCell?.value === 'number') {
+    return { icon: <Hash className="size-2.5 text-purple-600" strokeWidth={2} />, bg: 'bg-purple-100 border border-purple-200', label: 'Número' };
+  }
+  return { icon: <Type className="size-2.5 text-slate-500" strokeWidth={2} />, bg: 'bg-slate-100 border border-slate-200', label: 'Texto' };
 }
 
 interface SpreadsheetGridProps {
@@ -1409,7 +1428,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
               const isColFiltered = Boolean(sheet.filters?.[colIdx]);
               const headerCell = sheet.data[cellPosToKey(0, colIdx)];
               const colHeaderTitle = headerCell?.value || colLabel;
-              const colType = getNocoColType(sheet, colIdx);
+              const colMeta = getNocoColumnIcon(sheet, colIdx);
 
               const hasCustomHeaderBg = Boolean(headerCell?.format?.bgColor);
               const headerBgColor = headerCell?.format?.bgColor;
@@ -1437,10 +1456,10 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                 >
                   <div className="flex items-center justify-between px-2 font-sans relative w-full h-full">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className={`size-4 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${hasCustomHeaderBg ? 'bg-white/20 text-white' : colType.color}`}>
-                        {hasCustomHeaderBg ? '⚡' : colType.badge}
+                      <span className={`size-4 rounded flex items-center justify-center shrink-0 ${hasCustomHeaderBg ? 'bg-white/20 text-white backdrop-blur-xs' : colMeta.bg}`} title={`Tipo: ${colMeta.label}`}>
+                        {colMeta.icon}
                       </span>
-                      <span className={`truncate text-xs font-medium ${hasCustomHeaderBg ? 'text-white font-bold' : 'text-slate-700'}`}>
+                      <span className={`truncate text-xs ${hasCustomHeaderBg ? 'text-white font-bold' : 'text-slate-700 font-semibold group-hover:text-slate-900'}`}>
                         {headerCell?.value ? String(headerCell.value) : colLabel}
                       </span>
                     </div>
@@ -1745,13 +1764,13 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
             {onOpenFormatModal && (
               <button
                 onClick={onOpenFormatModal}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-indigo-50 hover:text-indigo-800 transition-colors text-left cursor-pointer font-bold text-indigo-700"
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-indigo-50 hover:text-indigo-800 transition-colors text-left cursor-pointer font-bold text-indigo-700 btn-tactile"
               >
                 <span className="flex items-center gap-2">
-                  <Palette className="size-3.5" />
+                  <Paintbrush className="size-3.5 text-indigo-600" />
                   Formatar Células / Cores & Tipos
                 </span>
-                <span className="text-[10px] bg-indigo-100 text-indigo-800 px-1 rounded font-mono">Format</span>
+                <kbd className="text-[10px] bg-indigo-100 border border-indigo-200 text-indigo-800 px-1.5 py-0.5 rounded font-mono font-bold">Ctrl+1</kbd>
               </button>
             )}
 
@@ -1868,9 +1887,10 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={onToggleCopilot}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-white font-semibold text-xs shadow-md hover:opacity-95 transition-opacity cursor-pointer"
+              aria-label="Abrir assistente NocoAI"
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/90 hover:bg-slate-900 text-violet-200 border border-violet-500/40 font-bold text-xs shadow-lg backdrop-blur-xs hover:shadow-violet-500/20 hover:scale-105 btn-tactile cursor-pointer"
             >
-              <Sparkles className="size-3.5" />
+              <Sparkles className="size-3.5 text-violet-400 animate-pulse" />
               <span>NocoAI</span>
             </button>
           </div>

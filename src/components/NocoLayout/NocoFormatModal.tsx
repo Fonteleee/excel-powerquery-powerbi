@@ -150,7 +150,8 @@ export const NocoFormatModal: React.FC<NocoFormatModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="size-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+            aria-label="Fechar janela de formatação"
+            className="size-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors btn-tactile cursor-pointer"
           >
             <X className="size-4" />
           </button>
@@ -396,12 +397,14 @@ export const NocoFormatModal: React.FC<NocoFormatModalProps> = ({
                   type="button"
                   onClick={() => setBgColor(c.val)}
                   title={c.label}
-                  className={`h-7 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
+                  className={`h-7 rounded-lg border flex items-center justify-center transition-all btn-tactile cursor-pointer ${
                     bgColor === c.val ? 'ring-2 ring-indigo-500 scale-105 shadow-xs' : 'hover:opacity-80'
                   }`}
                   style={{ backgroundColor: c.val, borderColor: c.border || c.val }}
                 >
-                  {bgColor === c.val && <Check className="size-3.5 text-slate-700" />}
+                  {bgColor === c.val && (
+                    <Check className={`size-3.5 ${c.text ? 'text-white' : 'text-slate-800'}`} />
+                  )}
                 </button>
               ))}
             </div>

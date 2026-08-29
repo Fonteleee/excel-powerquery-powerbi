@@ -2,38 +2,83 @@
 
 @layer base {
   :root {
-    --font-sans: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Aptos', 'Roboto', sans-serif;
-    --font-mono: 'Consolas', 'Segoe UI Mono', 'Courier New', monospace;
+    --font-sans: 'Plus Jakarta Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Aptos', 'Roboto', sans-serif;
+    --font-mono: 'JetBrains Mono', 'Consolas', 'Segoe UI Mono', monospace;
+
+    /* NocoDB / Master Cockpit Luxury Palette */
+    --surface-canvas: #f8fafc;
+    --surface-subtle: #f1f5f9;
+    --surface-raised: #ffffff;
+    --surface-overlay: #ffffff;
+    --surface-sunken: #eaedf1;
 
     /* Office 365 Web / Excel Online Exact Palette */
-    --office-chrome: #f5f5f5;
-    --office-chrome-hover: #ebebeb;
-    --office-border: #e0e0e0;
-    --office-grid: #e1dfdd;
-    --office-text: #242424;
-    --office-text-secondary: #505050;
-    --office-text-muted: #707070;
+    --office-chrome: #f8fafc;
+    --office-chrome-hover: #f1f5f9;
+    --office-border: #e2e8f0;
+    --office-grid: #e2e8f0;
+    --office-text: #0f172a;
+    --office-text-secondary: #334155;
+    --office-text-muted: #64748b;
     --office-green: #107c41;
     --office-green-hover: #0e6b37;
     --office-green-highlight: #dff6dd;
     --office-green-tint: rgba(16, 124, 65, 0.08);
   }
 
-  body {
+  html, body {
     font-family: var(--font-sans);
     user-select: none;
     -webkit-user-select: none;
-    background-color: #f5f5f5;
-    color: #242424;
+    background-color: #f8fafc;
+    color: #0f172a;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-size: 11px;
+    overscroll-behavior: none;
   }
 
   /* Force tabular numbers in table cells & metric labels */
   table, th, td, .tabular-nums {
     font-variant-numeric: tabular-nums;
   }
+
+  /* Global WCAG 2.4.7 Dual-Ring Focus Indicator */
+  :focus-visible {
+    outline: 2px solid #4f46e5 !important;
+    outline-offset: 2px !important;
+  }
+
+  /* WCAG 2.3.3 Reduced Motion Preservation */
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Tactile Micro-Interactions */
+.btn-tactile {
+  transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1), background-color 150ms ease, box-shadow 150ms ease;
+}
+.btn-tactile:active {
+  transform: scale(0.96);
+}
+
+@keyframes wire-flow {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.wire-animated-flow {
+  animation: wire-flow 1.2s linear infinite;
 }
 
 /* Excel Online Scrollbars */

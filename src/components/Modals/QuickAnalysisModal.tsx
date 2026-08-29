@@ -78,7 +78,8 @@ export const QuickAnalysisModal: React.FC<QuickAnalysisModalProps> = ({
 
           <button
             onClick={onClose}
-            className="size-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-200 transition-colors cursor-pointer"
+            aria-label="Fechar análise rápida"
+            className="size-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-200 transition-colors btn-tactile cursor-pointer"
           >
             <X className="size-4" />
           </button>
@@ -172,7 +173,7 @@ export const QuickAnalysisModal: React.FC<QuickAnalysisModalProps> = ({
                     <Sigma className="size-5" />
                   </div>
                   <span className="text-xs font-bold text-slate-900 group-hover:text-emerald-950">Soma na Linha</span>
-                  <span className="text-[11px] text-slate-500">Abaixo de cada coluna</span>
+                  <span className="text-[11px] text-slate-600 font-medium group-hover:text-emerald-900">Abaixo de cada coluna</span>
                 </button>
 
                 <button
@@ -180,13 +181,13 @@ export const QuickAnalysisModal: React.FC<QuickAnalysisModalProps> = ({
                     onInsertTotals('AVG', 'col');
                     onClose();
                   }}
-                  className="flex flex-col items-center justify-center p-3.5 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-400 transition-all text-center group cursor-pointer shadow-2xs hover:shadow-xs"
+                  className="flex flex-col items-center justify-center p-3.5 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-400 transition-all text-center group btn-tactile cursor-pointer shadow-2xs hover:shadow-xs"
                 >
                   <div className="p-2.5 rounded-xl bg-blue-100 text-blue-800 group-hover:bg-blue-700 group-hover:text-white transition-colors mb-2">
                     <Activity className="size-5" />
                   </div>
                   <span className="text-xs font-bold text-slate-900 group-hover:text-blue-950">Média na Linha</span>
-                  <span className="text-[11px] text-slate-500">Abaixo da seleção</span>
+                  <span className="text-[11px] text-slate-600 font-medium group-hover:text-blue-900">Abaixo da seleção</span>
                 </button>
 
                 <button

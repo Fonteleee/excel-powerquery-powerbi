@@ -369,8 +369,7 @@ export function createAgentPauseSampleSheet(
       value: h,
       format: {
         bold: true,
-        bgColor: '#4f46e5',
-        textColor: '#ffffff',
+        textColor: '#334155',
         align: col === 0 || col === 3 ? 'center' : col >= 8 && col <= 12 ? 'right' : 'left',
         fontSize: 11,
       },
