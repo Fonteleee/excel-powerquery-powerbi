@@ -16,6 +16,7 @@ import {
   FolderOpen,
   Split,
   Calculator,
+  X,
 } from 'lucide-react';
 import { Sheet } from '../../types/spreadsheet';
 import {
@@ -110,6 +111,37 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
   // View settings
   const [showAllFields, setShowAllFields] = useState<boolean>(true);
   const [showKeysOnly, setShowKeysOnly] = useState<boolean>(false);
+
+  // Onboarding Hint View Limit (Maximum 3 views for new users)
+  const [showOnboardingHint, setShowOnboardingHint] = useState<boolean>(() => {
+    try {
+      const savedCount = parseInt(localStorage.getItem('noco_relations_hint_views') || '0', 10);
+      return isNaN(savedCount) ? true : savedCount < 3;
+    } catch {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      const savedCount = parseInt(localStorage.getItem('noco_relations_hint_views') || '0', 10);
+      const currentCount = isNaN(savedCount) ? 0 : savedCount;
+      if (currentCount < 3) {
+        localStorage.setItem('noco_relations_hint_views', String(currentCount + 1));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleDismissHint = () => {
+    setShowOnboardingHint(false);
+    try {
+      localStorage.setItem('noco_relations_hint_views', '3');
+    } catch {
+      // ignore
+    }
+  };
 
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -328,18 +360,26 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
         onMouseDown={handleCanvasMouseDown}
         className="flex-1 w-full h-full relative overflow-hidden bg-slate-50 cursor-default bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:18px_18px]"
       >
-        {/* Helper Banner for Single Table Mode */}
-        {sheets.length === 1 && edges.length === 0 && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 p-3 bg-white/90 backdrop-blur-md border border-indigo-200 rounded-2xl shadow-lg text-xs text-slate-700 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="size-7 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
-              <Zap className="size-4" />
+        {/* Helper Banner for Single Table Mode (Exibido no máximo 3 vezes para novos usuários) */}
+        {sheets.length === 1 && edges.length === 0 && showOnboardingHint && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 p-3.5 bg-white/95 backdrop-blur-md border border-indigo-200 rounded-2xl shadow-xl text-xs text-slate-700 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300 max-w-xl">
+            <div className="size-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 shadow-2xs">
+              <Zap className="size-4.5" />
             </div>
-            <div>
-              <div className="font-bold text-slate-900">Como conectar colunas na mesma tabela:</div>
-              <div className="text-slate-500 text-[11px]">
-                Arraste do pino azul à direita de um campo (ex: <strong className="text-slate-800">Campo_A</strong>) e solte no pino à esquerda de outro (ex: <strong className="text-slate-800">Campo_B</strong>) para criar fórmulas (Soma, PROCX, Diferença, Concatenação ou Totais).
+            <div className="flex-1 pr-1">
+              <div className="font-bold text-slate-900 text-xs">Como conectar colunas na mesma tabela:</div>
+              <div className="text-slate-600 text-[11px] mt-0.5 leading-relaxed">
+                Arraste do pino azul à direita de um campo (ex: <strong className="text-slate-900 font-bold">Campo_A</strong>) e solte no pino à esquerda de outro (ex: <strong className="text-slate-900 font-bold">Campo_B</strong>) para criar fórmulas (Soma, PROCX, Diferença, Concatenação ou Totais).
               </div>
             </div>
+            <button
+              onClick={handleDismissHint}
+              title="Fechar dica"
+              aria-label="Fechar dica de conexão"
+              className="size-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer shrink-0 btn-tactile"
+            >
+              <X className="size-4" />
+            </button>
           </div>
         )}
 
