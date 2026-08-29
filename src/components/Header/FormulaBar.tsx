@@ -55,7 +55,15 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      onCommitFormula(inputValue);
+      let finalFormula = inputValue;
+      if (finalFormula.startsWith('=')) {
+        const openCount = (finalFormula.match(/\(/g) || []).length;
+        const closeCount = (finalFormula.match(/\)/g) || []).length;
+        if (openCount > closeCount) {
+          finalFormula = finalFormula + ')'.repeat(openCount - closeCount);
+        }
+      }
+      onCommitFormula(finalFormula);
       setIsFocused(false);
       inputRef.current?.blur();
     } else if (e.key === 'Escape') {
@@ -135,7 +143,15 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
         </button>
         <button
           onClick={() => {
-            onCommitFormula(inputValue);
+            let finalFormula = inputValue;
+            if (finalFormula.startsWith('=')) {
+              const openCount = (finalFormula.match(/\(/g) || []).length;
+              const closeCount = (finalFormula.match(/\)/g) || []).length;
+              if (openCount > closeCount) {
+                finalFormula = finalFormula + ')'.repeat(openCount - closeCount);
+              }
+            }
+            onCommitFormula(finalFormula);
             setIsFocused(false);
           }}
           title="Confirmar (Enter)"

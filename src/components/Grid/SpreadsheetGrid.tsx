@@ -806,14 +806,28 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   const commitEdit = () => {
     if (!isEditing) return;
     setIsEditing(false);
+    setIsFormulaPointing(false);
+    setPointAnchor(null);
+    setColSelectAnchor(null);
+    setRowSelectAnchor(null);
 
     const key = cellPosToKey(activeCell.row, activeCell.col);
     const updatedData = { ...sheet.data };
     const prevCell = sheet.data[key];
 
+    // If formula is incomplete (e.g. '=PROCX(B:B; C:C'), auto-close unclosed parentheses before calculating
+    let finalFormula = editValue;
+    if (finalFormula.startsWith('=')) {
+      const openCount = (finalFormula.match(/\(/g) || []).length;
+      const closeCount = (finalFormula.match(/\)/g) || []).length;
+      if (openCount > closeCount) {
+        finalFormula = finalFormula + ')'.repeat(openCount - closeCount);
+      }
+    }
+
     updatedData[key] = {
-      raw: editValue,
-      value: editValue.startsWith('=') ? null : editValue,
+      raw: finalFormula,
+      value: finalFormula.startsWith('=') ? null : finalFormula,
       format: prevCell?.format,
     };
 
@@ -901,10 +915,12 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         return; // Allow cursor positioning inside active cell input
       }
       e.preventDefault();
+      e.stopPropagation();
       setIsFormulaPointing(true);
       setPointAnchor({ row, col });
       const cellAddr = cellPosToAddress({ row, col });
-      const nextFormula = insertOrUpdateReferenceInFormula(editValue, cellAddr, false);
+      const forceNewArg = Boolean(e.ctrlKey || e.metaKey);
+      const nextFormula = insertOrUpdateReferenceInFormula(editValue, cellAddr, false, forceNewArg);
       setEditValue(nextFormula);
       return;
     }
@@ -1043,10 +1059,14 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   const handleRowHeaderMouseDown = (e: React.MouseEvent, rowIdx: number) => {
     if (e.button !== 0) return;
     e.preventDefault();
+    e.stopPropagation();
 
     if (isEditing && editValue.startsWith('=')) {
-      const rowAddr = `A${rowIdx + 1}:${colIndexToLabel(sheet.colCount - 1)}${rowIdx + 1}`;
-      const nextFormula = insertOrUpdateReferenceInFormula(editValue, rowAddr, false);
+      setIsFormulaPointing(true);
+      setRowSelectAnchor(rowIdx);
+      const rowAddr = `${rowIdx + 1}:${rowIdx + 1}`;
+      const forceNewArg = Boolean(e.ctrlKey || e.metaKey);
+      const nextFormula = insertOrUpdateReferenceInFormula(editValue, rowAddr, false, forceNewArg);
       setEditValue(nextFormula);
       return;
     }
@@ -1064,6 +1084,15 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   };
 
   const handleRowHeaderMouseEnter = (e: React.MouseEvent, rowIdx: number) => {
+    if (isFormulaPointing && rowSelectAnchor !== null && (e.buttons & 1) === 1) {
+      const startR = Math.min(rowSelectAnchor, rowIdx);
+      const endR = Math.max(rowSelectAnchor, rowIdx);
+      const rowAddr = startR === endR ? `${startR + 1}:${startR + 1}` : `${startR + 1}:${endR + 1}`;
+      const nextFormula = insertOrUpdateReferenceInFormula(editValue, rowAddr, true);
+      setEditValue(nextFormula);
+      return;
+    }
+
     if ((e.buttons & 1) !== 1) {
       if (isRowSelecting) {
         setIsRowSelecting(false);
@@ -1087,11 +1116,15 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   const handleColHeaderMouseDown = (e: React.MouseEvent, colIdx: number) => {
     if (e.button !== 0) return;
     e.preventDefault();
+    e.stopPropagation();
 
     if (isEditing && editValue.startsWith('=')) {
+      setIsFormulaPointing(true);
+      setColSelectAnchor(colIdx);
       const colLabel = colIndexToLabel(colIdx);
-      const colAddr = `${colLabel}2:${colLabel}${Math.max(sheet.rowCount, 10)}`;
-      const nextFormula = insertOrUpdateReferenceInFormula(editValue, colAddr, false);
+      const colAddr = `${colLabel}:${colLabel}`;
+      const forceNewArg = Boolean(e.ctrlKey || e.metaKey);
+      const nextFormula = insertOrUpdateReferenceInFormula(editValue, colAddr, false, forceNewArg);
       setEditValue(nextFormula);
       return;
     }
@@ -1109,6 +1142,17 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   };
 
   const handleColHeaderMouseEnter = (e: React.MouseEvent, colIdx: number) => {
+    if (isFormulaPointing && colSelectAnchor !== null && (e.buttons & 1) === 1) {
+      const startC = Math.min(colSelectAnchor, colIdx);
+      const endC = Math.max(colSelectAnchor, colIdx);
+      const colLabel1 = colIndexToLabel(startC);
+      const colLabel2 = colIndexToLabel(endC);
+      const colAddr = startC === endC ? `${colLabel1}:${colLabel1}` : `${colLabel1}:${colLabel2}`;
+      const nextFormula = insertOrUpdateReferenceInFormula(editValue, colAddr, true);
+      setEditValue(nextFormula);
+      return;
+    }
+
     if ((e.buttons & 1) !== 1) {
       if (isColSelecting) {
         setIsColSelecting(false);

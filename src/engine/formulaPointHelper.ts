@@ -30,23 +30,14 @@ export interface FormulaReferenceHighlight {
 export function extractReferencesFromFormula(formula: string): FormulaReferenceHighlight[] {
   if (!formula || !formula.startsWith('=')) return [];
 
-  // Match cell and range tokens e.g. A1, B2:B10, $C$4, $D$2:$D$20
-  const refRegex = /\b(\$?[A-Za-z]+\$?[0-9]+(?::\$?[A-Za-z]+\$?[0-9]+)?)\b/g;
+  // Match cell, multi-cell, full-column (B:B), and full-row (2:2) ranges
+  const refRegex = /\b(\$?[A-Za-z]+\$?[0-9]+(?::\$?[A-Za-z]+\$?[0-9]+)?|\$?[A-Za-z]+:\$?[A-Za-z]+|\$?[0-9]+:\$?[0-9]+)\b/g;
   const matches = [...formula.matchAll(refRegex)];
   const result: FormulaReferenceHighlight[] = [];
 
   matches.forEach((m, idx) => {
     const rawAddr = m[1];
-    let range: CellRange | null = null;
-    if (rawAddr.includes(':')) {
-      range = parseRangeAddress(rawAddr);
-    } else {
-      const pos = parseCellAddress(rawAddr);
-      if (pos) {
-        range = { startRow: pos.row, startCol: pos.col, endRow: pos.row, endCol: pos.col };
-      }
-    }
-
+    const range = parseRangeAddress(rawAddr);
     if (range) {
       const color = FORMULA_COLOR_PALETTE[idx % FORMULA_COLOR_PALETTE.length];
       result.push({
@@ -67,7 +58,8 @@ export function extractReferencesFromFormula(formula: string): FormulaReferenceH
 export function insertOrUpdateReferenceInFormula(
   currentFormula: string,
   newAddress: string,
-  isReplacingCurrentPoint: boolean
+  isReplacingCurrentPoint: boolean,
+  forceNewArgument = false
 ): string {
   if (!currentFormula) {
     return `=${newAddress}`;
@@ -83,12 +75,22 @@ export function insertOrUpdateReferenceInFormula(
     return `${formula.trim()}(${newAddress}`;
   }
 
-  // If replacing during an ongoing drag interaction (e.g. dragged from B2 to B10)
-  if (isReplacingCurrentPoint) {
-    const trailingRefRegex = /([A-Za-z0-9_]+!)?\$?[A-Za-z]+\$?[0-9]+(?::\$?[A-Za-z]+\$?[0-9]+)?\s*$/;
+  // Regex matching trailing references: A1, B2:B10, B:B, 2:2, Plan1!A1:B10
+  const trailingRefRegex = /([A-Za-z0-9_]+!)?(?:\$?[A-Za-z]+\$?[0-9]+(?::\$?[A-Za-z]+\$?[0-9]+)?|\$?[A-Za-z]+:\$?[A-Za-z]+|\$?[0-9]+:\$?[0-9]+)\s*$/;
+
+  // If continuing a mouse drag to expand current reference (e.g. B2 -> B2:B10, or B:B -> B:C)
+  if (isReplacingCurrentPoint && !forceNewArgument) {
     if (trailingRefRegex.test(formula)) {
       return formula.replace(trailingRefRegex, newAddress);
     }
+  }
+
+  // If user is adding a new argument with CTRL or clicking next argument
+  if (forceNewArgument) {
+    if (formula.endsWith('(') || /[=+\-*/^&;,<>]\s*$/.test(formula)) {
+      return `${formula.trimEnd()} ${newAddress}`;
+    }
+    return `${formula}; ${newAddress}`;
   }
 
   // If formula ends with open paren '(', operator, or argument separator (';', ',')
@@ -101,7 +103,7 @@ export function insertOrUpdateReferenceInFormula(
     return `${formula}${newAddress}`;
   }
 
-  // Otherwise, default to adding argument separator
+  // Otherwise default to adding argument separator
   return `${formula}; ${newAddress}`;
 }
 
