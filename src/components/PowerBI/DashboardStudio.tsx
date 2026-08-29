@@ -249,7 +249,16 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ sheet, onClose
         </div>
 
         <button
-          onClick={() => exportPivotReportToExcel(sheet, pivotResult, kpis, `Relatorio_${sheet.name}`)}
+          onClick={() =>
+            exportPivotReportToExcel(sheet, pivotResult, kpis, `Relatorio_PowerBI_${sheet.name}`, {
+              dimensionName: activeDimensionProfile?.colName || 'Dimensão',
+              metricName: activeMetricProfile?.colName || 'Valor',
+              chartData,
+              totalSum,
+              avgVal,
+              formatMetricValue,
+            })
+          }
           className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 transition-colors btn-tactile cursor-pointer"
         >
           <Download className="size-3.5" />
