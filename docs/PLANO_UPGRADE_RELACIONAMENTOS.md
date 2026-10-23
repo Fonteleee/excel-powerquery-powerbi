@@ -1,4 +1,4 @@
-# Plano de upgrade: aba de Relacionamentos (excel-powerquery-powerbi)
+﻿# Plano de upgrade: aba de Relacionamentos (excel-powerquery-powerbi)
 
 Base analisada: `Fonteleee/excel-powerquery-powerbi`, branch `main`, commit `3df62b7`.
 Escopo desta fase: estudo, validação das ideias e plano. Nenhum código do projeto foi alterado.
@@ -174,3 +174,12 @@ Nota de arquitetura: o projeto hoje é só front-end, sem banco de dados própri
 - Fase 3 perde "conexão ao vivo com o Excel" e ganha **motor de fórmulas e desempenho** (grafo de dependências no lugar das 3 varreduras completas, Web Worker, colunas tipadas), porque agora o sistema precisa substituir o Excel.
 - A aba `_Flow_v1` no export deixa de ser prioridade de migração e vira recurso de portabilidade do fluxo (continua útil para salvar e reabrir).
 - Lacunas de paridade com o Excel (matrizes dinâmicas, séries no preenchimento, colar HTML, `Ctrl+setas`) já listadas em `plano_arquitetural_excel.md` passam a fazer parte do backlog desta fase.
+
+
+## 9. Atualização de andamento
+
+- Fases 1 e 2 concluídas e mescladas na main (331 testes, tsc e build verdes).
+- Fase 3 (motor de fórmulas, paridade com o Excel, time-travel e cenários) em andamento sobre a main atualizada.
+- Gate Strix removido do plano por decisão do usuário (sem Python no ambiente). As regras de segurança (sem eval, sem HTML não sanitizado, sanitização de injeção de fórmula, chaves proibidas) continuam valendo e são conferidas por testes.
+- Chave Gemini no histórico: era chave de teste; troca fica a cargo do usuário.
+
