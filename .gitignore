@@ -34,3 +34,6 @@ __pycache__/
 *.njsproj
 *.sln
 *.sw?
+
+# Ferramentas locais
+.claude/

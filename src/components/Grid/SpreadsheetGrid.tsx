@@ -861,7 +861,6 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       >
       <table className={`border-collapse table-fixed w-max text-xs bg-white ${!showGridlines ? 'no-gridlines' : ''}`}>
         {/* Table Column Header: Top Left corner (#) + NocoDB Column Types */}
-        <thead className="sticky top-0 z-20 bg-[#f8fafc]">
         <GridHeaderRow
           sheet={sheet}
           activeCell={activeCell}
@@ -882,7 +881,6 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
           handleApplyColumnFilter={handleApplyColumnFilter}
           handleSortColumn={handleSortColumn}
         />
-        </thead>
 
         {/* Table Body with Top/Bottom virtual spacers */}
         <tbody>
