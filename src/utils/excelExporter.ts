@@ -4,6 +4,8 @@ import { Sheet } from '../types/spreadsheet';
 import { cellPosToKey, parseNumberSafely } from '../engine/formulaParser';
 import { PivotResult } from '../types/analytics';
 import { generateBarChartImage, generateDonutChartImage } from './chartImageGenerator';
+import { appendFlowSheet } from '../features/relations/excel/workbook';
+import type { FlowGraph } from '../features/relations/model/graph';
 
 /**
  * Portuguese to Standard English Excel Formula Names Map
@@ -348,7 +350,8 @@ export function buildWorksheetFromSheet(sheet: Sheet): XLSX.WorkSheet {
  */
 export function exportSheetToExcel(
   sheets: Sheet | Sheet[],
-  filename = 'Planilha_Excel_Studio'
+  filename = 'Planilha_Excel_Studio',
+  flowGraph?: FlowGraph
 ): void {
   const sheetArray = Array.isArray(sheets) ? sheets : [sheets];
   const wb = XLSX.utils.book_new();
@@ -358,6 +361,11 @@ export function exportSheetToExcel(
     const cleanName = (sheet.name || 'Planilha').replace(/[\\/?*[\]]/g, '').substring(0, 31);
     XLSX.utils.book_append_sheet(wb, ws, cleanName);
   });
+
+  // Fase 2: o fluxo de Relacionamentos viaja numa aba oculta (_Flow_v1) para ser reimportado.
+  if (flowGraph) {
+    appendFlowSheet(wb, flowGraph, { sheetNames: Object.fromEntries(sheetArray.map(s => [s.id, s.name])) });
+  }
 
   const finalName = filename.endsWith('.xlsx') ? filename : `${filename}.xlsx`;
   XLSX.writeFile(wb, finalName);

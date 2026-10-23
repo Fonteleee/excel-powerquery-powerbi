@@ -18,6 +18,7 @@ import {
   createFinancialBudgetSheet,
 } from '../../data/sampleDatasets';
 import { autoFormatTabularData, parseCSVToAutoFormattedSheet } from '../../utils/csvAutoFormatter';
+import { FlowExportSection } from '../../features/relations/ui/export/FlowExportSection';
 
 
 interface ImportExportModalProps {
@@ -296,6 +297,12 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
             </button>
           </div>
 
+
+          {/* Fase 2: fluxo de Relacionamentos (SQL e aba _Flow_v1 no Excel) */}
+          <div className="space-y-3">
+            <div className="text-xs font-bold text-slate-700 uppercase tracking-wider">Fluxo de Relacionamentos:</div>
+            <FlowExportSection sheets={sheets} />
+          </div>
 
           {/* Load Sample Datasets */}
           <div className="space-y-3">
