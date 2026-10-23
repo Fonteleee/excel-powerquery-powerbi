@@ -29,6 +29,8 @@ export type FlowSheetParseResult =
       /** O checksum não confere: alguém editou a aba à mão (o grafo continua validado). */
       modified: boolean;
       warnings: string[];
+      /** Nome que cada planilha tinha na exportação (para religar por nome em outra sessão). */
+      sheetNames: Map<string, string>;
     }
   | { ok: false; errors: string[] };
 
@@ -58,8 +60,13 @@ function describeNode(node: FlowGraph['nodes'][number]): string {
   return `Transformação ${node.params.op}${label}`;
 }
 
+export interface SerializeOptions {
+  /** Nome atual de cada planilha (id -> nome), gravado para reconectar por nome ao reimportar. */
+  sheetNames?: Readonly<Record<string, string>>;
+}
+
 /** Linhas prontas para virar a aba. Todo texto passa por `sanitizeRows` (injeção de fórmula). */
-export function serializeFlowToRows(graph: FlowGraph): FlowSheetRows {
+export function serializeFlowToRows(graph: FlowGraph, options: SerializeOptions = {}): FlowSheetRows {
   const nodeTexts = graph.nodes.map(node => JSON.stringify(node));
   const edgeTexts = graph.edges.map(edge => JSON.stringify(edge));
   const checksum = flowChecksum([`v${FLOW_SHEET_VERSION}`, ...nodeTexts, ...edgeTexts]);
@@ -72,6 +79,15 @@ export function serializeFlowToRows(graph: FlowGraph): FlowSheetRows {
     ['META', 'arestas', String(graph.edges.length), '', ''],
     ['META', 'checksum', checksum, '', ''],
   ];
+
+  const names = options.sheetNames ?? {};
+  const seenSheets = new Set<string>();
+  for (const node of graph.nodes) {
+    if (node.kind !== 'table' || seenSheets.has(node.sheetId)) continue;
+    seenSheets.add(node.sheetId);
+    const name = Object.prototype.hasOwnProperty.call(names, node.sheetId) ? names[node.sheetId] : undefined;
+    if (typeof name === 'string' && name !== '') rows.push(['SHEET', node.sheetId, name, '', '']);
+  }
 
   graph.nodes.forEach((node, i) => {
     chunkText(nodeTexts[i]).forEach((chunk, part) => {
@@ -108,6 +124,7 @@ export function parseFlowFromRows(rows: readonly (readonly unknown[])[]): FlowSh
   if (rows.length > MAX_ROWS) return { ok: false, errors: [`A aba do fluxo tem linhas demais (limite ${MAX_ROWS})`] };
 
   const meta = new Map<string, string>();
+  const sheetNames = new Map<string, string>();
   const pieces: Piece[] = [];
   const pieceByKey = new Map<string, Piece>();
   let totalChars = 0;
@@ -124,6 +141,8 @@ export function parseFlowFromRows(rows: readonly (readonly unknown[])[]): FlowSh
 
     if (type === 'META') {
       meta.set(id, description);
+    } else if (type === 'SHEET') {
+      if (sheetNames.size < MAX_NODES) sheetNames.set(id, restoreSpreadsheetText(description));
     } else if (type === 'NODE' || type === 'EDGE') {
       if (!json.startsWith(JSON_MARKER)) {
         return { ok: false, errors: [`Linha ${r + 1}: conteúdo JSON sem o marcador "${JSON_MARKER}"`] };
@@ -187,5 +206,5 @@ export function parseFlowFromRows(rows: readonly (readonly unknown[])[]): FlowSh
   const modified = meta.get('checksum') !== checksum || !countsMatch || warnings.length > 0;
   if (modified) warnings.unshift('A aba do fluxo foi editada fora do aplicativo (o checksum não confere)');
 
-  return { ok: true, graph: parsed.graph, modified, warnings };
+  return { ok: true, graph: parsed.graph, modified, warnings, sheetNames };
 }

@@ -76,6 +76,16 @@ describe('serializeFlowToRows / parseFlowFromRows', () => {
     assert.deepEqual(result.warnings, []);
   });
 
+  it('guarda o nome das planilhas (sanitizado) e devolve intacto', () => {
+    const rows = serializeFlowToRows(richGraph(), { sheetNames: { agentes: 'Agentes', pausas: '=Pausas' } });
+    const sheetRows = rows.filter(r => r[0] === 'SHEET');
+    assert.deepEqual(sheetRows.map(r => r.slice(1, 3)), [['agentes', 'Agentes'], ['pausas', "'=Pausas"]]);
+    const result = parseFlowFromRows(rows);
+    assert.ok(result.ok);
+    assert.deepEqual([...result.sheetNames], [['agentes', 'Agentes'], ['pausas', '=Pausas']]);
+    assert.equal(result.modified, false);
+  });
+
   it('grafo vazio também faz a viagem', () => {
     const empty = graphOf([], []);
     const result = parseFlowFromRows(serializeFlowToRows(empty));

@@ -363,7 +363,9 @@ export function exportSheetToExcel(
   });
 
   // Fase 2: o fluxo de Relacionamentos viaja numa aba oculta (_Flow_v1) para ser reimportado.
-  if (flowGraph) appendFlowSheet(wb, flowGraph);
+  if (flowGraph) {
+    appendFlowSheet(wb, flowGraph, { sheetNames: Object.fromEntries(sheetArray.map(s => [s.id, s.name])) });
+  }
 
   const finalName = filename.endsWith('.xlsx') ? filename : `${filename}.xlsx`;
   XLSX.writeFile(wb, finalName);

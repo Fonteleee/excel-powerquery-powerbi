@@ -7,6 +7,7 @@ import {
   FLOW_SHEET_NAME,
   FlowSheetParseResult,
   parseFlowFromRows,
+  SerializeOptions,
   serializeFlowToRows,
 } from './flowSheet';
 
@@ -17,7 +18,7 @@ const MAX_SHEET_ROWS = 20_000;
 const MAX_IMPORT_BYTES = 50 * 1024 * 1024;
 
 /** Acrescenta (ou substitui) a aba oculta `_Flow_v1` com o grafo. Não toca nas demais abas. */
-export function appendFlowSheet(workbook: XLSX.WorkBook, graph: FlowGraph): void {
+export function appendFlowSheet(workbook: XLSX.WorkBook, graph: FlowGraph, options: SerializeOptions = {}): void {
   const existing = workbook.SheetNames.indexOf(FLOW_SHEET_NAME);
   if (existing >= 0) {
     workbook.SheetNames.splice(existing, 1);
@@ -25,7 +26,7 @@ export function appendFlowSheet(workbook: XLSX.WorkBook, graph: FlowGraph): void
     workbook.Workbook?.Sheets?.splice(existing, 1);
   }
 
-  const worksheet = XLSX.utils.aoa_to_sheet(serializeFlowToRows(graph));
+  const worksheet = XLSX.utils.aoa_to_sheet(serializeFlowToRows(graph, options));
   worksheet['!cols'] = [{ wch: 8 }, { wch: 18 }, { wch: 40 }, { wch: 7 }, { wch: 60 }];
   XLSX.utils.book_append_sheet(workbook, worksheet, FLOW_SHEET_NAME);
 
