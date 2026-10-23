@@ -1,193 +1,206 @@
-import { CellRange, Sheet } from '../types/spreadsheet';
-import { cellPosToKey, parseCellAddress } from './formulaParser';
+// src/engine/autoFillEngine.ts
+// Séries inteligentes do preenchimento (alça de arraste): números, datas, dias da semana e meses em
+// pt-BR, códigos "ID-001" e padrões texto+número. Funções puras.
 
 export type AutoFillType = 'series' | 'copy' | 'formatting_only' | 'no_formatting';
 
-const DAYS_OF_WEEK_PT = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-const DAYS_OF_WEEK_PT_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-const MONTHS_PT = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+type Fill = string | number;
+
+const WEEKDAYS_LONG = ['domingo', 'segunda-feira', 'terca-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sabado'];
+const WEEKDAYS_MID = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+const WEEKDAYS_SHORT = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+const MONTHS_LONG = ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const MONTHS_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+/** Rótulos exibidos (com acentos) para cada lista normalizada. */
+const DISPLAY: Record<string, string[]> = {
+  wl: ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'],
+  wm: ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'],
+  ws: ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'],
+  ml: ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'],
+  ms: MONTHS_SHORT,
+};
+const LISTS: [string, string[]][] = [
+  ['wm', WEEKDAYS_MID],
+  ['wl', WEEKDAYS_LONG],
+  ['ws', WEEKDAYS_SHORT],
+  ['ml', MONTHS_LONG],
+  ['ms', MONTHS_SHORT],
 ];
-const MONTHS_PT_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
-/**
- * Parses date string in Brazilian (DD/MM/YYYY) or ISO format (YYYY-MM-DD)
- */
-function parseDateString(str: string): Date | null {
-  const brMatch = str.trim().match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
-  if (brMatch) {
-    const day = parseInt(brMatch[1], 10);
-    const month = parseInt(brMatch[2], 10) - 1;
-    let year = parseInt(brMatch[3], 10);
-    if (year < 100) year += 2000;
-    const d = new Date(year, month, day);
-    return isNaN(d.getTime()) ? null : d;
+const normalize = (s: string): string =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\.$/, '').trim();
+
+const repeat = (source: readonly Fill[], length: number): Fill[] =>
+  Array.from({ length }, (_, i) => source[i % source.length]);
+
+const roundTo = (n: number, decimals: number): number => {
+  const f = 10 ** Math.min(10, decimals);
+  return Math.round(n * f) / f;
+};
+
+const decimalsOf = (n: number): number => {
+  const s = String(n);
+  const i = s.indexOf('.');
+  return i < 0 ? 0 : s.length - i - 1;
+};
+
+/** Passo constante entre valores consecutivos; se não for constante, a média (como a tendência linear). */
+function stepOf(values: number[]): number {
+  if (values.length < 2) return 1;
+  const diffs = values.slice(1).map((v, i) => v - values[i]);
+  const first = diffs[0];
+  if (diffs.every(d => Math.abs(d - first) < 1e-9)) return first;
+  return (values[values.length - 1] - values[0]) / (values.length - 1);
+}
+
+// ---------- números ----------
+
+const NUMBER = /^[-+]?\d+(?:[.,]\d+)?$/;
+
+function numberSeries(strs: string[], length: number): Fill[] | null {
+  if (!strs.every(s => NUMBER.test(s))) return null;
+  const nums = strs.map(s => parseFloat(s.replace(',', '.')));
+  const step = stepOf(nums);
+  const last = nums[nums.length - 1];
+  const decimals = Math.max(decimalsOf(step), ...nums.map(decimalsOf));
+  return Array.from({ length }, (_, i) => roundTo(last + step * (i + 1), decimals));
+}
+
+// ---------- datas ----------
+
+interface ParsedDate {
+  utcDay: number; // dias desde 1970-01-01 (UTC)
+  y: number;
+  m: number; // 1-12
+  d: number;
+  iso: boolean;
+  sep: string;
+  pad: boolean;
+  shortYear: boolean;
+}
+
+const DAY_MS = 86_400_000;
+
+function parseDate(s: string): ParsedDate | null {
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s);
+  const br = /^(\d{1,2})([/.-])(\d{1,2})\2(\d{2}|\d{4})$/.exec(s);
+  let y: number, m: number, d: number;
+  let sep = '/';
+  let pad = true;
+  let shortYear = false;
+  if (iso) {
+    y = +iso[1]; m = +iso[2]; d = +iso[3];
+  } else if (br) {
+    d = +br[1]; m = +br[3]; y = +br[4]; sep = br[2];
+    pad = br[1].length === 2 || br[3].length === 2;
+    shortYear = br[4].length === 2;
+    if (shortYear) y += 2000;
+  } else return null;
+  const t = Date.UTC(y, m - 1, d);
+  const check = new Date(t);
+  if (check.getUTCFullYear() !== y || check.getUTCMonth() !== m - 1 || check.getUTCDate() !== d) return null;
+  return { utcDay: Math.round(t / DAY_MS), y, m, d, iso: !!iso, sep, pad, shortYear };
+}
+
+function formatDate(day: number, style: ParsedDate): string {
+  const dt = new Date(day * DAY_MS);
+  const two = (n: number) => String(n).padStart(2, '0');
+  const dd = style.pad || style.iso ? two(dt.getUTCDate()) : String(dt.getUTCDate());
+  const mm = style.pad || style.iso ? two(dt.getUTCMonth() + 1) : String(dt.getUTCMonth() + 1);
+  const yy = dt.getUTCFullYear();
+  if (style.iso) return `${yy}-${mm}-${dd}`;
+  return `${dd}${style.sep}${mm}${style.sep}${style.shortYear ? two(yy % 100) : yy}`;
+}
+
+function addMonths(p: ParsedDate, months: number): number {
+  const total = p.y * 12 + (p.m - 1) + months;
+  const y = Math.floor(total / 12);
+  const m = total % 12;
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return Math.round(Date.UTC(y, m, Math.min(p.d, lastDay)) / DAY_MS);
+}
+
+function dateSeries(strs: string[], length: number): Fill[] | null {
+  const dates = strs.map(parseDate);
+  if (!dates.every((d): d is ParsedDate => d !== null)) return null;
+  const last = dates[dates.length - 1];
+  const days = dates.map(d => d.utcDay);
+  const monthIndex = dates.map(d => d.y * 12 + d.m - 1);
+
+  const sameDom = dates.length > 1 && dates.every(d => d.d === dates[0].d);
+  const monthStep = stepOf(monthIndex);
+  const dayStep = stepOf(days);
+  if (sameDom && Number.isInteger(monthStep) && monthStep !== 0 && Math.abs(dayStep) >= 28) {
+    return Array.from({ length }, (_, i) => formatDate(addMonths(last, monthStep * (i + 1)), last));
   }
-  const isoMatch = str.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (isoMatch) {
-    const d = new Date(str.trim());
-    return isNaN(d.getTime()) ? null : d;
+  const step = dates.length > 1 && Math.round(dayStep) !== 0 ? Math.round(dayStep) : 1;
+  return Array.from({ length }, (_, i) => formatDate(last.utcDay + step * (i + 1), last));
+}
+
+// ---------- dias da semana e meses ----------
+
+function applyCase(sample: string, text: string): string {
+  if (sample.length > 1 && sample === sample.toUpperCase() && sample !== sample.toLowerCase()) return text.toUpperCase();
+  if (sample[0] !== sample[0].toLowerCase()) return text[0].toUpperCase() + text.slice(1);
+  return text;
+}
+
+function nameSeries(strs: string[], length: number): Fill[] | null {
+  for (const [id, list] of LISTS) {
+    const idx = strs.map(s => list.indexOf(normalize(s)));
+    if (idx.some(i => i < 0)) continue;
+    const size = list.length;
+    let step = 1;
+    if (idx.length > 1) {
+      const diffs = idx.slice(1).map((v, i) => (((v - idx[i]) % size) + size) % size);
+      if (diffs.every(d => d === diffs[0]) && diffs[0] !== 0) step = diffs[0];
+    }
+    const last = idx[idx.length - 1];
+    const sample = strs[strs.length - 1];
+    return Array.from({ length }, (_, i) => applyCase(sample, DISPLAY[id][(last + step * (i + 1)) % size]));
   }
   return null;
 }
 
-function formatDateToBR(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+// ---------- texto + número ----------
+
+const CODE = /^(.*?)(\d+)(\D*)$/;
+
+function codeSeries(strs: string[], length: number): Fill[] | null {
+  const parts = strs.map(s => CODE.exec(s));
+  if (!parts.every((p): p is RegExpExecArray => p !== null)) return null;
+  const { 1: prefix, 3: suffix } = parts[0];
+  if (!parts.every(p => p[1] === prefix && p[3] === suffix)) return null;
+  const nums = parts.map(p => parseInt(p[2], 10));
+  const step = Math.round(stepOf(nums)) || 1;
+  const lastDigits = parts[parts.length - 1][2];
+  const width = lastDigits.length > 1 && lastDigits.startsWith('0') ? lastDigits.length : 0;
+  const last = nums[nums.length - 1];
+  return Array.from({ length }, (_, i) => {
+    const n = last + step * (i + 1);
+    const digits = n < 0 ? String(n) : String(n).padStart(width, '0');
+    return `${prefix}${digits}${suffix}`;
+  });
 }
 
-/**
- * Detects whether a string is an alphanumeric code with a numeric suffix (e.g. "AG-001", "Item 1", "MAT8090")
- */
-function parseAlphanumericCode(str: string): { prefix: string; num: number; padLen: number } | null {
-  const match = str.trim().match(/^(.*?)(\d+)$/);
-  if (match) {
-    const prefix = match[1];
-    const numStr = match[2];
-    const num = parseInt(numStr, 10);
-    return {
-      prefix,
-      num,
-      padLen: numStr.startsWith('0') ? numStr.length : 0,
-    };
-  }
-  return null;
-}
-
-/**
- * Computes the smart series for dragging vertically or horizontally
- */
+/** Série para arrastar vertical ou horizontalmente a partir dos valores de origem. */
 export function computeSmartSeries(
   sourceValues: (string | number)[],
   targetLength: number,
   mode: AutoFillType = 'series'
 ): (string | number)[] {
   if (sourceValues.length === 0 || targetLength <= 0) return [];
+  if (mode === 'copy') return repeat(sourceValues, targetLength);
 
-  // If user requested "copy", just repeat the source array cyclically
-  if (mode === 'copy') {
-    const result: (string | number)[] = [];
-    for (let i = 0; i < targetLength; i++) {
-      result.push(sourceValues[i % sourceValues.length]);
-    }
-    return result;
-  }
+  const strs = sourceValues.map(v => String(v).trim());
+  if (strs.some(s => s === '')) return repeat(sourceValues, targetLength);
 
-  const strValues = sourceValues.map(v => String(v).trim());
-
-  // 1. Check Arithmetic Number Progression
-  const numValues = strValues.map(s => {
-    const clean = s.replace(',', '.');
-    const n = parseFloat(clean);
-    return isNaN(n) ? null : n;
-  });
-
-  const allNumbers = numValues.every(n => n !== null);
-  if (allNumbers && numValues.length > 0) {
-    let step = 1;
-    if (numValues.length > 1) {
-      step = (numValues[numValues.length - 1]! - numValues[0]!) / (numValues.length - 1);
-    }
-    const lastNum = numValues[numValues.length - 1]!;
-    const isFloat = String(lastNum).includes('.') || String(step).includes('.');
-
-    const result: number[] = [];
-    for (let i = 1; i <= targetLength; i++) {
-      const next = lastNum + step * i;
-      result.push(isFloat ? Math.round(next * 100) / 100 : Math.round(next));
-    }
-    return result;
-  }
-
-  // 2. Check Date Sequence (e.g. "29/08/2026")
-  const dateValues = strValues.map(parseDateString);
-  const allDates = dateValues.every(d => d !== null);
-  if (allDates && dateValues.length > 0) {
-    let dayStep = 1;
-    if (dateValues.length > 1) {
-      const diffMs = dateValues[dateValues.length - 1]!.getTime() - dateValues[0]!.getTime();
-      dayStep = Math.round(diffMs / (1000 * 60 * 60 * 24)) / (dateValues.length - 1);
-      if (dayStep === 0) dayStep = 1;
-    }
-    const lastDate = dateValues[dateValues.length - 1]!;
-    const result: string[] = [];
-
-    for (let i = 1; i <= targetLength; i++) {
-      const nextDate = new Date(lastDate);
-      nextDate.setDate(lastDate.getDate() + Math.round(dayStep * i));
-      result.push(formatDateToBR(nextDate));
-    }
-    return result;
-  }
-
-  // 3. Check Alphanumeric Pattern (e.g. "AG-001" -> "AG-002", "CMAC8040" -> "CMAC8041")
-  const codePatterns = strValues.map(parseAlphanumericCode);
-  const allCodes = codePatterns.every(c => c !== null && c.prefix === codePatterns[0]?.prefix);
-  if (allCodes && codePatterns.length > 0) {
-    let step = 1;
-    if (codePatterns.length > 1) {
-      step = (codePatterns[codePatterns.length - 1]!.num - codePatterns[0]!.num) / (codePatterns.length - 1);
-      if (step === 0) step = 1;
-    }
-    const lastCode = codePatterns[codePatterns.length - 1]!;
-    const result: string[] = [];
-
-    for (let i = 1; i <= targetLength; i++) {
-      const nextNum = lastCode.num + Math.round(step * i);
-      const nextNumStr = lastCode.padLen > 0 ? String(nextNum).padStart(lastCode.padLen, '0') : String(nextNum);
-      result.push(`${lastCode.prefix}${nextNumStr}`);
-    }
-    return result;
-  }
-
-  // 4. Check Day of Week Sequence
-  const firstStr = strValues[0];
-  const dayIdx = DAYS_OF_WEEK_PT.findIndex(d => d.toLowerCase() === firstStr.toLowerCase());
-  if (dayIdx >= 0) {
-    const result: string[] = [];
-    for (let i = 1; i <= targetLength; i++) {
-      const nextDay = DAYS_OF_WEEK_PT[(dayIdx + i) % DAYS_OF_WEEK_PT.length];
-      result.push(nextDay);
-    }
-    return result;
-  }
-
-  const dayShortIdx = DAYS_OF_WEEK_PT_SHORT.findIndex(d => d.toLowerCase() === firstStr.toLowerCase());
-  if (dayShortIdx >= 0) {
-    const result: string[] = [];
-    for (let i = 1; i <= targetLength; i++) {
-      const nextDay = DAYS_OF_WEEK_PT_SHORT[(dayShortIdx + i) % DAYS_OF_WEEK_PT_SHORT.length];
-      result.push(nextDay);
-    }
-    return result;
-  }
-
-  // 5. Check Month of Year Sequence
-  const monthIdx = MONTHS_PT.findIndex(m => m.toLowerCase() === firstStr.toLowerCase());
-  if (monthIdx >= 0) {
-    const result: string[] = [];
-    for (let i = 1; i <= targetLength; i++) {
-      const nextMonth = MONTHS_PT[(monthIdx + i) % MONTHS_PT.length];
-      result.push(nextMonth);
-    }
-    return result;
-  }
-
-  const monthShortIdx = MONTHS_PT_SHORT.findIndex(m => m.toLowerCase() === firstStr.toLowerCase());
-  if (monthShortIdx >= 0) {
-    const result: string[] = [];
-    for (let i = 1; i <= targetLength; i++) {
-      const nextMonth = MONTHS_PT_SHORT[(monthShortIdx + i) % MONTHS_PT_SHORT.length];
-      result.push(nextMonth);
-    }
-    return result;
-  }
-
-  // Default fallback: repeat source sequence cyclically
-  const result: (string | number)[] = [];
-  for (let i = 0; i < targetLength; i++) {
-    result.push(sourceValues[i % sourceValues.length]);
-  }
-  return result;
+  return (
+    numberSeries(strs, targetLength) ??
+    dateSeries(strs, targetLength) ??
+    nameSeries(strs, targetLength) ??
+    codeSeries(strs, targetLength) ??
+    repeat(sourceValues, targetLength)
+  );
 }
