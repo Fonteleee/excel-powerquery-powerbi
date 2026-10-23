@@ -23,9 +23,12 @@ import {
   removeEdge,
   removeNode,
   renameOutput,
+  syncTableNodes,
   updateTransformParams,
 } from '../model/editor';
-import { FlowPort, TransformParams } from '../model/graph';
+import { FlowGraph, FlowPort, TransformParams } from '../model/graph';
+import { parseFlowGraph } from '../model/schema';
+import { FlowExportPopover } from './export/FlowExportPopover';
 import { LegacyMigrationResult, migrateLegacyEdges } from '../model/legacy';
 import { DEFAULT_VIEWPORT } from '../model/viewState';
 import { evaluateGraph } from '../runtime/evaluate';
@@ -308,6 +311,23 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
     patchView({ collapsed: [...next] });
   }, [view.collapsed, patchView]);
 
+  // Importação de fluxo (aba _Flow_v1): revalida pelo mesmo schema da carga, sincroniza com as planilhas abertas
+  // e substitui o grafo na hora; a persistência (debounce) é a mesma de qualquer edição.
+  const handleImportGraph = useCallback((imported: FlowGraph) => {
+    const checked = parseFlowGraph(imported);
+    if (!checked.ok) {
+      showToast('O fluxo importado não passou na validação e foi ignorado.', 'error');
+      return;
+    }
+    const synced = syncTableNodes(checked.graph, sheets.map(s => ({ id: s.id, name: s.name })), doc.view.knownSheetIds);
+    patchView({ knownSheetIds: synced.known });
+    updateGraph(() => synced.graph);
+    select(null);
+    setDrawerOpen(false);
+    pendingFit.current = true;
+    showToast('Fluxo importado e aplicado à tela.', 'ok');
+  }, [sheets, doc.view.knownSheetIds, patchView, updateGraph, select, showToast]);
+
   // ---- Executar o fluxo (avaliar + materializar nas abas de saída) -----------------------------
   const handleRun = useCallback(() => {
     const fresh = evaluateGraph(graphRef.current, sheets);
@@ -502,6 +522,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
         onAddOutput={handleAddOutput}
         onToggleKeysOnly={value => patchView({ showKeysOnly: value })}
         onRun={handleRun}
+        extras={<FlowExportPopover graph={graph} sheets={sheets} onImportGraph={handleImportGraph} fileBase="fluxo" />}
       />
 
       <div className="relative min-h-0 flex-1">

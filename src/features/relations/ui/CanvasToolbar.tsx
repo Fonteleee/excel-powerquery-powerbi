@@ -17,13 +17,15 @@ interface ToolbarProps {
   onAddOutput: () => void;
   onToggleKeysOnly: (value: boolean) => void;
   onRun: () => void;
+  /** Controles extras à direita (exportação, saúde dos dados, desfazer do grafo). */
+  extras?: React.ReactNode;
 }
 
 const btn =
   'flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[length:var(--rel-text-body)] font-bold transition-colors';
 
 export const CanvasToolbar: React.FC<ToolbarProps> = ({
-  availableSheets, showKeysOnly, outputCount, errorCount, onAddTable, onNewTable, onAddTransform, onAddOutput, onToggleKeysOnly, onRun,
+  availableSheets, showKeysOnly, outputCount, errorCount, onAddTable, onNewTable, onAddTransform, onAddOutput, onToggleKeysOnly, onRun, extras,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   return (
@@ -93,6 +95,7 @@ export const CanvasToolbar: React.FC<ToolbarProps> = ({
             <TriangleAlert className="size-4" aria-hidden /> {errorCount} {errorCount === 1 ? 'nó com erro' : 'nós com erro'}
           </span>
         )}
+        {extras}
         <button
           type="button"
           onClick={onRun}

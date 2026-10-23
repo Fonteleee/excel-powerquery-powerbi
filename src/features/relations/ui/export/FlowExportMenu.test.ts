@@ -7,7 +7,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { lookupFlow, sampleSheets } from '../../testing/fixtures';
 import { FlowExportMenu } from './FlowExportMenu';
-import { FlowExportSection } from './FlowExportSection';
+import { FlowExportPopover } from './FlowExportPopover';
 
 describe('FlowExportMenu', () => {
   it('mostra as três ações e as opções de dialeto', () => {
@@ -23,8 +23,13 @@ describe('FlowExportMenu', () => {
     assert.ok(!/<script/i.test(html));
   });
 
-  it('a versão autônoma renderiza sem depender de localStorage', () => {
-    const html = renderToStaticMarkup(createElement(FlowExportSection, { sheets: sampleSheets() }));
-    assert.match(html, /Importar fluxo de Excel/);
+  it('o botão da barra renderiza fechado e acessível', () => {
+    const html = renderToStaticMarkup(
+      createElement(FlowExportPopover, { graph: lookupFlow(), sheets: sampleSheets(), onImportGraph: () => {} })
+    );
+    assert.match(html, /aria-haspopup="dialog"/);
+    assert.match(html, /aria-expanded="false"/);
+    assert.match(html, /Exportar/);
+    assert.ok(!/Gerar SQL/.test(html));
   });
 });
