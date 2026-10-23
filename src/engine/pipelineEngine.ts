@@ -1,8 +1,8 @@
 import { Sheet } from '../types/spreadsheet';
 import { RelationNode, RelationEdge } from '../types/relations';
-import { cellPosToKey, parseNumberSafely, recalculateSheet } from './formulaParser';
+import { cellPosToKey, colIndexToLabel, parseNumberSafely, recalculateSheet } from './formulaParser';
 import { createEmptySheet } from '../data/sampleDatasets';
-import { getColumnHeaderName } from './relationFormulaEngine';
+import { formatSheetNameForFormula, getColumnHeaderName } from './relationFormulaEngine';
 
 export interface PipelineExecutionResult {
   updatedSheets: Sheet[];
@@ -203,9 +203,9 @@ export function applyMultiColumnEnrichment(
   }
   const matchRate = sourceKeys.length > 0 ? (matched / sourceKeys.length) * 100 : 100;
 
-  const targetKeyColLetter = String.fromCharCode(65 + targetKeyColIdx);
-  const sourceKeyColLetter = String.fromCharCode(65 + sourceKeyColIdx);
-  const targetSheetNameFormatted = targetSheet.name.includes(' ') ? `'${targetSheet.name}'` : targetSheet.name;
+  const targetKeyColLetter = colIndexToLabel(targetKeyColIdx);
+  const sourceKeyColLetter = colIndexToLabel(sourceKeyColIdx);
+  const targetSheetNameFormatted = formatSheetNameForFormula(targetSheet.name);
 
   const addedColumns: string[] = [];
   const newData = { ...sourceSheet.data };
@@ -214,7 +214,7 @@ export function applyMultiColumnEnrichment(
   returnColIndices.forEach(retColIdx => {
     const retHeader = getColumnHeaderName(targetSheet, retColIdx);
     const newHeaderName = prefix ? `${prefix} - ${retHeader}` : `${targetSheet.name.slice(0, 8)}_${retHeader}`;
-    const retColLetter = String.fromCharCode(65 + retColIdx);
+    const retColLetter = colIndexToLabel(retColIdx);
     addedColumns.push(newHeaderName);
 
     // Header

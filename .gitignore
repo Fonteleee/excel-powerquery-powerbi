@@ -12,6 +12,18 @@ dist
 dist-ssr
 *.local
 
+# Secrets (never commit)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
