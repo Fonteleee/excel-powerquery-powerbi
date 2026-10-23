@@ -21,6 +21,8 @@ export interface CableView {
   lookup?: LookupStats;
   message?: string;
   selected: boolean;
+  /** Nó lookup dono das estatísticas (alvo do cabo de entrada); habilita o inspetor de falhas. */
+  lookupNodeId?: string;
 }
 
 export interface DraftView {
@@ -96,13 +98,18 @@ interface BadgeProps {
   lod: DetailLevel;
   onRemove: (edgeId: string) => void;
   onSelect: (edgeId: string) => void;
+  /** Mostra (el) ou esconde (null) o inspetor de falhas; chamado por hover e foco. */
+  onInspect?: (cable: CableView, el: HTMLElement | null) => void;
+  inspectorId?: string;
+  inspecting?: boolean;
 }
 
-function CableBadgeImpl({ cable, lod, onRemove, onSelect }: BadgeProps): React.ReactElement {
+function CableBadgeImpl({ cable, lod, onRemove, onSelect, onInspect, inspectorId, inspecting }: BadgeProps): React.ReactElement {
   const tone = CABLES[toneOf(cable)];
   const stats = cable.lookup;
   const note = stats ? cardinalityNote(stats) : null;
   const compact = lod === 'macro';
+  const inspectable = !!stats && !!cable.lookupNodeId && !!onInspect;
 
   return (
     <div
@@ -117,7 +124,16 @@ function CableBadgeImpl({ cable, lod, onRemove, onSelect }: BadgeProps): React.R
       <div
         className="flex items-center gap-1.5 rounded-full border bg-white px-2 py-0.5 text-[length:var(--rel-text-caption)] font-semibold shadow-md"
         style={{ borderColor: tone.color, color: 'var(--rel-ink)' }}
-        title={cable.message ?? tone.label}
+        title={inspectable ? undefined : cable.message ?? tone.label}
+        tabIndex={inspectable ? 0 : undefined}
+        role={inspectable ? 'button' : undefined}
+        aria-label={inspectable ? `Inspecionar falhas do cruzamento: ${cable.message ?? 'sem órfãos'}` : undefined}
+        aria-describedby={inspectable && inspecting ? inspectorId : undefined}
+        onPointerEnter={inspectable ? e => onInspect?.(cable, e.currentTarget) : undefined}
+        onPointerLeave={inspectable ? () => onInspect?.(cable, null) : undefined}
+        onFocus={inspectable ? e => onInspect?.(cable, e.currentTarget) : undefined}
+        onBlur={inspectable ? () => onInspect?.(cable, null) : undefined}
+        onKeyDown={inspectable ? e => { if (e.key === 'Escape') onInspect?.(cable, null); } : undefined}
       >
         <span style={{ color: tone.color }} className="flex items-center gap-1">
           {cable.problem === 'none' ? KIND_ICON[cable.kind] : <TriangleAlert className="size-3" aria-hidden />}

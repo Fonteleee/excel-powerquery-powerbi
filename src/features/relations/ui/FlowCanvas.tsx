@@ -36,6 +36,7 @@ import { flowSheetId, materializeGraph } from '../runtime/materialize';
 import { buildCardColumns, flowBounds, outputStatus } from './cardData';
 import { resolveEdgeEndpoints, sourceColumnHint } from './cableEndpoints';
 import { CableBadge, CableLayer, CableView } from './CableLayer';
+import { CableInspector, InspectorAnchor } from './CableInspector';
 import { CanvasLegend, CanvasToolbar, ZoomControls } from './CanvasToolbar';
 import { ConnectionPopover, PopoverTarget } from './ConnectionPopover';
 import {
@@ -90,6 +91,7 @@ interface HoverTip {
 
 const CSS_VARS = tokenCssVars() as CSSProperties;
 const HOVER_DELAY_MS = 450;
+const INSPECTOR_ID = 'rel-cable-inspector';
 const TOOLTIP_WIDTH = 380;
 const DRAWER_RESERVE_PX = 440;
 
@@ -135,6 +137,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
   const [popover, setPopover] = useState<PopoverTarget | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [tip, setTip] = useState<HoverTip | null>(null);
+  const [inspector, setInspector] = useState<(InspectorAnchor & { cableId: string }) | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [legacyReport, setLegacyReport] = useState<LegacyMigrationResult | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -191,7 +194,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
         if (!ends) return [];
         const path = cablePath(ends.from, ends.to);
         const status = describeCable(graph, edge, results);
-        return [{ id: edge.id, d: path.d, mid: path.mid, ...status, selected: edge.id === selectedEdgeId }];
+        return [{ id: edge.id, d: path.d, mid: path.mid, ...status, selected: edge.id === selectedEdgeId, lookupNodeId: status.lookup ? edge.to : undefined }];
       }),
     [graph, anchors, results, selectedEdgeId]
   );
@@ -437,6 +440,22 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
     onDrop: handleDrop,
   });
 
+  // ---- Inspetor de falhas do cabo (hover e foco no selo) -----------------------------------------
+  const handleInspect = useCallback((cable: CableView, el: HTMLElement | null) => {
+    const surface = surfaceRef.current?.getBoundingClientRect();
+    if (!el || !surface || !cable.lookupNodeId) {
+      setInspector(prev => (prev?.cableId === cable.id ? null : prev));
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    setInspector({
+      cableId: cable.id,
+      nodeId: cable.lookupNodeId,
+      x: rect.left - surface.left + rect.width / 2,
+      y: rect.top - surface.top + (rect.top - surface.top < 220 ? rect.height : 0),
+    });
+  }, []);
+
   // ---- Dica ao passar o mouse (preview do nó) ----------------------------------------------------
   const handleSurfacePointerMove = (e: React.PointerEvent<HTMLDivElement>): void => {
     gestures.bindings.onPointerMove(e);
@@ -627,6 +646,9 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
                   lod={lod}
                   onRemove={handleRemoveEdge}
                   onSelect={id => { setSelectedEdgeId(id); setSelectedNodeId(null); }}
+                  onInspect={handleInspect}
+                  inspectorId={INSPECTOR_ID}
+                  inspecting={inspector?.cableId === cable.id}
                 />
               ))}
             </div>
@@ -702,6 +724,16 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
             <div className="mb-1 truncate text-[length:var(--rel-text-caption)] font-bold">{nodeDisplayName(tipNode, sheetNames)}</div>
             <PreviewPanel result={results.get(tipNode.id)} limit={5} maxHeight={130} />
           </div>
+        )}
+
+        {inspector && (
+          <CableInspector
+            id={INSPECTOR_ID}
+            graph={graph}
+            results={results}
+            anchor={inspector}
+            bounds={{ width: surfaceRect?.width ?? 800, height: surfaceRect?.height ?? 600 }}
+          />
         )}
 
         {popover && (
