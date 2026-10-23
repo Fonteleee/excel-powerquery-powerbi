@@ -1,4 +1,4 @@
-# Plano de upgrade: aba de Relacionamentos (excel-powerquery-powerbi)
+﻿# Plano de upgrade: aba de Relacionamentos (excel-powerquery-powerbi)
 
 Base analisada: `Fonteleee/excel-powerquery-powerbi`, branch `main`, commit `3df62b7`.
 Escopo desta fase: estudo, validação das ideias e plano. Nenhum código do projeto foi alterado.
@@ -131,9 +131,8 @@ Novas ações no protocolo, todas validadas por schema antes de executar: `add_t
 
 1. **Revogar e trocar a chave Gemini** do `ai_data_analysis_agent/.env` (está no histórico público do GitHub). Remover o arquivo do repositório e do histórico, e preencher o `.gitignore` com `.env*`, `__pycache__/`, `*.pyc`.
 2. **Chave no navegador:** hoje fica em localStorage e vai na URL. Qualquer chave no front-end é exposta. Caminho correto: um **proxy server-side** (função serverless; o `vercel.json` já indica essa direção) com a chave em variável de ambiente, rate limit por IP/usuário, limite de tokens e timeout. Até lá, manter o modo "usuário cola a própria chave" com aviso claro e mover o envio da chave para o cabeçalho `x-goog-api-key`.
-3. **Atualizar/trocar `xlsx@0.18.5`** e remover duplicidade com `exceljs`.
-4. **Grafo e fluxo importados são entrada não confiável:** validar com Zod, bloquear `__proto__`/`constructor`/`prototype`, sem `eval`/`new Function`, limitar tamanho.
-5. O projeto tem um gate de segurança em `AGENTS.md` (script `strix_audit.py`). Vou tratá-lo como etapa de saída de cada fase, se você confirmar.
+3. **`xlsx`:** atualizado para o build oficial 0.20.3 da SheetJS (CDN oficial; o registro do npm é bloqueado pelo firewall da rede). A duplicidade com `exceljs` permanece.
+4. **Grafo e fluxo importados são entrada não confiável:** validação escrita à mão (equivalente ao Zod, que não pôde ser instalado pelo mesmo motivo), bloqueando `__proto__`/`constructor`/`prototype`, sem `eval`/`new Function`, com limite de tamanho.
 
 Nota de arquitetura: o projeto hoje é só front-end, sem banco de dados próprio, então as regras de replicação líder-seguidor e RLS não se aplicam ainda. Se entrar um backend (proxy de IA, sincronização, Graph), ele nasce com segredos no servidor, validação estrita de entrada, rate limit, cookies seguros e leitura/escrita separadas.
 
@@ -174,3 +173,12 @@ Nota de arquitetura: o projeto hoje é só front-end, sem banco de dados própri
 - Fase 3 perde "conexão ao vivo com o Excel" e ganha **motor de fórmulas e desempenho** (grafo de dependências no lugar das 3 varreduras completas, Web Worker, colunas tipadas), porque agora o sistema precisa substituir o Excel.
 - A aba `_Flow_v1` no export deixa de ser prioridade de migração e vira recurso de portabilidade do fluxo (continua útil para salvar e reabrir).
 - Lacunas de paridade com o Excel (matrizes dinâmicas, séries no preenchimento, colar HTML, `Ctrl+setas`) já listadas em `plano_arquitetural_excel.md` passam a fazer parte do backlog desta fase.
+
+
+## 9. Atualização de andamento
+
+- Fases 1 e 2 concluídas e mescladas na main (331 testes, tsc e build verdes).
+- Fase 3 (motor de fórmulas, paridade com o Excel, time-travel e cenários) em andamento sobre a main atualizada.
+- Gate Strix removido do plano por decisão do usuário (sem Python no ambiente). As regras de segurança (sem eval, sem HTML não sanitizado, sanitização de injeção de fórmula, chaves proibidas) continuam valendo e são conferidas por testes.
+- Chave Gemini no histórico: era chave de teste; troca fica a cargo do usuário.
+
