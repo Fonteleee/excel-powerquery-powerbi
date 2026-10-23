@@ -17,6 +17,7 @@ export interface FlowExportPopoverProps {
 
 export const FlowExportPopover: React.FC<FlowExportPopoverProps> = ({ graph, sheets, onImportGraph, fileBase }) => {
   const [open, setOpen] = useState(false);
+  const [alignLeft, setAlignLeft] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -36,7 +37,12 @@ export const FlowExportPopover: React.FC<FlowExportPopoverProps> = ({ graph, she
       <button
         ref={buttonRef}
         type="button"
-        onClick={() => setOpen(v => !v)}
+        onClick={() => {
+          const rect = buttonRef.current?.getBoundingClientRect();
+          // Em janelas estreitas o painel de 440px cortaria à esquerda: alinha pela borda esquerda do botão.
+          setAlignLeft(rect ? rect.right - Math.min(440, window.innerWidth * 0.9) < 8 : false);
+          setOpen(v => !v);
+        }}
         aria-haspopup="dialog"
         aria-expanded={open}
         title="Exportar o fluxo como SQL ou Excel, ou importar um fluxo"
@@ -50,7 +56,7 @@ export const FlowExportPopover: React.FC<FlowExportPopoverProps> = ({ graph, she
           <div
             role="dialog"
             aria-label="Exportar e importar fluxo"
-            className="rel-popover absolute right-0 top-full z-40 mt-1 max-h-[70vh] w-[min(440px,90vw)] overflow-y-auto p-3"
+            className={`rel-popover absolute ${alignLeft ? 'left-0' : 'right-0'} top-full z-40 mt-1 max-h-[70vh] w-[min(440px,90vw)] overflow-y-auto p-3`}
           >
             <FlowExportMenu graph={graph} sheets={sheets} onImportGraph={onImportGraph} fileBase={fileBase} />
           </div>
