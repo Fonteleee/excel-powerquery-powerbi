@@ -49,35 +49,18 @@ import {
 } from '../../engine/formulaPointHelper';
 import { detectFlashFill, FlashFillPrediction } from '../../engine/flashFill';
 import { computeSmartSeries } from '../../engine/autoFillEngine';
+import { getNocoColumnIcon } from './columnMeta';
+import { useGridClipboard } from './hooks/useGridClipboard';
+import { useGridKeyboard } from './hooks/useGridKeyboard';
+import { computeFilledData } from './fillOps';
+import { deleteRowsData, sortRowsData } from './gridOps';
+import { GridBodyRows } from './GridBodyRows';
+import { GridHeaderRow } from './GridHeaderRow';
+import { GridContextMenu } from './GridContextMenu';
+import { GridOverlays } from './GridOverlays';
+import { GridStatusBar } from './GridStatusBar';
 import { exportSheetToExcel } from '../../utils/excelExporter';
 
-function getNocoColumnIcon(sheet: Sheet, colIdx: number): { icon: React.ReactNode; bg: string; label: string } {
-  const headerCell = sheet.data[cellPosToKey(0, colIdx)];
-  const title = String(headerCell?.value || '').toLowerCase();
-  
-  if (/hora|tempo|dura[cç]|perman|pausa|time/i.test(title)) {
-    return { icon: <Clock className="size-2.5 text-sky-600" strokeWidth={2} />, bg: 'bg-sky-100 border border-sky-200', label: 'Hora' };
-  }
-  if (/data|nasc|admiss|date|criado|created/i.test(title)) {
-    return { icon: <Calendar className="size-2.5 text-emerald-600" strokeWidth={2} />, bg: 'bg-emerald-100 border border-emerald-200', label: 'Data' };
-  }
-  if (/valor|sal[aá]|pre[cç]|custo|lucro|fatur|r\$|\$/i.test(title)) {
-    return { icon: <DollarSign className="size-2.5 text-emerald-600" strokeWidth={2} />, bg: 'bg-emerald-100 border border-emerald-200', label: 'Moeda' };
-  }
-  if (colIdx === 0 || /id|c[oó]d|pk|chave/i.test(title)) {
-    return { icon: <Key className="size-2.5 text-amber-600" strokeWidth={2} />, bg: 'bg-amber-100 border border-amber-200', label: 'ID' };
-  }
-  if (/agente|user|usuario|autor/i.test(title)) {
-    return { icon: <User className="size-2.5 text-cyan-600" strokeWidth={2} />, bg: 'bg-cyan-100 border border-cyan-200', label: 'Usuário' };
-  }
-  if (/estado|status|motivo|tipo|setor/i.test(title)) {
-    return { icon: <Tag className="size-2.5 text-indigo-600" strokeWidth={2} />, bg: 'bg-indigo-100 border border-indigo-200', label: 'Status' };
-  }
-  if (/num|qtd|total|quant|order|nc_/i.test(title) || typeof headerCell?.value === 'number') {
-    return { icon: <Hash className="size-2.5 text-purple-600" strokeWidth={2} />, bg: 'bg-purple-100 border border-purple-200', label: 'Número' };
-  }
-  return { icon: <Type className="size-2.5 text-slate-500" strokeWidth={2} />, bg: 'bg-slate-100 border border-slate-200', label: 'Texto' };
-}
 
 interface SpreadsheetGridProps {
   sheet: Sheet;
@@ -170,11 +153,13 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   const lastEscTimeRef = useRef<number>(0);
   const [filterClearedToast, setFilterClearedToast] = useState(false);
 
-  const [clipboard, setClipboard] = useState<{
-    range: CellRange;
-    data: { [relKey: string]: CellData };
-    isCut: boolean;
-  } | null>(null);
+  const { clipboard, setClipboard, handleCopySelection, handlePasteSelection } = useGridClipboard({
+    sheet,
+    activeCell,
+    selectedRange,
+    onUpdateSheet,
+  });
+
 
   // Column resizing state
   const [resizingCol, setResizingCol] = useState<number | null>(null);
@@ -230,114 +215,6 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     setFlashFillHint(null);
   };
 
-  // Copy selection to internal & native clipboard (CTRL+C)
-  const handleCopySelection = (isCut = false) => {
-    const clipData: { [relKey: string]: CellData } = {};
-    const textRows: string[] = [];
-
-    for (let r = selectedRange.startRow; r <= selectedRange.endRow; r++) {
-      const rowVals: string[] = [];
-      for (let c = selectedRange.startCol; c <= selectedRange.endCol; c++) {
-        const key = cellPosToKey(r, c);
-        const cell = sheet.data[key];
-        const relR = r - selectedRange.startRow;
-        const relC = c - selectedRange.startCol;
-        const relKey = `${relR},${relC}`;
-
-        if (cell) {
-          clipData[relKey] = JSON.parse(JSON.stringify(cell));
-          rowVals.push(cell.value !== null && cell.value !== undefined ? String(cell.value) : cell.raw);
-        } else {
-          rowVals.push('');
-        }
-      }
-      textRows.push(rowVals.join('\t'));
-    }
-
-    setClipboard({
-      range: { ...selectedRange },
-      data: clipData,
-      isCut,
-    });
-
-    // Copy to system clipboard
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(textRows.join('\n')).catch(() => {});
-    }
-  };
-
-  // Paste from clipboard (CTRL+V) with relative formula adjusting
-  const handlePasteSelection = async () => {
-    const updatedData = { ...sheet.data };
-    const destRow = activeCell.row;
-    const destCol = activeCell.col;
-
-    if (clipboard && Object.keys(clipboard.data).length > 0) {
-      const deltaR = destRow - clipboard.range.startRow;
-      const deltaC = destCol - clipboard.range.startCol;
-
-      for (const [relKey, cell] of Object.entries(clipboard.data)) {
-        const [relRStr, relCStr] = relKey.split(',');
-        const r = destRow + parseInt(relRStr, 10);
-        const c = destCol + parseInt(relCStr, 10);
-
-        if (r < sheet.rowCount && c < sheet.colCount) {
-          let newRaw = cell.raw;
-          // Adjust formula references if it's a formula and not a cut
-          if (newRaw.startsWith('=') && !clipboard.isCut) {
-            newRaw = shiftFormula(newRaw, deltaR, deltaC);
-          }
-
-          updatedData[cellPosToKey(r, c)] = {
-            raw: newRaw,
-            value: newRaw.startsWith('=') ? null : newRaw,
-            format: cell.format ? { ...cell.format } : undefined,
-          };
-        }
-      }
-
-      // If cut mode, clear source cells
-      if (clipboard.isCut) {
-        for (let r = clipboard.range.startRow; r <= clipboard.range.endRow; r++) {
-          for (let c = clipboard.range.startCol; c <= clipboard.range.endCol; c++) {
-            if (!(r >= destRow && r < destRow + (clipboard.range.endRow - clipboard.range.startRow + 1) &&
-                  c >= destCol && c < destCol + (clipboard.range.endCol - clipboard.range.startCol + 1))) {
-              delete updatedData[cellPosToKey(r, c)];
-            }
-          }
-        }
-        setClipboard(null);
-      }
-
-      const recalculated = recalculateSheet({ ...sheet, data: updatedData });
-      onUpdateSheet(recalculated);
-    } else if (navigator.clipboard && navigator.clipboard.readText) {
-      // Fallback: paste from OS clipboard
-      try {
-        const clipText = await navigator.clipboard.readText();
-        if (clipText) {
-          const lines = clipText.split(/\r\n|\r|\n/);
-          lines.forEach((line, rOffset) => {
-            const cols = line.split('\t');
-            cols.forEach((val, cOffset) => {
-              const r = destRow + rOffset;
-              const c = destCol + cOffset;
-              if (r < sheet.rowCount && c < sheet.colCount) {
-                updatedData[cellPosToKey(r, c)] = {
-                  raw: val,
-                  value: val.startsWith('=') ? null : val,
-                };
-              }
-            });
-          });
-          const recalculated = recalculateSheet({ ...sheet, data: updatedData });
-          onUpdateSheet(recalculated);
-        }
-      } catch {
-        // clipboard access denied
-      }
-    }
-  };
 
   // Toggle formatting on selection (CTRL+B, CTRL+I, CTRL+U)
   const handleToggleFormat = (patch: Partial<CellFormat>) => {
@@ -367,436 +244,6 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   };
 
 
-  // Keyboard navigation & Shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Guard: Ignore if user is typing into any input, textarea, select, modal, or sidebar
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === 'INPUT' ||
-         target.tagName === 'TEXTAREA' ||
-         target.tagName === 'SELECT' ||
-         target.isContentEditable ||
-         target.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], aside, form, .modal-backdrop'))
-      ) {
-        return;
-      }
-
-      if (isEditing) return;
-
-
-      // ESCAPE: Double ESC clears all active filters! Single ESC clears selection/modals
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        const now = Date.now();
-        const timeDiff = now - lastEscTimeRef.current;
-        lastEscTimeRef.current = now;
-
-        setClipboard(null);
-
-        // Check if double ESC was pressed (< 500ms and > 30ms)
-        if (timeDiff < 500 && timeDiff > 30) {
-          // Double ESC: Clear all active column filters & search query!
-          setOpenFilterCol(null);
-          setMultiSelectedKeys(new Set());
-          setContextMenu(null);
-          setFlashFillHint(null);
-
-          if (sheet.filters && Object.keys(sheet.filters).length > 0) {
-            onUpdateSheet({
-              ...sheet,
-              filters: {},
-              filterEnabled: false,
-            });
-          }
-
-          if (onClearSearchFilter) {
-            onClearSearchFilter();
-          }
-
-          // Show floating toast confirmation
-          setFilterClearedToast(true);
-          setTimeout(() => setFilterClearedToast(false), 2200);
-          return;
-        }
-
-        // Single ESC: Normal Excel escape behavior (clear selection, close popups)
-        setMultiSelectedKeys(new Set());
-        onSelectRange({
-          startRow: activeCell.row,
-          startCol: activeCell.col,
-          endRow: activeCell.row,
-          endCol: activeCell.col,
-        });
-        setSelectionAnchor(activeCell);
-        setContextMenu(null);
-        setFlashFillHint(null);
-        setOpenFilterCol(null);
-        return;
-      }
-
-      // CTRL + C: Copiar
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
-
-        e.preventDefault();
-        handleCopySelection(false);
-        return;
-      }
-
-      // CTRL + V: Colar
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) {
-        e.preventDefault();
-        handlePasteSelection();
-        return;
-      }
-
-      // CTRL + X: Recortar
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'x' || e.key === 'X')) {
-        e.preventDefault();
-        handleCopySelection(true);
-        return;
-      }
-
-      // CTRL + Z: Desfazer
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
-        e.preventDefault();
-        onUndo();
-        return;
-      }
-
-      // CTRL + Y or CTRL + SHIFT + Z: Refazer
-      if (
-        ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) ||
-        ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z'))
-      ) {
-        e.preventDefault();
-        onRedo();
-        return;
-      }
-
-      // CTRL + S: Exportação rápida para Excel (.xlsx)
-      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
-        e.preventDefault();
-        exportSheetToExcel(sheet, sheet.name);
-        return;
-      }
-
-      // CTRL + B: Negrito
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
-        e.preventDefault();
-        const currentBold = sheet.data[cellPosToKey(activeCell.row, activeCell.col)]?.format?.bold;
-        handleToggleFormat({ bold: !currentBold });
-        return;
-      }
-
-      // CTRL + I: Itálico
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'i' || e.key === 'I')) {
-        e.preventDefault();
-        const currentItalic = sheet.data[cellPosToKey(activeCell.row, activeCell.col)]?.format?.italic;
-        handleToggleFormat({ italic: !currentItalic });
-        return;
-      }
-
-      // CTRL + U: Sublinhado
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 'U')) {
-        e.preventDefault();
-        const currentUnderline = sheet.data[cellPosToKey(activeCell.row, activeCell.col)]?.format?.underline;
-        handleToggleFormat({ underline: !currentUnderline });
-        return;
-      }
-
-      // CTRL + A: Selecionar tudo
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
-        e.preventDefault();
-        onSelectRange({
-          startRow: 0,
-          startCol: 0,
-          endRow: Math.min(sheet.rowCount - 1, 30),
-          endCol: Math.min(sheet.colCount - 1, 15),
-        });
-        return;
-      }
-
-      // CTRL + L or CTRL + F: Localizar e Substituir
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'l' || e.key === 'L' || e.key === 'f' || e.key === 'F') && !e.shiftKey) {
-        e.preventDefault();
-        onOpenFindReplace?.();
-        return;
-      }
-
-      // CTRL + Q: Análise Rápida (Quick Analysis Lens)
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'q' || e.key === 'Q')) {
-        e.preventDefault();
-        onOpenQuickAnalysis();
-        return;
-      }
-
-      // CTRL + E: Preenchimento Relâmpago (Flash Fill)
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'e' || e.key === 'E')) {
-        e.preventDefault();
-        if (flashFillHint) {
-          handleApplyFlashFill(flashFillHint);
-        }
-        return;
-      }
-
-      // CTRL + SHIFT + L: Alternar Filtros
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'l' || e.key === 'L')) {
-        e.preventDefault();
-        onUpdateSheet({
-          ...sheet,
-          filterEnabled: !sheet.filterEnabled,
-        });
-        return;
-      }
-
-
-      // Shift + Space: Selecionar a linha toda
-      if (e.shiftKey && e.code === 'Space' && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
-        onSelectRange({
-          startRow: activeCell.row,
-          startCol: 0,
-          endRow: activeCell.row,
-          endCol: sheet.colCount - 1,
-        });
-        return;
-      }
-
-      // Ctrl + Space: Selecionar a coluna toda
-      if ((e.ctrlKey || e.metaKey) && e.code === 'Space' && !e.shiftKey) {
-        e.preventDefault();
-        onSelectRange({
-          startRow: 0,
-          startCol: activeCell.col,
-          endRow: sheet.rowCount - 1,
-          endCol: activeCell.col,
-        });
-        return;
-      }
-
-
-      // Helper to check if cell is non-empty
-      const isCellFilled = (r: number, c: number) => {
-        const cell = sheet.data[cellPosToKey(r, c)];
-        return cell && cell.value !== null && cell.value !== undefined && cell.value !== '';
-      };
-
-      const findVerticalBoundary = (startR: number, c: number, dir: 'up' | 'down'): number => {
-        const currentFilled = Boolean(isCellFilled(startR, c));
-        if (dir === 'down') {
-          let r = startR;
-          if (currentFilled) {
-            while (r + 1 < sheet.rowCount && isCellFilled(r + 1, c)) r++;
-            return r;
-          } else {
-            while (r + 1 < sheet.rowCount && !isCellFilled(r + 1, c)) r++;
-            return Math.min(sheet.rowCount - 1, r + 1);
-          }
-        } else {
-          let r = startR;
-          if (currentFilled) {
-            while (r - 1 >= 0 && isCellFilled(r - 1, c)) r--;
-            return r;
-          } else {
-            while (r - 1 >= 0 && !isCellFilled(r - 1, c)) r--;
-            return Math.max(0, r - 1);
-          }
-        }
-      };
-
-      const findHorizontalBoundary = (r: number, startC: number, dir: 'left' | 'right'): number => {
-        const currentFilled = Boolean(isCellFilled(r, startC));
-        if (dir === 'right') {
-          let c = startC;
-          if (currentFilled) {
-            while (c + 1 < sheet.colCount && isCellFilled(r, c + 1)) c++;
-            return c;
-          } else {
-            while (c + 1 < sheet.colCount && !isCellFilled(r, c + 1)) c++;
-            return Math.min(sheet.colCount - 1, c + 1);
-          }
-        } else {
-          let c = startC;
-          if (currentFilled) {
-            while (c - 1 >= 0 && isCellFilled(r, c - 1)) c--;
-            return c;
-          } else {
-            while (c - 1 >= 0 && !isCellFilled(r, c - 1)) c--;
-            return Math.max(0, c - 1);
-          }
-        }
-      };
-
-      // CTRL + - : Excluir Linhas Selecionadas
-      if ((e.ctrlKey || e.metaKey) && (e.key === '-' || e.key === '_')) {
-        e.preventDefault();
-        handleDeleteSelectedRows();
-        return;
-      }
-
-      // CTRL + SHIFT + ARROWS: Expandir seleção até o final dos dados / linha / coluna
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
-        if (e.key === 'ArrowRight') {
-          e.preventDefault();
-          let targetCol = findHorizontalBoundary(activeCell.row, selectedRange.endCol, 'right');
-          if (targetCol <= selectedRange.endCol) {
-            targetCol = sheet.colCount - 1; // Expand to entire sheet row
-          }
-          const nextRange: CellRange = {
-            startRow: selectedRange.startRow,
-            endRow: selectedRange.endRow,
-            startCol: Math.min(selectionAnchor.col, targetCol),
-            endCol: Math.max(selectionAnchor.col, targetCol),
-          };
-          onSelectCell({ row: activeCell.row, col: targetCol });
-          onSelectRange(nextRange);
-          return;
-        }
-        if (e.key === 'ArrowLeft') {
-          e.preventDefault();
-          let targetCol = findHorizontalBoundary(activeCell.row, selectedRange.startCol, 'left');
-          if (targetCol >= selectedRange.startCol) {
-            targetCol = 0;
-          }
-          const nextRange: CellRange = {
-            startRow: selectedRange.startRow,
-            endRow: selectedRange.endRow,
-            startCol: Math.min(selectionAnchor.col, targetCol),
-            endCol: Math.max(selectionAnchor.col, targetCol),
-          };
-          onSelectCell({ row: activeCell.row, col: targetCol });
-          onSelectRange(nextRange);
-          return;
-        }
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          let targetRow = findVerticalBoundary(selectedRange.endRow, activeCell.col, 'down');
-          if (targetRow <= selectedRange.endRow) {
-            targetRow = sheet.rowCount - 1; // Expand to bottom of sheet
-          }
-          const nextRange: CellRange = {
-            startRow: Math.min(selectionAnchor.row, targetRow),
-            endRow: Math.max(selectionAnchor.row, targetRow),
-            startCol: selectedRange.startCol,
-            endCol: selectedRange.endCol,
-          };
-          onSelectCell({ row: targetRow, col: activeCell.col });
-          onSelectRange(nextRange);
-          return;
-        }
-        if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          let targetRow = findVerticalBoundary(selectedRange.startRow, activeCell.col, 'up');
-          if (targetRow >= selectedRange.startRow) {
-            targetRow = 0;
-          }
-          const nextRange: CellRange = {
-            startRow: Math.min(selectionAnchor.row, targetRow),
-            endRow: Math.max(selectionAnchor.row, targetRow),
-            startCol: selectedRange.startCol,
-            endCol: selectedRange.endCol,
-          };
-          onSelectCell({ row: targetRow, col: activeCell.col });
-          onSelectRange(nextRange);
-          return;
-        }
-      }
-
-      // CTRL + ARROWS: Pular para o limite de dados
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          const targetRow = findVerticalBoundary(activeCell.row, activeCell.col, 'down');
-          onSelectCell({ row: targetRow, col: activeCell.col });
-          onSelectRange({ startRow: targetRow, startCol: activeCell.col, endRow: targetRow, endCol: activeCell.col });
-          setSelectionAnchor({ row: targetRow, col: activeCell.col });
-          return;
-        }
-        if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          const targetRow = findVerticalBoundary(activeCell.row, activeCell.col, 'up');
-          onSelectCell({ row: targetRow, col: activeCell.col });
-          onSelectRange({ startRow: targetRow, startCol: activeCell.col, endRow: targetRow, endCol: targetRow });
-          setSelectionAnchor({ row: targetRow, col: activeCell.col });
-          return;
-        }
-        if (e.key === 'ArrowRight') {
-          e.preventDefault();
-          const targetCol = findHorizontalBoundary(activeCell.row, activeCell.col, 'right');
-          onSelectCell({ row: activeCell.row, col: targetCol });
-          onSelectRange({ startRow: activeCell.row, startCol: targetCol, endRow: activeCell.row, endCol: targetCol });
-          setSelectionAnchor({ row: activeCell.row, col: targetCol });
-          return;
-        }
-        if (e.key === 'ArrowLeft') {
-          e.preventDefault();
-          const targetCol = findHorizontalBoundary(activeCell.row, activeCell.col, 'left');
-          onSelectCell({ row: activeCell.row, col: targetCol });
-          onSelectRange({ startRow: activeCell.row, startCol: targetCol, endRow: activeCell.row, endCol: targetCol });
-          setSelectionAnchor({ row: activeCell.row, col: targetCol });
-          return;
-        }
-      }
-
-      // Standard Arrow Navigation
-      let newRow = activeCell.row;
-      let newCol = activeCell.col;
-
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        newRow = Math.max(0, newRow - 1);
-      } else if (e.key === 'ArrowDown' || e.key === 'Enter') {
-        e.preventDefault();
-        newRow = Math.min(sheet.rowCount - 1, newRow + 1);
-      } else if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        newCol = Math.max(0, newCol - 1);
-      } else if (e.key === 'ArrowRight' || e.key === 'Tab') {
-        e.preventDefault();
-        newCol = Math.min(sheet.colCount - 1, newCol + 1);
-      } else if (e.key === 'F2') {
-        e.preventDefault();
-        startEditing();
-        return;
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault();
-        clearSelectedCells();
-        return;
-      } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        startEditing(e.key);
-        return;
-      } else {
-        return;
-      }
-
-      if (e.shiftKey) {
-        const nextRange: CellRange = {
-          startRow: Math.min(selectionAnchor.row, newRow),
-          startCol: Math.min(selectionAnchor.col, newCol),
-          endRow: Math.max(selectionAnchor.row, newRow),
-          endCol: Math.max(selectionAnchor.col, newCol),
-        };
-        onSelectCell({ row: newRow, col: newCol });
-        onSelectRange(nextRange);
-      } else {
-        setSelectionAnchor({ row: newRow, col: newCol });
-        onSelectCell({ row: newRow, col: newCol });
-        onSelectRange({
-          startRow: newRow,
-          startCol: newCol,
-          endRow: newRow,
-          endCol: newCol,
-        });
-      }
-
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeCell, isEditing, selectionAnchor, sheet, selectedRange, clipboard, multiSelectedKeys]);
 
   const startEditing = (initialVal?: string) => {
     const key = cellPosToKey(activeCell.row, activeCell.col);
@@ -837,33 +284,11 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     onUpdateSheet(recalculated);
   };
 
-  // Delete entire selected rows completely
+  // Excluir as linhas selecionadas por completo
   const handleDeleteSelectedRows = () => {
     const rStart = selectedRange.startRow;
-    const rEnd = selectedRange.endRow;
-    const countToDelete = rEnd - rStart + 1;
-
-    const updatedData: { [key: string]: CellData } = {};
-
-    for (let r = 0; r < sheet.rowCount; r++) {
-      if (r >= rStart && r <= rEnd) continue; // Skip deleted rows
-
-      const targetR = r > rEnd ? r - countToDelete : r;
-      for (let c = 0; c < sheet.colCount; c++) {
-        const srcKey = cellPosToKey(r, c);
-        const destKey = cellPosToKey(targetR, c);
-        if (sheet.data[srcKey]) {
-          updatedData[destKey] = sheet.data[srcKey];
-        }
-      }
-    }
-
-    const newRowCount = Math.max(10, sheet.rowCount - countToDelete);
-    const recalculated = recalculateSheet({
-      ...sheet,
-      data: updatedData,
-      rowCount: newRowCount,
-    });
+    const { data, rowCount: newRowCount } = deleteRowsData(sheet, rStart, selectedRange.endRow);
+    const recalculated = recalculateSheet({ ...sheet, data, rowCount: newRowCount });
     onUpdateSheet(recalculated);
     onSelectCell({ row: Math.min(rStart, newRowCount - 1), col: activeCell.col });
     onSelectRange({
@@ -874,6 +299,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     });
     setMultiSelectedKeys(new Set());
   };
+
 
   // Clear cell contents in selectedRange and multiSelectedKeys
   const clearSelectedCells = () => {
@@ -1206,109 +632,11 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   };
 
   const applyFillHandleDrag = (targetRange: CellRange) => {
-    const updatedData = { ...sheet.data };
-    const srcStartR = selectedRange.startRow;
-    const srcEndR = selectedRange.endRow;
-    const srcStartC = selectedRange.startCol;
-    const srcEndC = selectedRange.endCol;
-    const srcRowCount = srcEndR - srcStartR + 1;
-    const srcColCount = srcEndC - srcStartC + 1;
-
-    // 1. Dragging Downwards
-    if (targetRange.endRow > srcEndR) {
-      const targetLen = targetRange.endRow - srcEndR;
-
-      for (let c = srcStartC; c <= srcEndC; c++) {
-        // Collect source raw values and formats
-        const sourceRawVals: string[] = [];
-        let hasFormulas = false;
-
-        for (let r = srcStartR; r <= srcEndR; r++) {
-          const cell = sheet.data[cellPosToKey(r, c)];
-          const raw = cell?.raw || (cell?.value !== null && cell?.value !== undefined ? String(cell.value) : '');
-          sourceRawVals.push(raw);
-          if (raw.startsWith('=')) hasFormulas = true;
-        }
-
-        if (hasFormulas) {
-          // Formula Relative Shifting
-          for (let r = srcEndR + 1; r <= targetRange.endRow; r++) {
-            const sourceRow = srcStartR + ((r - srcEndR - 1) % srcRowCount);
-            const sourceCell = sheet.data[cellPosToKey(sourceRow, c)];
-            if (sourceCell) {
-              const shiftR = r - sourceRow;
-              const newRaw = sourceCell.raw.startsWith('=') ? shiftFormula(sourceCell.raw, shiftR, 0) : sourceCell.raw;
-              updatedData[cellPosToKey(r, c)] = {
-                raw: newRaw,
-                value: null,
-                format: sourceCell.format ? { ...sourceCell.format } : undefined,
-              };
-            }
-          }
-        } else {
-          // Smart AutoFill Series (Numbers, Dates, Codes, Days of Week, Months)
-          const smartSeries = computeSmartSeries(sourceRawVals, targetLen, 'series');
-
-          smartSeries.forEach((val, idx) => {
-            const r = srcEndR + 1 + idx;
-            const sourceTemplateCell = sheet.data[cellPosToKey(srcStartR + (idx % srcRowCount), c)];
-            updatedData[cellPosToKey(r, c)] = {
-              raw: String(val),
-              value: typeof val === 'number' ? val : (parseNumberSafely(val) ?? val),
-              format: sourceTemplateCell?.format ? { ...sourceTemplateCell.format } : undefined,
-            };
-          });
-        }
-      }
-    }
-    // 2. Dragging to the Right
-    else if (targetRange.endCol > srcEndC) {
-      const targetLen = targetRange.endCol - srcEndC;
-
-      for (let r = srcStartR; r <= srcEndR; r++) {
-        const sourceRawVals: string[] = [];
-        let hasFormulas = false;
-
-        for (let c = srcStartC; c <= srcEndC; c++) {
-          const cell = sheet.data[cellPosToKey(r, c)];
-          const raw = cell?.raw || (cell?.value !== null && cell?.value !== undefined ? String(cell.value) : '');
-          sourceRawVals.push(raw);
-          if (raw.startsWith('=')) hasFormulas = true;
-        }
-
-        if (hasFormulas) {
-          for (let c = srcEndC + 1; c <= targetRange.endCol; c++) {
-            const sourceCol = srcStartC + ((c - srcEndC - 1) % srcColCount);
-            const sourceCell = sheet.data[cellPosToKey(r, sourceCol)];
-            if (sourceCell) {
-              const shiftC = c - sourceCol;
-              const newRaw = sourceCell.raw.startsWith('=') ? shiftFormula(sourceCell.raw, 0, shiftC) : sourceCell.raw;
-              updatedData[cellPosToKey(r, c)] = {
-                raw: newRaw,
-                value: null,
-                format: sourceCell.format ? { ...sourceCell.format } : undefined,
-              };
-            }
-          }
-        } else {
-          const smartSeries = computeSmartSeries(sourceRawVals, targetLen, 'series');
-          smartSeries.forEach((val, idx) => {
-            const c = srcEndC + 1 + idx;
-            const sourceTemplateCell = sheet.data[cellPosToKey(r, srcStartC + (idx % srcColCount))];
-            updatedData[cellPosToKey(r, c)] = {
-              raw: String(val),
-              value: typeof val === 'number' ? val : (parseNumberSafely(val) ?? val),
-              format: sourceTemplateCell?.format ? { ...sourceTemplateCell.format } : undefined,
-            };
-          });
-        }
-      }
-    }
-
-    const recalculated = recalculateSheet({ ...sheet, data: updatedData });
+    const recalculated = recalculateSheet({ ...sheet, data: computeFilledData(sheet, selectedRange, targetRange) });
     onUpdateSheet(recalculated);
     onSelectRange(targetRange);
   };
+
 
   // Column Resizing handlers
   const handleMouseUp = () => {
@@ -1435,56 +763,11 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     });
   };
 
-  // Sort rows based on column (preserving row 0 header)
+  // Ordena as linhas pela coluna (a linha 0 é o cabeçalho)
   const handleSortColumn = (colIndex: number, direction: 'asc' | 'desc') => {
-    // Collect all data rows
-    const dataRowIndices: number[] = [];
-    for (let r = 1; r < sheet.rowCount; r++) {
-      dataRowIndices.push(r);
-    }
-
-    dataRowIndices.sort((a, b) => {
-      const valA = getCellValue(sheet, a, colIndex);
-      const valB = getCellValue(sheet, b, colIndex);
-
-      const numA = parseNumberSafely(valA);
-      const numB = parseNumberSafely(valB);
-
-      if (numA !== null && numB !== null) {
-        return direction === 'asc' ? numA - numB : numB - numA;
-      }
-
-      const strA = valA !== null && valA !== undefined ? String(valA).trim() : '';
-      const strB = valB !== null && valB !== undefined ? String(valB).trim() : '';
-
-      return direction === 'asc'
-        ? strA.localeCompare(strB, undefined, { numeric: true })
-        : strB.localeCompare(strA, undefined, { numeric: true });
-    });
-
-    // Reconstruct sheet.data with rows in sorted order
-    const updatedData: { [key: string]: CellData } = {};
-    // Copy row 0 unchanged
-    for (let c = 0; c < sheet.colCount; c++) {
-      const k0 = cellPosToKey(0, c);
-      if (sheet.data[k0]) updatedData[k0] = sheet.data[k0];
-    }
-
-    // Map sorted data rows
-    dataRowIndices.forEach((origRowIdx, targetIdx) => {
-      const newRowIdx = targetIdx + 1;
-      for (let c = 0; c < sheet.colCount; c++) {
-        const srcKey = cellPosToKey(origRowIdx, c);
-        const destKey = cellPosToKey(newRowIdx, c);
-        if (sheet.data[srcKey]) {
-          updatedData[destKey] = sheet.data[srcKey];
-        }
-      }
-    });
-
-    const recalculated = recalculateSheet({ ...sheet, data: updatedData });
-    onUpdateSheet(recalculated);
+    onUpdateSheet(recalculateSheet({ ...sheet, data: sortRowsData(sheet, colIndex, direction) }));
   };
+
 
   // Filtered rows evaluation
   const visibleRowIndices = useMemo(() => {
@@ -1554,6 +837,14 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     return map;
   }, [sheet.data, sheet.rowCount, sheet.colCount]);
 
+  useGridKeyboard({
+    sheet, activeCell, selectedRange, selectionAnchor, isEditing, clipboard, multiSelectedKeys, flashFillHint,
+    lastEscTimeRef, onUpdateSheet, onSelectCell, onSelectRange, onUndo, onRedo, onOpenQuickAnalysis,
+    onOpenFindReplace, onClearSearchFilter, setClipboard, setOpenFilterCol, setMultiSelectedKeys, setContextMenu,
+    setFlashFillHint, setSelectionAnchor, setFilterClearedToast, handleCopySelection, handlePasteSelection,
+    handleToggleFormat, handleApplyFlashFill, handleDeleteSelectedRows, startEditing, clearSelectedCells,
+  });
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-white relative">
       <div
@@ -1571,111 +862,26 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       <table className={`border-collapse table-fixed w-max text-xs bg-white ${!showGridlines ? 'no-gridlines' : ''}`}>
         {/* Table Column Header: Top Left corner (#) + NocoDB Column Types */}
         <thead className="sticky top-0 z-20 bg-[#f8fafc]">
-          <tr>
-            {/* Top-left corner origin cell (#) */}
-            <th
-              title="Selecionar Toda a Tabela (Ctrl+A)"
-              onClick={() => {
-                setMultiSelectedKeys(new Set());
-                setSelectionAnchor({ row: 0, col: 0 });
-                onSelectCell({ row: 0, col: 0 });
-                onSelectRange({
-                  startRow: 0,
-                  startCol: 0,
-                  endRow: sheet.rowCount - 1,
-                  endCol: sheet.colCount - 1,
-                });
-              }}
-              className="sticky left-0 z-30 w-10 h-8 bg-[#f8fafc] border-r border-b border-[#e2e8f0] select-none cursor-pointer hover:bg-slate-100 transition-colors text-center text-slate-700 font-mono text-xs font-bold"
-            >
-              #
-            </th>
-
-            {Array.from({ length: renderedCols }).map((_, colIdx) => {
-              const colLabel = colIndexToLabel(colIdx);
-              const isColSelected =
-                colIdx >= selectedRange.startCol && colIdx <= selectedRange.endCol;
-              const isColActive = colIdx === activeCell.col;
-              const width = sheet.colWidths[colIdx] || 120;
-              const isColFiltered = Boolean(sheet.filters?.[colIdx]);
-              const headerCell = sheet.data[cellPosToKey(0, colIdx)];
-              const colHeaderTitle = headerCell?.value || colLabel;
-              const colMeta = getNocoColumnIcon(sheet, colIdx);
-
-              return (
-                <th
-                  key={colIdx}
-                  title={`Coluna ${colLabel}: ${colHeaderTitle}`}
-                  style={{
-                    width: `${width}px`,
-                    minWidth: `${width}px`,
-                    maxWidth: `${width}px`,
-                  }}
-                  className={`relative h-8 border-r border-b border-[#e2e8f0] text-xs font-sans font-semibold transition-colors cursor-pointer select-none group ${
-                    isColSelected || isColActive
-                      ? 'bg-indigo-50 text-indigo-950 font-bold'
-                      : 'bg-[#f8fafc] text-slate-800 hover:bg-slate-100'
-                  }`}
-                  onMouseDown={e => handleColHeaderMouseDown(e, colIdx)}
-                  onMouseEnter={e => handleColHeaderMouseEnter(e, colIdx)}
-                >
-                  <div className="flex items-center justify-between px-2 font-sans relative w-full h-full">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className={`size-4 rounded flex items-center justify-center shrink-0 ${colMeta.bg}`} title={`Tipo: ${colMeta.label}`}>
-                        {colMeta.icon}
-                      </span>
-                      <span className="truncate text-xs text-slate-700 font-bold group-hover:text-slate-950">
-                        {colLabel}
-                      </span>
-                    </div>
-
-                    <ChevronDown className="size-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-
-                    {/* Filter Button */}
-                    {sheet.filterEnabled && (
-                      <button
-                        onClick={e => {
-                          e.stopPropagation();
-                          setOpenFilterCol(openFilterCol === colIdx ? null : colIdx);
-                        }}
-                        title={`Filtrar / Classificar Coluna ${colLabel}`}
-                        className={`absolute right-1 p-0.5 rounded transition-all cursor-pointer ${
-                          isColFiltered
-                            ? 'bg-indigo-600 text-white shadow-2xs'
-                            : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        <FilterIcon className="size-2.5" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Column Filter Dropdown */}
-                  {openFilterCol === colIdx && (
-                    <ColumnFilterDropdown
-                      colIndex={colIdx}
-                      colName={String(colHeaderTitle)}
-                      sheet={sheet}
-                      selectedValues={sheet.filters?.[colIdx]}
-                      isOpen={true}
-                      onClose={() => setOpenFilterCol(null)}
-                      onApplyFilter={handleApplyColumnFilter}
-                      onSortColumn={handleSortColumn}
-                    />
-                  )}
-
-                  {/* Column resize drag handle */}
-                  <div
-                    onMouseDown={e => handleColResizeMouseDown(e, colIdx)}
-                    onDoubleClick={() => handleColAutoFit(colIdx)}
-                    className="absolute right-0 top-0 bottom-0 w-2 hover:bg-indigo-500 cursor-col-resize z-20 group"
-                  >
-                    <div className="w-px h-full bg-[#e2e8f0] mx-auto group-hover:bg-indigo-500" />
-                  </div>
-                </th>
-              );
-            })}
-          </tr>
+        <GridHeaderRow
+          sheet={sheet}
+          activeCell={activeCell}
+          selectedRange={selectedRange}
+          renderedCols={renderedCols}
+          openFilterCol={openFilterCol}
+          setOpenFilterCol={setOpenFilterCol}
+          onSelectAll={() => {
+            setMultiSelectedKeys(new Set());
+            setSelectionAnchor({ row: 0, col: 0 });
+            onSelectCell({ row: 0, col: 0 });
+            onSelectRange({ startRow: 0, startCol: 0, endRow: sheet.rowCount - 1, endCol: sheet.colCount - 1 });
+          }}
+          handleColHeaderMouseDown={handleColHeaderMouseDown}
+          handleColHeaderMouseEnter={handleColHeaderMouseEnter}
+          handleColResizeMouseDown={handleColResizeMouseDown}
+          handleColAutoFit={handleColAutoFit}
+          handleApplyColumnFilter={handleApplyColumnFilter}
+          handleSortColumn={handleSortColumn}
+        />
         </thead>
 
         {/* Table Body with Top/Bottom virtual spacers */}
@@ -1686,146 +892,31 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
             </tr>
           )}
 
-          {Array.from({ length: Math.max(0, endVisibleIdx - startVisibleIdx + 1) }).map((_, idx) => {
-            const rowIdx = visibleRowIndices[startVisibleIdx + idx];
-            if (rowIdx === undefined) return null;
-            const isRowSelected =
-              rowIdx >= selectedRange.startRow && rowIdx <= selectedRange.endRow;
-            const isRowActive = rowIdx === activeCell.row;
-            const height = sheet.rowHeights[rowIdx] || 26;
-
-            return (
-              <tr key={rowIdx} style={{ height: `${height}px` }}>
-                {/* Sticky Row Number (Left column) - NocoDB # Column */}
-                <th
-                  className={`sticky left-0 z-10 w-10 border-r border-b border-[#e2e8f0] text-xs font-mono select-none transition-colors cursor-pointer text-center ${
-                    isRowSelected || isRowActive
-                      ? 'bg-indigo-50 text-indigo-950 font-bold border-r-2 border-r-indigo-600'
-                      : 'bg-[#f8fafc] text-slate-700 font-bold hover:bg-slate-100'
-                  }`}
-                  onMouseDown={e => handleRowHeaderMouseDown(e, rowIdx)}
-                  onMouseEnter={e => handleRowHeaderMouseEnter(e, rowIdx)}
-                >
-                  <div className="relative h-full flex items-center justify-center font-mono text-xs font-bold">
-                    {rowIdx + 1}
-                    <div
-                      onMouseDown={e => handleRowResizeMouseDown(e, rowIdx)}
-                      className="absolute bottom-0 left-0 right-0 h-1.5 hover:bg-indigo-500 cursor-row-resize z-20"
-                    />
-                  </div>
-                </th>
-
-                {/* Cells in row */}
-                {Array.from({ length: renderedCols }).map((_, colIdx) => {
-
-                  const key = cellPosToKey(rowIdx, colIdx);
-                  const cell = sheet.data[key];
-
-                  const isCellSelected =
-                    activeCell.row === rowIdx && activeCell.col === colIdx;
-                  const isCellInRange =
-                    rowIdx >= selectedRange.startRow &&
-                    rowIdx <= selectedRange.endRow &&
-                    colIdx >= selectedRange.startCol &&
-                    colIdx <= selectedRange.endCol;
-
-                  const isCellEditing = isEditing && isCellSelected;
-
-                  const merged = sheet.mergedRegions.find(
-                    m => m.startRow === rowIdx && m.startCol === colIdx
-                  );
-                  const isCovered = sheet.mergedRegions.some(
-                    m =>
-                      rowIdx >= m.startRow &&
-                      rowIdx <= m.endRow &&
-                      colIdx >= m.startCol &&
-                      colIdx <= m.endCol &&
-                      !(m.startRow === rowIdx && m.startCol === colIdx)
-                  );
-
-                  const isSingleCell =
-                    selectedRange.startRow === selectedRange.endRow &&
-                    selectedRange.startCol === selectedRange.endCol;
-
-                  // Check if this cell is part of any formula argument highlighted reference (Excel Arg Highlighting)
-                  let cellFormulaHighlight: FormulaCellHighlightInfo | undefined = undefined;
-                  if (formulaHighlights.length > 0) {
-                    for (const fh of formulaHighlights) {
-                      const { startRow, startCol, endRow, endCol } = fh.range;
-                      if (rowIdx >= startRow && rowIdx <= endRow && colIdx >= startCol && colIdx <= endCol) {
-                        cellFormulaHighlight = {
-                          color: fh.color,
-                          bgColor: fh.bgColor,
-                          isTop: rowIdx === startRow,
-                          isBottom: rowIdx === endRow,
-                          isLeft: colIdx === startCol,
-                          isRight: colIdx === endCol,
-                        };
-                        break;
-                      }
-                    }
-                  }
-
-                  return (
-                    <GridCell
-                      key={colIdx}
-                      row={rowIdx}
-                      col={colIdx}
-                      cell={cell}
-                      isSelected={isCellSelected}
-                      isInRange={isCellInRange}
-                      isMultiSelected={multiSelectedKeys.has(key)}
-                      isSingleCellSelection={isSingleCell}
-                      isRangeTop={isCellInRange && rowIdx === selectedRange.startRow}
-                      isRangeBottom={isCellInRange && rowIdx === selectedRange.endRow}
-                      isRangeLeft={isCellInRange && colIdx === selectedRange.startCol}
-                      isRangeRight={isCellInRange && colIdx === selectedRange.endCol}
-                      isRangeBottomRight={isCellInRange && rowIdx === selectedRange.endRow && colIdx === selectedRange.endCol}
-                      formulaHighlight={cellFormulaHighlight}
-                      isEditing={isCellEditing}
-                      editValue={editValue}
-                      mergedRegion={merged}
-                      isMergeCovered={isCovered}
-                      conditionalRules={sheet.conditionalRules}
-                      allColumnValues={columnValueMap[colIdx] || []}
-
-
-                      onMouseDown={handleCellMouseDown}
-                      onMouseEnter={handleCellMouseEnter}
-                      onDoubleClick={() => startEditing()}
-                      onEditChange={setEditValue}
-                      onEditKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          commitEdit();
-                          onSelectCell({ row: rowIdx + 1, col: colIdx });
-                          onSelectRange({
-                            startRow: rowIdx + 1,
-                            startCol: colIdx,
-                            endRow: rowIdx + 1,
-                            endCol: colIdx,
-                          });
-                        } else if (e.key === 'Escape') {
-                          setIsEditing(false);
-                        } else if (e.key === 'Tab') {
-                          commitEdit();
-                          onSelectCell({ row: rowIdx, col: colIdx + 1 });
-                          onSelectRange({
-                            startRow: rowIdx,
-                            startCol: colIdx + 1,
-                            endRow: rowIdx,
-                            endCol: colIdx + 1,
-                          });
-                        }
-                      }}
-                      onEditBlur={commitEdit}
-                      onFillMouseDown={handleFillMouseDown}
-                      onFillDoubleClick={handleFillDoubleClick}
-                    />
-                  );
-                })}
-              </tr>
-            );
-          })}
+          <GridBodyRows
+            sheet={sheet}
+            activeCell={activeCell}
+            selectedRange={selectedRange}
+            renderedCols={renderedCols}
+            rowIndices={visibleRowIndices.slice(startVisibleIdx, endVisibleIdx + 1)}
+            isEditing={isEditing}
+            editValue={editValue}
+            multiSelectedKeys={multiSelectedKeys}
+            formulaHighlights={formulaHighlights}
+            columnValueMap={columnValueMap}
+            setEditValue={setEditValue}
+            startEditing={startEditing}
+            commitEdit={commitEdit}
+            setIsEditing={setIsEditing}
+            onSelectCell={onSelectCell}
+            onSelectRange={onSelectRange}
+            handleRowHeaderMouseDown={handleRowHeaderMouseDown}
+            handleRowHeaderMouseEnter={handleRowHeaderMouseEnter}
+            handleRowResizeMouseDown={handleRowResizeMouseDown}
+            handleCellMouseDown={handleCellMouseDown}
+            handleCellMouseEnter={handleCellMouseEnter}
+            handleFillMouseDown={handleFillMouseDown}
+            handleFillDoubleClick={handleFillDoubleClick}
+          />
 
           {bottomSpacerHeight > 0 && (
             <tr style={{ height: `${bottomSpacerHeight}px` }}>
@@ -1836,251 +927,43 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       </table>
 
 
-      {/* Floating Quick Analysis Lens Trigger (CTRL+Q Button) */}
-      {hasMultipleSelection && (
-        <div className="fixed bottom-14 right-8 z-30 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
-          {multiSelectedKeys.size > 1 && (
-            <div className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-slate-900 text-white font-bold text-xs shadow-xl border border-slate-700 animate-in zoom-in-95">
-              <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>{multiSelectedKeys.size} células selecionadas (CTRL)</span>
-            </div>
-          )}
+      <GridOverlays
+        sheet={sheet}
+        hasMultipleSelection={hasMultipleSelection}
+        multiSelectedCount={multiSelectedKeys.size}
+        flashFillHint={flashFillHint}
+        onOpenQuickAnalysis={onOpenQuickAnalysis}
+        onApplyFlashFill={handleApplyFlashFill}
+      />
 
-          <button
-            onClick={() => exportSheetToExcel(sheet, `${sheet.name}_Selecao`)}
-            title="Exportar dados direto para o Excel (.XLSX)"
-            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-full bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs shadow-xl border border-slate-200 cursor-pointer transition-all hover:scale-105"
-          >
-            <Download className="size-3.5 text-emerald-700" />
-            <span>Excel (.XLSX)</span>
-          </button>
 
-          <button
-            onClick={onOpenQuickAnalysis}
-            className="flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xl transition-all hover:scale-105 cursor-pointer border border-emerald-500"
-          >
-            <Sparkles className="size-4" />
-            <span>Análise Rápida</span>
-            <span className="px-1.5 py-0.5 rounded-md bg-emerald-700 text-emerald-100 text-[10px] font-mono font-bold">
-              Ctrl+Q
-            </span>
-          </button>
-        </div>
+      {contextMenu?.isOpen && (
+        <GridContextMenu
+          contextMenu={contextMenu}
+          sheet={sheet}
+          activeCell={activeCell}
+          onClose={() => setContextMenu(null)}
+          handleCopySelection={handleCopySelection}
+          handlePasteSelection={handlePasteSelection}
+          handleApplyFlashFill={handleApplyFlashFill}
+          handleDeleteSelectedRows={handleDeleteSelectedRows}
+          clearSelectedCells={clearSelectedCells}
+          onOpenFormatModal={onOpenFormatModal}
+          onOpenQuickAnalysis={onOpenQuickAnalysis}
+          onOpenTextToColumns={onOpenTextToColumns}
+          onOpenConditionalModal={onOpenConditionalModal}
+        />
       )}
 
-
-      {/* Flash Fill Smart Hint Toast */}
-      {flashFillHint && (
-        <div className="fixed bottom-14 left-8 z-30 animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="flex items-center gap-3 p-3 px-4 rounded-2xl bg-white border border-emerald-500/40 shadow-2xl">
-            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700">
-              <Zap className="size-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-800">Preenchimento Relâmpago detectado!</span>
-                <span className="px-1.5 py-0.5 rounded-sm bg-slate-100 text-emerald-800 text-[10px] font-mono border border-slate-300">
-                  Ctrl+E
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-600">{flashFillHint.patternDescription}</p>
-            </div>
-            <button
-              onClick={() => handleApplyFlashFill(flashFillHint)}
-              className="ml-2 px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all cursor-pointer shadow-xs"
-            >
-              Preencher {flashFillHint.predictedValues.length} linhas
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Context Menu (Right Click with smart viewport boundary positioning) */}
-      {contextMenu?.isOpen && (() => {
-        const menuWidth = 260;
-        const menuHeight = 440;
-        const winW = typeof window !== 'undefined' ? window.innerWidth : 1200;
-        const winH = typeof window !== 'undefined' ? window.innerHeight : 800;
-        const clampedX = Math.max(12, Math.min(contextMenu.x, winW - menuWidth - 16));
-        const clampedY = Math.max(12, Math.min(contextMenu.y, winH - menuHeight - 16));
-
-        return (
-          <div
-            style={{ top: `${clampedY}px`, left: `${clampedX}px` }}
-            className="fixed z-50 w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl p-1.5 text-xs text-slate-700 animate-in fade-in duration-100 max-h-[calc(100vh-32px)] overflow-y-auto"
-            onClick={() => setContextMenu(null)}
-          >
-            <button
-              onClick={() => handleCopySelection(false)}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-left cursor-pointer"
-            >
-              <span className="flex items-center gap-2">
-                <Copy className="size-3.5 text-slate-600" />
-                Copiar
-              </span>
-              <kbd className="text-[10px] text-slate-400 font-mono">Ctrl+C</kbd>
-            </button>
-
-            <button
-              onClick={handlePasteSelection}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-left cursor-pointer"
-            >
-              <span className="flex items-center gap-2">
-                <Clipboard className="size-3.5 text-slate-600" />
-                Colar
-              </span>
-              <kbd className="text-[10px] text-slate-400 font-mono">Ctrl+V</kbd>
-            </button>
-
-            <button
-              onClick={() => handleCopySelection(true)}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-left cursor-pointer"
-            >
-              <span className="flex items-center gap-2">
-                <Scissors className="size-3.5 text-slate-600" />
-                Recortar
-              </span>
-              <kbd className="text-[10px] text-slate-400 font-mono">Ctrl+X</kbd>
-            </button>
-
-            <div className="h-px bg-slate-200 my-1" />
-
-            {/* Formatar Células / Cores & Tipos */}
-            {onOpenFormatModal && (
-              <button
-                onClick={onOpenFormatModal}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-indigo-50 hover:text-indigo-800 transition-colors text-left cursor-pointer font-bold text-indigo-700 btn-tactile"
-              >
-                <span className="flex items-center gap-2">
-                  <Paintbrush className="size-3.5 text-indigo-600" />
-                  Formatar Células / Cores & Tipos
-                </span>
-                <kbd className="text-[10px] bg-indigo-100 border border-indigo-200 text-indigo-800 px-1.5 py-0.5 rounded font-mono font-bold">Ctrl+1</kbd>
-              </button>
-            )}
-
-            <button
-              onClick={onOpenQuickAnalysis}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-emerald-50 hover:text-emerald-800 transition-colors text-left cursor-pointer font-bold text-emerald-700"
-            >
-              <span className="flex items-center gap-2">
-                <Sparkles className="size-3.5" />
-                Análise Rápida
-              </span>
-              <kbd className="text-[10px] text-emerald-800 font-mono font-bold">Ctrl+Q</kbd>
-            </button>
-
-            <button
-              onClick={() => {
-                const hint = detectFlashFill(sheet, activeCell.col, activeCell.row);
-                if (hint) handleApplyFlashFill(hint);
-              }}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-left cursor-pointer"
-            >
-              <span className="flex items-center gap-2">
-                <Zap className="size-3.5 text-amber-600" />
-                Preenchimento Relâmpago
-              </span>
-              <kbd className="text-[10px] text-slate-400 font-mono">Ctrl+E</kbd>
-            </button>
-
-            <button
-              onClick={onOpenTextToColumns}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-left cursor-pointer"
-            >
-              <Split className="size-3.5 text-purple-600" />
-              Dividir por Delimitador
-            </button>
-
-            <button
-              onClick={onOpenConditionalModal}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-left cursor-pointer"
-            >
-              <Palette className="size-3.5 text-emerald-700" />
-              Formatação Condicional
-            </button>
-
-            <div className="h-px bg-slate-200 my-1" />
-
-            <button
-              onClick={() => exportSheetToExcel(sheet, sheet.name)}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-emerald-50 hover:text-emerald-800 transition-colors text-left cursor-pointer font-bold text-slate-800"
-            >
-              <span className="flex items-center gap-2">
-                <FileSpreadsheet className="size-3.5 text-emerald-700" />
-                Exportar para Excel (.XLSX)
-              </span>
-              <kbd className="text-[10px] text-slate-400 font-mono">Ctrl+S</kbd>
-            </button>
-
-            <button
-              onClick={handleDeleteSelectedRows}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-rose-50 hover:text-rose-700 transition-colors text-left cursor-pointer text-rose-700 font-semibold"
-            >
-              <span className="flex items-center gap-2">
-                <Trash2 className="size-3.5" />
-                Excluir Linha(s) Selecionada(s)
-              </span>
-              <kbd className="text-[10px] text-rose-600 font-mono font-bold">Ctrl+-</kbd>
-            </button>
-
-            <button
-              onClick={clearSelectedCells}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-slate-100 text-slate-700 transition-colors text-left cursor-pointer font-medium"
-            >
-              <span className="flex items-center gap-2">
-                <Trash2 className="size-3.5 text-slate-500" />
-                Limpar Conteúdo das Células
-              </span>
-              <kbd className="text-[10px] text-slate-400 font-mono">Del</kbd>
-            </button>
-          </div>
-        );
-      })()}
       </div>
 
-      {/* NocoDB Bottom Status & Summary Bar */}
-      <div className="h-8 shrink-0 bg-[#f8fafc] border-t border-[#e2e8f0] px-3 flex items-center justify-between text-xs text-slate-600 select-none z-10">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleAddRow}
-            className="flex items-center gap-1 font-medium text-slate-700 hover:text-indigo-600 hover:bg-slate-200/60 px-2 py-0.5 rounded transition-colors cursor-pointer"
-          >
-            <Plus className="size-3.5 text-slate-500" />
-            <span>Novo Registro</span>
-          </button>
+      <GridStatusBar
+        recordCount={Math.max(sheet.rowCount - 1, 0)}
+        onAddRow={handleAddRow}
+        onSummary={onToggleSummary || onOpenQuickAnalysis}
+        onToggleCopilot={onToggleCopilot}
+      />
 
-          <span className="text-slate-300">|</span>
-
-          <span className="text-slate-500 font-sans">
-            {Math.max(sheet.rowCount - 1, 0)} registros
-          </span>
-
-          <span className="text-slate-300">|</span>
-
-          <button
-            onClick={onToggleSummary || onOpenQuickAnalysis}
-            className="flex items-center gap-1 text-slate-600 hover:text-slate-900 px-1.5 py-0.5 rounded hover:bg-slate-200/50 cursor-pointer"
-          >
-            <ChevronDown className="size-3 text-slate-400" />
-            <span>Resumo</span>
-          </button>
-        </div>
-
-        {/* NocoAI Floating Button on Bottom Right */}
-        {onToggleCopilot && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onToggleCopilot}
-              aria-label="Abrir assistente NocoAI"
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/90 hover:bg-slate-900 text-violet-200 border border-violet-500/40 font-bold text-xs shadow-lg backdrop-blur-xs hover:shadow-violet-500/20 hover:scale-105 btn-tactile cursor-pointer"
-            >
-              <Sparkles className="size-3.5 text-violet-400 animate-pulse" />
-              <span>NocoAI</span>
-            </button>
-          </div>
-        )}
-      </div>
 
       {/* Double ESC Active Filter Cleared Notification Toast */}
       {filterClearedToast && (
