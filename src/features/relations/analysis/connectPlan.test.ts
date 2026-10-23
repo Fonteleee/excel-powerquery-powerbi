@@ -2,13 +2,13 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { addTableNode } from '../model/editor';
+import { addOutputNode, addTableNode, addTransformNode, defaultParams } from '../model/editor';
 import { createEmptyGraph, FlowGraph } from '../model/graph';
 import { parseFlowGraph } from '../model/schema';
 import { evaluateGraph } from '../runtime/evaluate';
 import { sampleSheets } from '../testing/fixtures';
 import { createConnectContext } from './connectContext';
-import { applyConnectOperation, pickGroupKey } from './connectPlan';
+import { applyConnectOperation, connectColumnToPort, pickGroupKey } from './connectPlan';
 import { ConnectOperation } from './suggestions';
 
 function setup() {
@@ -122,5 +122,98 @@ describe('pickGroupKey', () => {
     assert.equal(pickGroupKey(cols, 'Valor', 'x', types({ Valor: 'number', Agente: 'text', Codigo: 'id' })), 'Codigo');
     assert.equal(pickGroupKey(['Valor', 'Nome'], 'Valor', 'x', types({ Nome: 'text' })), 'Nome');
     assert.equal(pickGroupKey(['Valor'], 'Valor', 'x', types({})), null);
+  });
+});
+
+describe('connectColumnToPort', () => {
+  function withNode(op: 'lookup' | 'aggregate' | 'filter') {
+    const { graph, ctx } = setup();
+    const added = addTransformNode(graph, defaultParams(op), { x: 500, y: 0 });
+    assert.ok(added.ok);
+    return { graph: added.graph, id: added.id, ctx };
+  }
+  const paramsOf = (g: FlowGraph, id: string) => {
+    const n = g.nodes.find(x => x.id === id);
+    assert.ok(n && n.kind === 'transform');
+    return n.params;
+  };
+
+  it('lookup: campo na porta de entrada vira a chave de origem', () => {
+    const { graph, id, ctx } = withNode('lookup');
+    const r = connectColumnToPort(graph, { nodeId: 'tbl-1', column: 'Id' }, id, 'in', ctx);
+    assert.ok(r.ok);
+    const p = paramsOf(r.graph, id);
+    assert.ok(p.op === 'lookup');
+    assert.equal(p.sourceKey, 'Id');
+  });
+
+  it('lookup: campo na porta de busca vira a coluna de busca e escolhe uma coluna de retorno', () => {
+    const { graph, id, ctx } = withNode('lookup');
+    const r = connectColumnToPort(graph, { nodeId: 'tbl-2', column: 'Agente ID' }, id, 'lookup', ctx);
+    assert.ok(r.ok);
+    const p = paramsOf(r.graph, id);
+    assert.ok(p.op === 'lookup');
+    assert.equal(p.lookupKey, 'Agente ID');
+    assert.deepEqual(p.returns, ['Motivo']);
+  });
+
+  it('lookup: preserva as colunas de retorno já escolhidas', () => {
+    const { graph, id, ctx } = withNode('lookup');
+    const first = connectColumnToPort(graph, { nodeId: 'tbl-2', column: 'Agente ID' }, id, 'lookup', ctx);
+    assert.ok(first.ok);
+    const set = {
+      ...first.graph,
+      nodes: first.graph.nodes.map(n =>
+        n.id === id && n.kind === 'transform' && n.params.op === 'lookup'
+          ? { ...n, params: { ...n.params, returns: ['Minutos'] } }
+          : n
+      ),
+    };
+    const again = connectColumnToPort(set, { nodeId: 'tbl-2', column: 'Agente ID' }, id, 'lookup', ctx);
+    assert.ok(again.ok);
+    const p = paramsOf(again.graph, id);
+    assert.ok(p.op === 'lookup');
+    assert.deepEqual(p.returns, ['Minutos']);
+  });
+
+  it('aggregate: campo numérico vira soma; campo de texto vira agrupamento', () => {
+    const a = withNode('aggregate');
+    const num = connectColumnToPort(a.graph, { nodeId: 'tbl-2', column: 'Minutos' }, a.id, 'in', a.ctx);
+    assert.ok(num.ok);
+    const pn = paramsOf(num.graph, a.id);
+    assert.ok(pn.op === 'aggregate');
+    assert.deepEqual(pn.aggregations, [{ column: 'Minutos', agg: 'SUM', outputName: 'SUM_Minutos' }]);
+
+    const txt = connectColumnToPort(a.graph, { nodeId: 'tbl-2', column: 'Motivo' }, a.id, 'in', a.ctx);
+    assert.ok(txt.ok);
+    const pt = paramsOf(txt.graph, a.id);
+    assert.ok(pt.op === 'aggregate');
+    assert.deepEqual(pt.groupBy, ['Motivo']);
+  });
+
+  it('filter: o campo vira a primeira condição, sem esvaziar o resultado', () => {
+    const f = withNode('filter');
+    const r = connectColumnToPort(f.graph, { nodeId: 'tbl-2', column: 'Minutos' }, f.id, 'in', f.ctx);
+    assert.ok(r.ok);
+    const p = paramsOf(r.graph, f.id);
+    assert.ok(p.op === 'filter');
+    assert.deepEqual(p.conditions, [{ column: 'Minutos', operator: '>=', value: '10' }]);
+  });
+
+  it('ligação à tabela inteira (sem campo) não altera parâmetros', () => {
+    const { graph, id, ctx } = withNode('lookup');
+    const r = connectColumnToPort(graph, { nodeId: 'tbl-1' }, id, 'in', ctx);
+    assert.ok(r.ok);
+    const p = paramsOf(r.graph, id);
+    assert.ok(p.op === 'lookup');
+    assert.equal(p.sourceKey, '');
+  });
+
+  it('propaga o erro de ligações inválidas', () => {
+    const { graph, ctx } = setup();
+    const out = addOutputNode(graph, 'S', { x: 600, y: 0 });
+    assert.ok(out.ok);
+    const r = connectColumnToPort(out.graph, { nodeId: 'tbl-1', column: 'Id' }, out.id, 'lookup', ctx);
+    assert.equal(r.ok, false);
   });
 });

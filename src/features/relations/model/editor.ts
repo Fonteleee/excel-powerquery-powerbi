@@ -20,6 +20,8 @@ import {
 import { MAX_EDGES, MAX_NODES } from './schema';
 
 const MAX_COORD = 1_000_000;
+/** Passo horizontal entre cartões de tabela novos (largura do cartão + respiro). */
+const TABLE_COLUMN_STEP = 340;
 
 export interface Point {
   x: number;
@@ -216,14 +218,19 @@ export function syncTableNodes(
   const present = new Set(graph.nodes.filter((n): n is TableNode => n.kind === 'table').map(n => n.sheetId));
   let next = graph;
   let column = 0;
-  const baseY = graph.nodes.length === 0 ? 60 : Math.max(60, ...graph.nodes.map(n => n.y + NODE_FOOTPRINT.height));
+  // Cartões de tabela são altos: com nós existentes, as tabelas novas entram à DIREITA do último nó.
+  const empty = graph.nodes.length === 0;
+  const rightX = empty ? 60 : Math.max(...graph.nodes.map(n => n.x)) + TABLE_COLUMN_STEP;
+  const topY = empty ? 60 : Math.min(...graph.nodes.map(n => n.y));
 
   for (const sheet of sheets) {
     if (isFlowSheet(sheet.id)) continue;
     if (knownSet.has(sheet.id)) continue;
     knownSet.add(sheet.id);
     if (present.has(sheet.id)) continue;
-    const at = { x: 60 + (column % 3) * 380, y: baseY + Math.floor(column / 3) * 340 };
+    const at = empty
+      ? { x: 60 + (column % 3) * TABLE_COLUMN_STEP, y: 60 + Math.floor(column / 3) * 420 }
+      : { x: rightX + column * TABLE_COLUMN_STEP, y: topY };
     column++;
     const added = addTableNode(next, sheet.id, at);
     if (added.ok) next = added.graph;

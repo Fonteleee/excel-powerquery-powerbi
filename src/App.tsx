@@ -775,6 +775,10 @@ export function App() {
             onOpenShare={() => setIsShareModalOpen(true)}
             onOpenCopilot={() => setIsCopilotOpen(true)}
             onOpenImportModal={() => setIsImportExportOpen(true)}
+            onOpenSheet={sheetId => {
+              setActiveSheetId(sheetId);
+              setActiveView('spreadsheet');
+            }}
           />
         )}
       </div>

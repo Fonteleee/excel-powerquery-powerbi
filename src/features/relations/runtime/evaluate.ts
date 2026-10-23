@@ -97,6 +97,10 @@ function evaluateTable(sheet: Sheet | undefined, sheetId: string): NodeResult {
 }
 
 function evaluateLookup(params: LookupParams, source: FlowTable, lookup: FlowTable): NodeResult {
+  // Nó recém-criado, ainda sem parâmetros: mensagem de ação em vez de "coluna vazia não encontrada".
+  if (params.sourceKey === '') return fail('Escolha a coluna-chave da tabela de origem');
+  if (params.lookupKey === '') return fail('Escolha a coluna de busca na tabela de busca');
+
   const missingSource = missingColumns(source, [params.sourceKey]);
   if (missingSource.length > 0) return fail(`Coluna "${missingSource[0]}" não encontrada na tabela de origem`);
   const missingLookup = missingColumns(lookup, [params.lookupKey, ...params.returns]);

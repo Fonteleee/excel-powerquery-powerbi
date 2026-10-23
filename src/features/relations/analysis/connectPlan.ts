@@ -4,8 +4,15 @@
 //  - agregações estilo SOMASE criam  agregação (tabela de destino) + busca (tabela de origem) automaticamente.
 // Puro: recebe o grafo e um contexto com colunas/tipos; devolve o grafo novo.
 
-import { addOutputNode, addTransformNode, connect, EditResult, Point } from '../model/editor';
-import { AggType, FlowGraph, LookupParams, TransformParams } from '../model/graph';
+import {
+  addOutputNode,
+  addTransformNode,
+  connect,
+  EditResult,
+  Point,
+  updateTransformParams,
+} from '../model/editor';
+import { AggType, FlowGraph, FlowPort, LookupParams, TransformParams } from '../model/graph';
 import { ConnectOperation } from './suggestions';
 import type { ColumnTypeInfo } from './typeInference';
 
@@ -175,4 +182,61 @@ export function applyConnectOperation(
     return e2 ? fail(e2) : finish(lookupId, names);
   }
   return finish(aggId, [names[1]]);
+}
+
+export type PortConnectOutcome = { ok: true; graph: FlowGraph } | { ok: false; error: string };
+
+/**
+ * Liga uma saída (de tabela ou de transformação) a uma porta de nó. Quando a origem é um CAMPO de tabela,
+ * infere os parâmetros ainda vazios do nó de destino:
+ *  - lookup, porta `in`: o campo vira a chave de origem; porta `lookup`: vira a coluna de busca
+ *    (e, se nada foi escolhido para retornar, escolhe a primeira coluna que não é a chave);
+ *  - aggregate: campo numérico vira soma, senão vira agrupamento;
+ *  - filter: o campo vira a primeira condição.
+ * Parâmetros que o usuário já preencheu nunca são sobrescritos, exceto a chave da porta que acabou de ser ligada.
+ */
+export function connectColumnToPort(
+  graph: FlowGraph,
+  source: { nodeId: string; column?: string },
+  targetId: string,
+  port: FlowPort,
+  ctx: ConnectContext
+): PortConnectOutcome {
+  const linked = connect(graph, source.nodeId, targetId, port);
+  if (!linked.ok) return { ok: false, error: linked.error };
+  let next = linked.graph;
+
+  const target = next.nodes.find(n => n.id === targetId);
+  if (!source.column || !target || target.kind !== 'transform') return { ok: true, graph: next };
+  const column = source.column;
+  const params = target.params;
+
+  if (params.op === 'lookup') {
+    if (port === 'in') {
+      next = updateTransformParams(next, targetId, { ...params, sourceKey: column });
+    } else {
+      const typeOf = (c: string) => ctx.typeOf(source.nodeId, c);
+      const returns = params.returns.length > 0
+        ? params.returns.filter(r => r !== column)
+        : defaultReturnColumn(ctx.columnsOf(source.nodeId), column, typeOf);
+      next = updateTransformParams(next, targetId, { ...params, lookupKey: column, returns });
+    }
+  } else if (params.op === 'aggregate' && port === 'in') {
+    const numeric = ctx.typeOf(source.nodeId, column)?.type === 'number';
+    if (numeric && params.aggregations.length === 0) {
+      next = updateTransformParams(next, targetId, {
+        ...params,
+        aggregations: [{ column, agg: 'SUM', outputName: `SUM_${column}` }],
+      });
+    } else if (!numeric && params.groupBy.length === 0) {
+      next = updateTransformParams(next, targetId, { ...params, groupBy: [column] });
+    }
+  } else if (params.op === 'filter' && port === 'in' && params.conditions.length === 0) {
+    const info = ctx.typeOf(source.nodeId, column);
+    next = updateTransformParams(next, targetId, {
+      ...params,
+      conditions: [filterCondition({ nodeId: source.nodeId, column }, info, ctx.sampleOf?.(source.nodeId, column))],
+    });
+  }
+  return { ok: true, graph: next };
 }

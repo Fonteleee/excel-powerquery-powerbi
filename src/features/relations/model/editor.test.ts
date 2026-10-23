@@ -91,6 +91,18 @@ describe('adicionar nós', () => {
   });
 });
 
+describe('nós recém-criados', () => {
+  it('parâmetros ainda vazios passam no validador (o rascunho sobrevive a recarregar a página)', () => {
+    let g = baseGraph();
+    for (const op of ['lookup', 'aggregate', 'filter'] as const) {
+      g = ok(addTransformNode(g, defaultParams(op), { x: 400, y: 0 })).graph;
+    }
+    g = { ...g, nodes: g.nodes.map(n => (n.id === 'trf-2' && n.kind === 'transform' ? { ...n, params: { op: 'aggregate' as const, groupBy: [], aggregations: [{ column: '', agg: 'SUM' as const }] } } : n)) };
+    const parsed = parseFlowGraph(JSON.parse(JSON.stringify(g)));
+    assert.equal(parsed.ok, true, parsed.ok ? '' : parsed.errors.join('; '));
+  });
+});
+
 describe('moveNode', () => {
   it('é imutável e devolve o mesmo objeto quando nada muda', () => {
     const g = baseGraph();
@@ -228,12 +240,12 @@ describe('syncTableNodes', () => {
     assert.equal(again.graph.nodes.length, 1);
   });
 
-  it('acrescenta apenas a planilha nova abaixo dos nós existentes', () => {
+  it('acrescenta a planilha nova à direita dos nós existentes, sem sobrepor cartões altos', () => {
     const first = syncTableNodes(createEmptyGraph(), sheets, []);
     const more = syncTableNodes(first.graph, [...sheets, { id: 'vendas', name: 'Vendas' }], first.known);
     assert.equal(more.graph.nodes.length, 3);
     const added = more.graph.nodes[2];
-    assert.ok(added.y >= Math.max(...first.graph.nodes.map(n => n.y)));
+    assert.ok(added.x >= Math.max(...first.graph.nodes.map(n => n.x)) + 288, 'não cobre o último cartão');
   });
 });
 
