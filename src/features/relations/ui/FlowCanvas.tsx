@@ -4,7 +4,7 @@
 // Este componente só compõe estado e eventos; a lógica fica em model/, analysis/ e runtime/.
 
 import React, { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { HeartPulse, Redo2, Sparkles, Undo2 } from 'lucide-react';
 import { Sheet } from '../../../types/spreadsheet';
 import { AddTableModal } from '../../../components/Relations/AddTableModal';
 import { loadRelationEdges } from '../../../utils/storageManager';
@@ -23,9 +23,12 @@ import {
   removeEdge,
   removeNode,
   renameOutput,
+  syncTableNodes,
   updateTransformParams,
 } from '../model/editor';
-import { FlowPort, TransformParams } from '../model/graph';
+import { FlowGraph, FlowPort, TransformParams } from '../model/graph';
+import { parseFlowGraph } from '../model/schema';
+import { FlowExportPopover } from './export/FlowExportPopover';
 import { LegacyMigrationResult, migrateLegacyEdges } from '../model/legacy';
 import { DEFAULT_VIEWPORT } from '../model/viewState';
 import { evaluateGraph } from '../runtime/evaluate';
@@ -33,6 +36,12 @@ import { flowSheetId, materializeGraph } from '../runtime/materialize';
 import { buildCardColumns, flowBounds, outputStatus } from './cardData';
 import { resolveEdgeEndpoints, sourceColumnHint } from './cableEndpoints';
 import { CableBadge, CableLayer, CableView } from './CableLayer';
+import { CableInspector, InspectorAnchor } from './CableInspector';
+import { DataHealthPanel } from './DataHealthPanel';
+import type { GhostSuggestion } from '../analysis/ghostLinks';
+import { createGhostCache, GhostCache, groupGhostsByNode } from './ghostCache';
+import { applyFixToSheets, healthTargetSheet } from './healthModel';
+import type { HealthFix } from '../analysis/healthTypes';
 import { CanvasLegend, CanvasToolbar, ZoomControls } from './CanvasToolbar';
 import { ConnectionPopover, PopoverTarget } from './ConnectionPopover';
 import {
@@ -67,6 +76,8 @@ export interface FlowCanvasProps {
   onOpenSheet?: (sheetId: string) => void;
   onOpenCopilot?: () => void;
   onOpenImportModal?: () => void;
+  /** Desfaz a última alteração das planilhas (histórico do App); usado pelo painel de saúde. */
+  onUndoSheets?: () => void;
 }
 
 interface Toast {
@@ -87,10 +98,12 @@ interface HoverTip {
 
 const CSS_VARS = tokenCssVars() as CSSProperties;
 const HOVER_DELAY_MS = 450;
+const INSPECTOR_ID = 'rel-cable-inspector';
+const GHOST_DELAY_MS = 220;
 const TOOLTIP_WIDTH = 380;
 const DRAWER_RESERVE_PX = 440;
 
-export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, onOpenSheet, onOpenCopilot, onOpenImportModal }) => {
+export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, onOpenSheet, onOpenCopilot, onOpenImportModal, onUndoSheets }) => {
   const doc = useFlowDocument(sheets);
   const { graph, updateGraph, view, patchView } = doc;
   const results = useFlowEvaluation(graph, sheets);
@@ -132,6 +145,8 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
   const [popover, setPopover] = useState<PopoverTarget | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [tip, setTip] = useState<HoverTip | null>(null);
+  const [healthOpen, setHealthOpen] = useState(false);
+  const [inspector, setInspector] = useState<(InspectorAnchor & { cableId: string }) | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [legacyReport, setLegacyReport] = useState<LegacyMigrationResult | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -188,7 +203,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
         if (!ends) return [];
         const path = cablePath(ends.from, ends.to);
         const status = describeCable(graph, edge, results);
-        return [{ id: edge.id, d: path.d, mid: path.mid, ...status, selected: edge.id === selectedEdgeId }];
+        return [{ id: edge.id, d: path.d, mid: path.mid, ...status, selected: edge.id === selectedEdgeId, lookupNodeId: status.lookup ? edge.to : undefined }];
       }),
     [graph, anchors, results, selectedEdgeId]
   );
@@ -308,6 +323,23 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
     patchView({ collapsed: [...next] });
   }, [view.collapsed, patchView]);
 
+  // Importação de fluxo (aba _Flow_v1): revalida pelo mesmo schema da carga, sincroniza com as planilhas abertas
+  // e substitui o grafo na hora; a persistência (debounce) é a mesma de qualquer edição.
+  const handleImportGraph = useCallback((imported: FlowGraph) => {
+    const checked = parseFlowGraph(imported);
+    if (!checked.ok) {
+      showToast('O fluxo importado não passou na validação e foi ignorado.', 'error');
+      return;
+    }
+    const synced = syncTableNodes(checked.graph, sheets.map(s => ({ id: s.id, name: s.name })), doc.view.knownSheetIds);
+    patchView({ knownSheetIds: synced.known });
+    updateGraph(() => synced.graph);
+    select(null);
+    setDrawerOpen(false);
+    pendingFit.current = true;
+    showToast('Fluxo importado e aplicado à tela.', 'ok');
+  }, [sheets, doc.view.knownSheetIds, patchView, updateGraph, select, showToast]);
+
   // ---- Executar o fluxo (avaliar + materializar nas abas de saída) -----------------------------
   const handleRun = useCallback(() => {
     const fresh = evaluateGraph(graphRef.current, sheets);
@@ -386,6 +418,22 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
     openNewNode(outcome.focusId);
   }, [pair, ctx, updateGraph, openNewNode, showToast]);
 
+  // ---- Desfazer/refazer do grafo (independente do histórico das planilhas) -------------------------
+  const { undoGraph, redoGraph } = doc;
+  const dropStaleSelection = useCallback(() => {
+    const ids = new Set(graphRef.current.nodes.map(n => n.id));
+    setSelectedNodeId(prev => (prev && !ids.has(prev) ? null : prev));
+    setSelectedEdgeId(prev => (prev && !graphRef.current.edges.some(ed => ed.id === prev) ? null : prev));
+    setInspector(null);
+    setTip(null);
+  }, []);
+  const handleUndoGraph = useCallback(() => {
+    if (undoGraph()) { dropStaleSelection(); showToast('Alteração do fluxo desfeita.', 'info'); }
+  }, [undoGraph, dropStaleSelection, showToast]);
+  const handleRedoGraph = useCallback(() => {
+    if (redoGraph()) { dropStaleSelection(); showToast('Alteração do fluxo refeita.', 'info'); }
+  }, [redoGraph, dropStaleSelection, showToast]);
+
   // ---- Gestos ----------------------------------------------------------------------------------
   const anchorOf = useCallback((pin: PinRef): Point => {
     const node = graphRef.current.nodes.find(n => n.id === pin.nodeId);
@@ -404,7 +452,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
       return node ? { x: node.x, y: node.y } : null;
     },
     anchorOf,
-    onMoveNode: (id, x, y) => updateGraph(g => moveNode(g, id, x, y)),
+    onMoveNode: (id, x, y) => updateGraph(g => moveNode(g, id, x, y), { coalesceKey: `move:${id}` }),
     onSelectNode: select,
     onActivateNode: id => {
       const node = graphRef.current.nodes.find(n => n.id === id);
@@ -416,6 +464,58 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
     },
     onDrop: handleDrop,
   });
+
+  // ---- Saúde dos dados: a correção entra no histórico de desfazer das planilhas (onUpdateSheets do App) ----
+  const healthSheet = useMemo(
+    () => (healthOpen ? healthTargetSheet(graph, selectedNodeId, sheets) : null),
+    [healthOpen, graph, selectedNodeId, sheets]
+  );
+  const handleApplyFix = useCallback((sheetId: string, fix: HealthFix): string | null => {
+    const outcome = applyFixToSheets(sheets, sheetId, fix);
+    if (!outcome.ok) return outcome.error;
+    onUpdateSheets(outcome.sheets);
+    return null;
+  }, [sheets, onUpdateSheets]);
+
+  // ---- Conexões fantasma: calculadas sob demanda (debounce) ao passar o mouse num campo ----------
+  const ghostCache = useRef<GhostCache | null>(null);
+  if (ghostCache.current === null) ghostCache.current = createGhostCache();
+  const ghostTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sheetsRef = useRef(sheets);
+  sheetsRef.current = sheets;
+  const [ghosts, setGhosts] = useState<Map<string, Map<string, GhostSuggestion>> | null>(null);
+  useEffect(() => () => { if (ghostTimer.current) clearTimeout(ghostTimer.current); }, []);
+
+  const handleFieldHover = useCallback((nodeId: string, column: string | null) => {
+    if (ghostTimer.current) clearTimeout(ghostTimer.current);
+    if (column === null) {
+      setGhosts(null);
+      return;
+    }
+    ghostTimer.current = setTimeout(() => {
+      const node = graphRef.current.nodes.find(n => n.id === nodeId);
+      if (!node || node.kind !== 'table') return;
+      const result = ghostCache.current!.get(sheetsRef.current, node.sheetId, column);
+      const grouped = groupGhostsByNode(graphRef.current, result.suggestions);
+      setGhosts(grouped.size > 0 ? grouped : null);
+    }, GHOST_DELAY_MS);
+  }, []);
+
+  // ---- Inspetor de falhas do cabo (hover e foco no selo) -----------------------------------------
+  const handleInspect = useCallback((cable: CableView, el: HTMLElement | null) => {
+    const surface = surfaceRef.current?.getBoundingClientRect();
+    if (!el || !surface || !cable.lookupNodeId) {
+      setInspector(prev => (prev?.cableId === cable.id ? null : prev));
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    setInspector({
+      cableId: cable.id,
+      nodeId: cable.lookupNodeId,
+      x: rect.left - surface.left + rect.width / 2,
+      y: rect.top - surface.top + (rect.top - surface.top < 220 ? rect.height : 0),
+    });
+  }, []);
 
   // ---- Dica ao passar o mouse (preview do nó) ----------------------------------------------------
   const handleSurfacePointerMove = (e: React.PointerEvent<HTMLDivElement>): void => {
@@ -450,6 +550,15 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
     if (['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) {
       if (e.key === 'Escape') target.blur();
       return;
+    }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+      const k = e.key.toLowerCase();
+      if (k === 'z' || k === 'y') {
+        e.preventDefault();
+        if (k === 'y' || e.shiftKey) handleRedoGraph();
+        else handleUndoGraph();
+        return;
+      }
     }
     if (e.key === 'Escape') {
       if (popover) {
@@ -502,6 +611,28 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
         onAddOutput={handleAddOutput}
         onToggleKeysOnly={value => patchView({ showKeysOnly: value })}
         onRun={handleRun}
+        extras={
+          <>
+            <div className="flex items-center gap-0.5" role="group" aria-label="Histórico do fluxo">
+              <button type="button" onClick={handleUndoGraph} disabled={!doc.canUndo} aria-label="Desfazer no fluxo" title="Desfazer no fluxo (Ctrl+Z)" className="flex size-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
+                <Undo2 className="size-4" aria-hidden />
+              </button>
+              <button type="button" onClick={handleRedoGraph} disabled={!doc.canRedo} aria-label="Refazer no fluxo" title="Refazer no fluxo (Ctrl+Shift+Z ou Ctrl+Y)" className="flex size-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
+                <Redo2 className="size-4" aria-hidden />
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setHealthOpen(v => !v)}
+              aria-pressed={healthOpen}
+              title="Saúde dos dados da tabela selecionada, com correções propostas"
+              className="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-2.5 py-1.5 text-[length:var(--rel-text-body)] font-bold text-emerald-900 transition-colors hover:bg-emerald-50"
+            >
+              <HeartPulse className="size-4" aria-hidden /> Saúde
+            </button>
+            <FlowExportPopover graph={graph} sheets={sheets} onImportGraph={handleImportGraph} fileBase="fluxo" />
+          </>
+        }
       />
 
       <div className="relative min-h-0 flex-1">
@@ -554,6 +685,8 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
                     linkedColumns={linkedColumns.get(node.id) ?? EMPTY_SET}
                     activePin={draft && draft.source.nodeId === node.id ? `out:${draft.source.key}` : null}
                     report={reportAnchors}
+                    ghosts={ghosts?.get(node.id)}
+                    onFieldHover={handleFieldHover}
                     onToggleCollapse={handleToggleCollapse}
                     onRemove={handleRemoveNode}
                   />
@@ -606,6 +739,9 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
                   lod={lod}
                   onRemove={handleRemoveEdge}
                   onSelect={id => { setSelectedEdgeId(id); setSelectedNodeId(null); }}
+                  onInspect={handleInspect}
+                  inspectorId={INSPECTOR_ID}
+                  inspecting={inspector?.cableId === cable.id}
                 />
               ))}
             </div>
@@ -683,6 +819,26 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
           </div>
         )}
 
+        {healthOpen && (
+          <DataHealthPanel
+            sheet={healthSheet}
+            onApply={handleApplyFix}
+            onClose={() => setHealthOpen(false)}
+            onUndo={onUndoSheets}
+            rightOffset={drawerOpen && selectedNode ? DRAWER_RESERVE_PX : 16}
+          />
+        )}
+
+        {inspector && (
+          <CableInspector
+            id={INSPECTOR_ID}
+            graph={graph}
+            results={results}
+            anchor={inspector}
+            bounds={{ width: surfaceRect?.width ?? 800, height: surfaceRect?.height ?? 600 }}
+          />
+        )}
+
         {popover && (
           <ConnectionPopover
             target={popover}
@@ -708,9 +864,9 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
                 : 'pending'
             }
             onClose={() => setDrawerOpen(false)}
-            onChangeParams={(id, params) => updateGraph(g => updateTransformParams(g, id, params))}
+            onChangeParams={(id, params) => updateGraph(g => updateTransformParams(g, id, params), { coalesceKey: `params:${id}` })}
             onChangeOp={(id, op) => updateGraph(g => changeTransformOp(g, id, op))}
-            onRenameOutput={(id, name) => updateGraph(g => renameOutput(g, id, name))}
+            onRenameOutput={(id, name) => updateGraph(g => renameOutput(g, id, name), { coalesceKey: `rename:${id}` })}
             onRemove={handleRemoveNode}
             onRunFlow={handleRun}
             onOpenSheet={onOpenSheet}

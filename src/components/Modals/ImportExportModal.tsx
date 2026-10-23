@@ -18,7 +18,6 @@ import {
   createFinancialBudgetSheet,
 } from '../../data/sampleDatasets';
 import { autoFormatTabularData, parseCSVToAutoFormattedSheet } from '../../utils/csvAutoFormatter';
-import { FlowExportSection } from '../../features/relations/ui/export/FlowExportSection';
 
 
 interface ImportExportModalProps {
@@ -239,7 +238,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                   <FileSpreadsheet className="size-5" />
                 </div>
                 <span className="text-xs font-bold text-slate-800">Excel (.XLSX)</span>
-                <span className="text-[10px] text-slate-500">Múltiplas abas e fórmulas</span>
+                <span className="text-[10px] text-slate-500">Múltiplas abas (sem o fluxo)</span>
               </button>
 
               <button
@@ -298,10 +297,12 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
           </div>
 
 
-          {/* Fase 2: fluxo de Relacionamentos (SQL e aba _Flow_v1 no Excel) */}
-          <div className="space-y-3">
-            <div className="text-xs font-bold text-slate-700 uppercase tracking-wider">Fluxo de Relacionamentos:</div>
-            <FlowExportSection sheets={sheets} />
+          {/* Fluxo de Relacionamentos: a exportação (SQL e aba _Flow_v1) vive na barra da aba Relacionamentos,
+              onde o grafo real está em memória; aqui só orientamos para não haver duas cópias do fluxo. */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-[11px] text-slate-700">
+            <strong>Fluxo de Relacionamentos:</strong> para exportar o fluxo como SQL ou levá-lo dentro do Excel (aba oculta
+            <code className="mx-1">_Flow_v1</code>), use o botão <strong>Exportar</strong> na barra da aba Relacionamentos.
+            O botão “Excel (.XLSX)” acima exporta só as planilhas, sem o fluxo.
           </div>
 
           {/* Load Sample Datasets */}

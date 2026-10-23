@@ -140,6 +140,21 @@
 .rel-field[data-linked='true'] {
   background: #f5f3ff;
 }
+/* Conexão fantasma: sugestão visual suave, nunca cria ligação. */
+.rel-field[data-ghost='true'] {
+  background: rgba(124, 58, 237, 0.12);
+  outline: 1.5px dashed rgba(124, 58, 237, 0.55);
+  outline-offset: -1.5px;
+}
+.rel-ghost-badge {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 0 5px;
+  font-size: var(--rel-text-micro);
+  font-weight: 700;
+  color: #5b21b6;
+  background: rgba(124, 58, 237, 0.16);
+}
 
 .rel-scroll {
   scrollbar-width: thin;
