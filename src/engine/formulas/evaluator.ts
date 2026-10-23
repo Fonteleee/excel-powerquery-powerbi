@@ -35,7 +35,7 @@ export function getCellValue(
   const formula = isFormulaCell(cell.raw);
   if (cell.value !== undefined && cell.value !== null) {
     // Em recálculo, o valor de uma fórmula "suja" ainda não recalculada não é confiável.
-    if (!session || !formula || session.isFresh(sheet.id, key)) return cell.value;
+    if (!session || !formula || !session.isPending(sheet.id, key)) return cell.value;
   }
   if (formula) {
     if (callStack.has(`${sheet.id}:${key}`)) return 0;
