@@ -283,3 +283,19 @@ describe('previewTable', () => {
     assert.equal(previewTable(table10, -5).rows.length, 0);
   });
 });
+
+describe('evaluateGraph: nó recém-criado', () => {
+  it('lookup sem chaves pede a escolha das colunas em vez de falhar com coluna vazia', () => {
+    const g = graphOf(
+      [table('ta', 'agentes'), table('tp', 'pausas'), transform('lk', { op: 'lookup', sourceKey: '', lookupKey: '', returns: [], ifNotFound: '' })],
+      [edge('e1', 'ta', 'lk'), edge('e2', 'tp', 'lk', 'lookup')]
+    );
+    const lk = evaluateGraph(g, sampleSheets()).get('lk')!;
+    assert.match(lk.error!, /Escolha a coluna-chave/);
+    const half = graphOf(
+      g.nodes.map(n => (n.id === 'lk' ? transform('lk', { op: 'lookup', sourceKey: 'Id', lookupKey: '', returns: [], ifNotFound: '' }) : n)),
+      g.edges
+    );
+    assert.match(evaluateGraph(half, sampleSheets()).get('lk')!.error!, /coluna de busca/);
+  });
+});

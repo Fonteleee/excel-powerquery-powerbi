@@ -2,6 +2,7 @@ import React from 'react';
 import {
   Table,
   GitBranch,
+  Network,
   LayoutDashboard,
   Settings,
   HelpCircle,
@@ -11,7 +12,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 
-export type NocoNavView = 'data' | 'workflows' | 'interfaces' | 'settings' | 'help' | 'activity';
+export type NocoNavView = 'relations' | 'data' | 'workflows' | 'interfaces' | 'settings' | 'help' | 'activity';
 
 interface NocoIconRailProps {
   activeNav: NocoNavView;
@@ -37,6 +38,7 @@ export const NocoIconRail: React.FC<NocoIconRailProps> = ({
   isStarred = false,
 }) => {
   const topNavItems: { id: NocoNavView; label: string; icon: React.ReactNode }[] = [
+    { id: 'relations', label: 'Relações', icon: <Network className="size-4.5" /> },
     { id: 'data', label: 'Dados', icon: <Table className="size-4.5" /> },
     { id: 'workflows', label: 'Fluxos', icon: <GitBranch className="size-4.5" /> },
     { id: 'interfaces', label: 'Painéis', icon: <LayoutDashboard className="size-4.5" /> },

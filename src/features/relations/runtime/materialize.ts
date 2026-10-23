@@ -4,10 +4,10 @@
 
 import { Sheet } from '../../../types/spreadsheet';
 import { createSheetFromDataset } from '../../../engine/pipelineEngine';
-import { FlowGraph } from '../model/graph';
+import { FlowGraph, FLOW_SHEET_PREFIX } from '../model/graph';
 import { evaluateGraph, NodeResult } from './evaluate';
 
-export const FLOW_SHEET_PREFIX = 'flow-out-';
+export { FLOW_SHEET_PREFIX };
 
 export const flowSheetId = (outputNodeId: string): string => `${FLOW_SHEET_PREFIX}${outputNodeId}`;
 

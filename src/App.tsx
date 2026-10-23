@@ -1,4 +1,6 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { SplitLayout } from './components/Layout/SplitLayout';
+import { decideSidebar } from './components/Layout/splitMath';
 import { Sheet, CellPosition, CellRange, ConditionalFormatRule } from './types/spreadsheet';
 import {
   createSalesSampleSheet,
@@ -95,6 +97,20 @@ export function App() {
 
   // Copilot AI state
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
+  const [splitWidth, setSplitWidth] = useState(0);
+  const sidebarAutoCollapsed = useRef(false);
+  // A barra lateral recolhe sozinha quando o painel de 25% não cabe; volta quando há espaço.
+  useEffect(() => {
+    const next = decideSidebar({
+      containerWidth: splitWidth,
+      sidebarWidth: 224,
+      sidePanelOpen: isCopilotOpen,
+      sidebarOpen: isSidebarOpen,
+      autoCollapsed: sidebarAutoCollapsed.current,
+    });
+    sidebarAutoCollapsed.current = next.autoCollapsed;
+    if (next.sidebarOpen !== isSidebarOpen) setIsSidebarOpen(next.sidebarOpen);
+  }, [splitWidth, isCopilotOpen, isSidebarOpen]);
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
 
   // Modals state
@@ -590,9 +606,10 @@ export function App() {
     <div className="flex h-screen w-screen bg-[#f8fafc] text-slate-900 overflow-hidden font-sans select-none">
       {/* 1. Leftmost NocoDB Icon Rail */}
       <NocoIconRail
-        activeNav={activeNav}
+        activeNav={activeView === 'relations' ? 'relations' : activeNav === 'relations' ? 'data' : activeNav}
         onSelectNav={nav => {
           setActiveNav(nav);
+          if (nav === 'relations') setActiveView('relations');
           if (nav === 'data') setActiveView('spreadsheet');
           if (nav === 'workflows') setActiveView('powerquery');
           if (nav === 'interfaces') setActiveView('powerbi');
@@ -695,7 +712,10 @@ export function App() {
             )}
 
             {/* Main Spreadsheet Grid + Inline Copilot Layout */}
-            <div className="flex-1 flex min-h-0 overflow-hidden relative">
+            <SplitLayout
+              sideOpen={isCopilotOpen}
+              onContainerWidth={setSplitWidth}
+              main={
               <SpreadsheetGrid
                 sheet={activeSheet}
                 allSheets={sheets}
@@ -727,7 +747,8 @@ export function App() {
                 searchFilter={searchFilter}
                 onClearSearchFilter={() => setSearchFilter('')}
               />
-
+              }
+              side={
               <CopilotPanel
                 isOpen={isCopilotOpen}
                 onClose={() => setIsCopilotOpen(false)}
@@ -739,7 +760,8 @@ export function App() {
                 onExecuteAgentActions={handleExecuteAgentActions}
                 onCreateNewSheet={handleCreateNewSheetFromData}
               />
-            </div>
+              }
+            />
           </>
         )}
 
@@ -775,6 +797,10 @@ export function App() {
             onOpenShare={() => setIsShareModalOpen(true)}
             onOpenCopilot={() => setIsCopilotOpen(true)}
             onOpenImportModal={() => setIsImportExportOpen(true)}
+            onOpenSheet={sheetId => {
+              setActiveSheetId(sheetId);
+              setActiveView('spreadsheet');
+            }}
           />
         )}
       </div>

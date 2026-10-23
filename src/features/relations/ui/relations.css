@@ -1,0 +1,219 @@
+/* src/features/relations/ui/relations.css */
+/* Estilos da aba de Relacionamentos. Todas as cores/medidas vêm das variáveis --rel-* publicadas por tokens.ts. */
+
+.rel-root {
+  font-family: var(--font-sans);
+  color: var(--rel-ink);
+  background-color: var(--rel-canvas);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  touch-action: none;
+}
+
+.rel-dots {
+  background-image: radial-gradient(var(--rel-dot) 1.2px, transparent 1.3px);
+  background-size: 22px 22px;
+}
+
+.rel-root :focus-visible {
+  outline: 2px solid var(--rel-accent);
+  outline-offset: 2px;
+}
+
+.rel-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Cabos ---------- */
+.rel-cable {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.rel-cable-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 18px;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+/* Além da cor, o padrão do traço diferencia o estado (daltonismo). */
+.rel-cable[data-problem='error'] {
+  stroke-dasharray: 10 6;
+}
+.rel-cable[data-problem='orphans'] {
+  stroke-dasharray: 3 5;
+}
+
+/* Pulsos de dados: fluxo animado por stroke-dashoffset. Sem WebGL. */
+.rel-pulse {
+  fill: none;
+  stroke-linecap: round;
+  stroke-dasharray: 2 24;
+  animation: rel-flow 1.2s linear infinite;
+  pointer-events: none;
+}
+@keyframes rel-flow {
+  to {
+    stroke-dashoffset: -26;
+  }
+}
+
+.rel-badge {
+  transform: translate(-50%, -50%);
+  position: absolute;
+  pointer-events: auto;
+}
+
+/* ---------- Pinos ---------- */
+.rel-pin-hit {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  touch-action: none;
+}
+.rel-pin {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid var(--rel-pin);
+  box-shadow: 0 0 0 2px #fff;
+  transition: transform 0.12s ease, background-color 0.12s ease, border-color 0.12s ease;
+}
+.rel-pin-hit:hover .rel-pin {
+  transform: scale(1.35);
+  border-color: var(--rel-accent);
+  background: #e0e7ff;
+}
+.rel-pin[data-tone='raw'] { border-color: var(--rel-cable-raw); }
+.rel-pin[data-tone='lookup'] { border-color: var(--rel-cable-lookup); }
+.rel-pin[data-tone='aggregate'] { border-color: var(--rel-cable-aggregate); }
+.rel-pin[data-active='true'] {
+  background: var(--rel-accent);
+  border-color: var(--rel-accent);
+  transform: scale(1.3);
+}
+.rel-root[data-connecting='true'] .rel-pin-hit[data-accepts='true'] .rel-pin {
+  animation: rel-ring 1s ease-in-out infinite;
+  border-color: var(--rel-ok);
+  background: #d1fae5;
+}
+@keyframes rel-ring {
+  0%, 100% { box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(4, 120, 87, 0.15); }
+  50% { box-shadow: 0 0 0 2px #fff, 0 0 0 7px rgba(4, 120, 87, 0.35); }
+}
+
+/* ---------- Cartões e nós ---------- */
+.rel-card {
+  background: var(--rel-card);
+  border: 1px solid var(--rel-card-border);
+  border-radius: var(--rel-radius-card);
+  box-shadow: var(--rel-shadow-card);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.rel-card[data-selected='true'] {
+  border-color: var(--rel-selected);
+  box-shadow: var(--rel-shadow-card-active);
+}
+.rel-card[data-error='true'] {
+  border-color: var(--rel-cable-error);
+}
+
+.rel-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: var(--rel-text-body);
+  border-radius: 8px;
+}
+.rel-field:hover {
+  background: #eef2ff;
+}
+.rel-field[data-linked='true'] {
+  background: #f5f3ff;
+}
+
+.rel-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 transparent;
+}
+
+/* ---------- Drawer ---------- */
+.rel-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  width: min(var(--rel-drawer-width, 420px), 100%);
+  background: var(--rel-card);
+  border-left: 1px solid var(--rel-card-border);
+  box-shadow: var(--rel-shadow-drawer);
+  display: flex;
+  flex-direction: column;
+  animation: rel-slide-in 0.18s ease-out;
+}
+@keyframes rel-slide-in {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@media (max-width: 720px) {
+  .rel-drawer {
+    top: auto;
+    height: 64%;
+    width: 100%;
+    border-left: 0;
+    border-top: 1px solid var(--rel-card-border);
+    border-radius: 16px 16px 0 0;
+    animation-name: rel-slide-up;
+  }
+}
+@keyframes rel-slide-up {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.rel-popover {
+  background: var(--rel-card);
+  border: 1px solid var(--rel-card-border);
+  border-radius: 12px;
+  box-shadow: var(--rel-shadow-popover);
+}
+
+.rel-preview-cell {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rel-pulse {
+    animation: none;
+  }
+  .rel-drawer {
+    animation: none;
+  }
+  .rel-root[data-connecting='true'] .rel-pin-hit[data-accepts='true'] .rel-pin {
+    animation: none;
+  }
+  .rel-pin,
+  .rel-card {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .rel-card {
+    border-color: CanvasText;
+  }
+  .rel-pin {
+    border-color: CanvasText;
+  }
+}

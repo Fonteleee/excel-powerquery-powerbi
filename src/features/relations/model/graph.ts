@@ -76,6 +76,9 @@ export interface FlowGraph {
   edges: FlowEdge[];
 }
 
+/** Prefixo das abas geradas pelo fluxo (`flow-out-<id do nó de saída>`). */
+export const FLOW_SHEET_PREFIX = 'flow-out-';
+
 export function createEmptyGraph(): FlowGraph {
   return { version: FLOW_GRAPH_VERSION, nodes: [], edges: [] };
 }

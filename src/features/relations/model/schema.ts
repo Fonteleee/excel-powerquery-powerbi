@@ -103,8 +103,8 @@ function parseParams(raw: unknown, path: string, c: Collector): TransformParams 
   if (raw.op === 'lookup') {
     return {
       op: 'lookup',
-      sourceKey: c.text(raw.sourceKey, `${path}.sourceKey`, { column: true }),
-      lookupKey: c.text(raw.lookupKey, `${path}.lookupKey`, { column: true }),
+      sourceKey: c.text(raw.sourceKey, `${path}.sourceKey`, { column: true, allowEmpty: true }),
+      lookupKey: c.text(raw.lookupKey, `${path}.lookupKey`, { column: true, allowEmpty: true }),
       returns: c.list(raw.returns, `${path}.returns`).map((v, i) =>
         c.text(v, `${path}.returns[${i}]`, { column: true })
       ),
@@ -126,7 +126,7 @@ function parseParams(raw: unknown, path: string, c: Collector): TransformParams 
           return { column: '', agg: 'SUM' as AggType };
         }
         return {
-          column: c.text(v.column, `${p}.column`, { column: true }),
+          column: c.text(v.column, `${p}.column`, { column: true, allowEmpty: true }),
           agg: c.oneOf(v.agg, AGG_TYPES, `${p}.agg`, 'SUM'),
           outputName:
             v.outputName === undefined
@@ -147,7 +147,7 @@ function parseParams(raw: unknown, path: string, c: Collector): TransformParams 
           return { column: '', operator: '=' as FilterOperator, value: '' };
         }
         return {
-          column: c.text(v.column, `${p}.column`, { column: true }),
+          column: c.text(v.column, `${p}.column`, { column: true, allowEmpty: true }),
           operator: c.oneOf(v.operator, OPERATORS, `${p}.operator`, '='),
           value: c.text(v.value ?? '', `${p}.value`, { allowEmpty: true }),
         };
