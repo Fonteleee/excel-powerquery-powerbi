@@ -1368,7 +1368,8 @@ function executeFunction(
   // PRI.MAIÚSCULA / PROPER
   if (func === 'PRI.MAIÚSCULA' || func === 'PRI.MAIUSCULA' || func === 'PROPER') {
     const val = String(evaluateExpression(args[0] || '', sheet, allSheets, callStack) ?? '');
-    return val.replace(/\b\w/g, c => c.toUpperCase());
+    // Como no Excel: tudo minúsculo e a primeira letra de cada palavra maiúscula (aceita acentos).
+    return val.toLowerCase().replace(/(^|[^\p{L}\p{N}])(\p{L})/gu, (_m, sep: string, letter: string) => sep + letter.toUpperCase());
   }
 
   // ARRED / ROUND

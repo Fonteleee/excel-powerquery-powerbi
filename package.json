@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test": "node scripts/run-tests.mjs",
+    "bench": "node scripts/run-ssr.mjs src/engine/__bench__/bench.ts",
     "preview": "vite preview"
   },
   "dependencies": {
