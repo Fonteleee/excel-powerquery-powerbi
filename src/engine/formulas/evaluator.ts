@@ -9,7 +9,8 @@ import { FunctionContext, ResolvedRange } from './functions/types';
 import { parseNumberSafely } from './numbers';
 import { activeSession } from './session';
 import {
-  hasTopLevelOperator,
+  OP,
+  scanTopLevelOperators,
   splitAdditive,
   splitByTopLevelOperator,
   splitFormulaArguments,
@@ -178,6 +179,31 @@ export function evaluateFormula(
   }
 }
 
+const CELL_ONLY = /^\$?[A-Za-z]{1,3}\$?\d+$/;
+const NUMBER_ONLY = /^\d+(\.\d+)?$/;
+
+/** Valor de uma referência simples a célula (A1): constante, ou fórmula (em cache dentro de um recálculo). */
+function readCellReference(row: number, col: number, sheet: Sheet, allSheets: Sheet[], callStack: Set<string>): any {
+  const cellKey = cellPosToKey(row, col);
+  if (callStack.has(`${sheet.id}:${cellKey}`)) {
+    throw new Error('#CIRCULAR!');
+  }
+  const cell = sheet.data[cellKey];
+  if (!cell) return 0;
+  if (cell.raw && cell.raw.startsWith('=')) {
+    // Dentro de um recálculo, usa o valor já calculado quando ele é confiável (evita recursão O(n²)).
+    const session = activeSession();
+    if (session && cell.value !== undefined && cell.value !== null && session.isFresh(sheet.id, cellKey)) {
+      return cell.value;
+    }
+    const nextStack = new Set(callStack);
+    nextStack.add(`${sheet.id}:${cellKey}`);
+    return evaluateFormula(cell.raw, sheet, allSheets, nextStack);
+  }
+  const num = parseNumberSafely(cell.value ?? cell.raw);
+  return num !== null ? num : (cell.value ?? cell.raw ?? 0);
+}
+
 // Main Expression Evaluator
 function evaluateExpression(
   expr: string,
@@ -187,6 +213,13 @@ function evaluateExpression(
 ): any {
   expr = expr.trim();
   if (!expr) return '';
+
+  // Atalhos exatos: uma referência simples (A1, $B$2) ou um número literal passariam pelas mesmas regras abaixo.
+  if (CELL_ONLY.test(expr)) {
+    const pos = parseCellAddress(expr);
+    if (pos) return readCellReference(pos.row, pos.col, sheet, allSheets, callStack);
+  }
+  if (NUMBER_ONLY.test(expr)) return parseFloat(expr);
 
   // Handle outer parentheses: (1 - I2) or ((A1+B1)*2)
   if (expr.startsWith('(') && expr.endsWith(')')) {
@@ -217,7 +250,8 @@ function evaluateExpression(
 
 
   // Handle concatenation with & operator
-  if (hasTopLevelOperator(expr, '&')) {
+  const ops = scanTopLevelOperators(expr);
+  if (ops & OP.AMP) {
     const tokens = splitByTopLevelOperator(expr, '&');
     return tokens
       .map(t => {
@@ -228,9 +262,9 @@ function evaluateExpression(
   }
 
   // Handle comparison operators: =, <>, <=, >=, <, >
-  const compOps = ['<=', '>=', '<>', '=', '<', '>'];
-  for (const op of compOps) {
-    if (hasTopLevelOperator(expr, op)) {
+  const compOps: [string, number][] = [['<=', OP.LE], ['>=', OP.GE], ['<>', OP.NE], ['=', OP.EQ], ['<', OP.LT], ['>', OP.GT]];
+  for (const [op, bit] of compOps) {
+    if (ops & bit) {
       const parts = splitByTopLevelOperator(expr, op);
       if (parts.length === 2) {
         const left = evaluateExpression(parts[0], sheet, allSheets, callStack);
@@ -246,7 +280,7 @@ function evaluateExpression(
   }
 
   // Handle arithmetic: +, -
-  if (hasTopLevelOperator(expr, '+') || hasTopLevelOperator(expr, '-')) {
+  if (ops & (OP.PLUS | OP.MINUS)) {
     const parts = splitAdditive(expr);
     let total = 0;
     for (const part of parts) {
@@ -260,7 +294,7 @@ function evaluateExpression(
   }
 
   // Handle arithmetic: *, /
-  if (hasTopLevelOperator(expr, '*') || hasTopLevelOperator(expr, '/')) {
+  if (ops & (OP.MUL | OP.DIV)) {
     const parts = splitMultiplicative(expr);
     let total = 1;
     for (let i = 0; i < parts.length; i++) {
@@ -315,26 +349,7 @@ function evaluateExpression(
 
   // Handle single cell "A1"
   const cellPos = parseCellAddress(expr);
-  if (cellPos) {
-    const cellKey = cellPosToKey(cellPos.row, cellPos.col);
-    if (callStack.has(`${sheet.id}:${cellKey}`)) {
-      throw new Error('#CIRCULAR!');
-    }
-    const cell = sheet.data[cellKey];
-    if (!cell) return 0;
-    if (cell.raw && cell.raw.startsWith('=')) {
-      // Dentro de um recálculo, usa o valor já calculado quando ele é confiável (evita recursão O(n²)).
-      const session = activeSession();
-      if (session && cell.value !== undefined && cell.value !== null && session.isFresh(sheet.id, cellKey)) {
-        return cell.value;
-      }
-      const nextStack = new Set(callStack);
-      nextStack.add(`${sheet.id}:${cellKey}`);
-      return evaluateFormula(cell.raw, sheet, allSheets, nextStack);
-    }
-    const num = parseNumberSafely(cell.value ?? cell.raw);
-    return num !== null ? num : (cell.value ?? cell.raw ?? 0);
-  }
+  if (cellPos) return readCellReference(cellPos.row, cellPos.col, sheet, allSheets, callStack);
 
   // Number literal
   const num = parseNumberSafely(expr);

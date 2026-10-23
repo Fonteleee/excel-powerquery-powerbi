@@ -49,16 +49,27 @@ export interface RecalcStats {
 export interface RecalcResult {
   /** Planilhas após o recálculo. Abas não afetadas mantêm a mesma referência (copy-on-write). */
   sheets: Sheet[];
+  /** Células escritas pelo recálculo (fórmulas, células derramadas criadas/limpas e erros de ciclo). */
+  touched: { sheetId: string; dataKey: string }[];
   recalculated: number;
   cycles: CycleMessage[];
   stats: RecalcStats;
 }
 
+export interface ApplyOptions {
+  /**
+   * Altera o mapa data das planilhas recebidas em vez de copiá-lo (copy-on-write). Use quando o chamador é
+   * o dono do estado (ex.: o worker), pois a cópia de uma aba de 100 mil linhas custa mais que o recálculo.
+   */
+  inPlace?: boolean;
+}
+
 interface RunOptions {
   /** Aba cujo cache pode ser confiado além das células recalculadas (null = todas). */
   trustedSheetId: string | null;
-  /** Limpa todas as células derramadas desta aba antes de calcular (recálculo completo). */
-  clearSpillsOf: string | null;
+  /** Abas cujas células derramadas são limpas antes de calcular (recálculo completo). */
+  clearSpillsOf: readonly string[];
+  inPlace?: boolean;
 }
 
 const now = (): number => (typeof performance !== 'undefined' ? performance.now() : Date.now());
@@ -72,6 +83,8 @@ const KEY_PATTERN = /^R(\d+)C(\d+)$/;
 
 export class RecalcEngine {
   private graph = new DependencyGraph();
+  /** Abas que tinham células derramadas quando o grafo foi montado (evita varrer abas sem matrizes). */
+  private sheetsWithSpills = new Set<string>();
 
   /**
    * @param sheets planilhas do workbook
@@ -89,11 +102,13 @@ export class RecalcEngine {
   /** Reconstrói o grafo a partir das planilhas (use após mudanças estruturais: linhas/colunas/abas). */
   load(sheets: readonly Sheet[], onlySheetId?: string): void {
     this.graph = new DependencyGraph();
+    this.sheetsWithSpills = new Set();
     const names = new SheetNameIndex(sheets);
     for (const sheet of sheets) {
       if (onlySheetId !== undefined && sheet.id !== onlySheetId) continue;
       for (const key in sheet.data) {
         const cell = sheet.data[key];
+        if (cell.isSpill) this.sheetsWithSpills.add(sheet.id);
         if (!isFormula(cell.raw)) continue;
         const m = KEY_PATTERN.exec(key);
         if (!m) continue;
@@ -109,7 +124,19 @@ export class RecalcEngine {
   recalculateAll(sheets: readonly Sheet[], targetSheetId: string): RecalcResult {
     return this.execute(sheets, [], [...this.graph.keys()], {
       trustedSheetId: targetSheetId,
-      clearSpillsOf: targetSheetId,
+      clearSpillsOf: this.sheetsWithSpills.has(targetSheetId) ? [targetSheetId] : [],
+    });
+  }
+
+  /**
+   * Recalcula TODAS as fórmulas de TODAS as abas carregadas (carga inicial do worker).
+   * Com inPlace, altera os mapas data recebidos em vez de copiá-los.
+   */
+  recalculateWorkbook(sheets: readonly Sheet[], applyOptions: ApplyOptions = {}): RecalcResult {
+    return this.execute(sheets, [], [...this.graph.keys()], {
+      trustedSheetId: null,
+      clearSpillsOf: [...this.sheetsWithSpills],
+      inPlace: applyOptions.inPlace,
     });
   }
 
@@ -117,7 +144,7 @@ export class RecalcEngine {
    * Recalcula só o que depende das células alteradas. `sheets` já deve conter as edições
    * (o novo `raw` das células). Fórmulas voláteis (HOJE) são sempre recalculadas.
    */
-  apply(sheets: readonly Sheet[], changes: readonly CellChange[]): RecalcResult {
+  apply(sheets: readonly Sheet[], changes: readonly CellChange[], applyOptions: ApplyOptions = {}): RecalcResult {
     const names = new SheetNameIndex(sheets);
     const byId = new Map(sheets.map(s => [s.id, s]));
     const seeds: Position[] = [];
@@ -146,7 +173,7 @@ export class RecalcEngine {
       sheets,
       seeds,
       forced,
-      { trustedSheetId: null, clearSpillsOf: null },
+      { trustedSheetId: null, clearSpillsOf: [], inPlace: applyOptions.inPlace },
       spillsToClear
     );
   }
@@ -166,22 +193,30 @@ export class RecalcEngine {
     const ensure = (sheetId: string): Sheet => {
       const i = indexById.get(sheetId)!;
       if (!owned.has(sheetId)) {
-        work[i] = { ...work[i], data: { ...work[i].data } };
+        work[i] = options.inPlace ? work[i] : { ...work[i], data: { ...work[i].data } };
         owned.add(sheetId);
       }
       return work[i];
     };
 
+    const touched = new Map<string, { sheetId: string; dataKey: string }>();
+    const touch = (sheetId: string, dataKey: string): void => {
+      const k = nodeKeyFromDataKey(sheetId, dataKey);
+      if (!touched.has(k)) touched.set(k, { sheetId, dataKey });
+    };
+
     const seeds = initialSeeds.slice();
-    if (options.clearSpillsOf !== null && indexById.has(options.clearSpillsOf)) {
-      clearAllSpillCells(ensure(options.clearSpillsOf).data);
+    for (const sheetId of options.clearSpillsOf) {
+      if (indexById.has(sheetId)) clearAllSpillCells(ensure(sheetId).data);
     }
     for (const { sheetId, parent } of spillsToClear) {
       if (!indexById.has(sheetId)) continue;
       const range = this.graph.spillOf(parent);
       const dataKey = parent.slice(parent.indexOf('\u0001') + 1);
       const cleared = clearSpillCells(ensure(sheetId).data, dataKey, range);
+      touch(sheetId, dataKey);
       for (const k of cleared) {
+        touch(sheetId, k);
         const m = KEY_PATTERN.exec(k);
         if (m) seeds.push({ sheetId, row: Number(m[1]), col: Number(m[2]) });
       }
@@ -218,6 +253,10 @@ export class RecalcEngine {
           const described = this.describeCycle(cycle, work);
           cycles.push(described);
           this.markCircular(cycle, described.message, ensure, pending);
+          for (const member of cycle.members) {
+            const n = this.graph.get(member);
+            if (n) touch(n.sheetId, cellPosToKey(n.row, n.col));
+          }
         }
 
         const late: Position[] = [];
@@ -233,13 +272,16 @@ export class RecalcEngine {
           let outcomeSpill: CellRange | undefined;
           try {
             const value = evaluateFormula(cell.raw, ws, work);
-            outcomeSpill = writeFormulaResult(ws.data, dataKey, node.row, node.col, cell, value).spill;
+            const outcome = writeFormulaResult(ws.data, dataKey, node.row, node.col, cell, value);
+            outcomeSpill = outcome.spill;
+            for (const k of outcome.touched) touch(node.sheetId, k);
           } catch (err) {
             clearSpillCells(ws.data, dataKey, cell.spillRange);
             const message = err instanceof Error && err.message ? err.message : '#ERRO!';
             ws.data[dataKey] = { ...cell, value: '#ERRO!', error: message, spillRange: undefined };
           }
           recalculated++;
+          touch(node.sheetId, dataKey);
 
           const previous = this.graph.spillOf(key);
           if (outcomeSpill) this.graph.setSpill(key, node.sheetId, outcomeSpill);
@@ -256,6 +298,7 @@ export class RecalcEngine {
 
     return {
       sheets: work,
+      touched: [...touched.values()],
       recalculated,
       cycles,
       stats: {

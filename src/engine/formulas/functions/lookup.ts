@@ -3,6 +3,21 @@
 
 import { valuesMatch } from '../numbers';
 import { FunctionHandler } from './types';
+import { firstColumnOf, indexFor } from './valueIndex';
+
+/** Primeiro índice de items que casa com 	arget (-1 se nenhum), usando índice quando há sessão. */
+function firstMatch(items: readonly unknown[], target: unknown): number {
+  const index = indexFor(items);
+  if (index) {
+    const hit = index.first(target);
+    if (hit !== null) return hit;
+  }
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (item !== null && item !== undefined && valuesMatch(item, target)) return i;
+  }
+  return -1;
+}
 
 const procx: FunctionHandler = (args, ctx) => {
   if (args.length < 3) throw new Error('#N/D');
@@ -18,16 +33,7 @@ const procx: FunctionHandler = (args, ctx) => {
   const lookupItems = lookupRes.flatValues;
   const returnItems = returnRes.flatValues;
 
-  let matchIndex = -1;
-
-  for (let i = 0; i < lookupItems.length; i++) {
-    const item = lookupItems[i];
-    if (item === null || item === undefined) continue;
-    if (valuesMatch(item, lookupVal)) {
-      matchIndex = i;
-      break;
-    }
-  }
+  const matchIndex = firstMatch(lookupItems, lookupVal);
 
   if (matchIndex >= 0 && matchIndex < returnItems.length) {
     return returnItems[matchIndex];
@@ -46,12 +52,8 @@ const procv: FunctionHandler = (args, ctx) => {
   }
 
   const matrix = tableRes.matrixValues;
-  for (let r = 0; r < matrix.length; r++) {
-    const firstColVal = matrix[r][0];
-    if (firstColVal !== null && firstColVal !== undefined && valuesMatch(firstColVal, lookupVal)) {
-      return matrix[r][colIdx - 1];
-    }
-  }
+  const row = firstMatch(firstColumnOf(matrix), lookupVal);
+  if (row >= 0) return matrix[row][colIdx - 1];
   throw new Error('#N/D');
 };
 
@@ -76,14 +78,8 @@ const corresp: FunctionHandler = (args, ctx) => {
   const resolved = ctx.resolve(args[1]);
   if (!resolved) throw new Error('#VALOR!');
 
-  const items = resolved.flatValues;
-
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    if (item !== null && item !== undefined && valuesMatch(item, lookupVal)) {
-      return i + 1; // 1-based index
-    }
-  }
+  const hit = firstMatch(resolved.flatValues, lookupVal);
+  if (hit >= 0) return hit + 1; // 1-based index
   throw new Error('#N/D');
 };
 

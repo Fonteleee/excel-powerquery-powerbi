@@ -66,7 +66,8 @@ const RANGE_PREFIX = '\u0002';
 
 export class DependencyGraph {
   private readonly formulas = new Map<string, FormulaNode>();
-  private readonly cellDependents = new Map<string, Set<string>>();
+  /** Precedente -> dependentes. Um único dependente fica como string (evita milhares de Sets minúsculos). */
+  private readonly cellDependents = new Map<string, string | Set<string>>();
   private readonly ranges = new Map<string, RangeNode>();
   private readonly rangesByColumn = new Map<string, RangeNode[]>();
   private readonly spills = new Map<string, CellRange>();
@@ -108,9 +109,11 @@ export class DependencyGraph {
 
     for (const ref of refs.cells) {
       const precedent = nodeKey(ref.sheetId, ref.row, ref.col);
-      let set = this.cellDependents.get(precedent);
-      if (!set) this.cellDependents.set(precedent, (set = new Set()));
-      set.add(key);
+      const current = this.cellDependents.get(precedent);
+      if (current === undefined) this.cellDependents.set(precedent, key);
+      else if (typeof current === 'string') {
+        if (current !== key) this.cellDependents.set(precedent, new Set([current, key]));
+      } else current.add(key);
     }
     for (const ref of refs.ranges) {
       const id = rangeId(ref);
@@ -137,10 +140,14 @@ export class DependencyGraph {
 
     for (const ref of node.refs.cells) {
       const precedent = nodeKey(ref.sheetId, ref.row, ref.col);
-      const set = this.cellDependents.get(precedent);
-      if (!set) continue;
-      set.delete(key);
-      if (set.size === 0) this.cellDependents.delete(precedent);
+      const current = this.cellDependents.get(precedent);
+      if (current === undefined) continue;
+      if (typeof current === 'string') {
+        if (current === key) this.cellDependents.delete(precedent);
+        continue;
+      }
+      current.delete(key);
+      if (current.size === 0) this.cellDependents.delete(precedent);
     }
     for (const ref of node.refs.ranges) {
       const id = rangeId(ref);
@@ -210,7 +217,8 @@ export class DependencyGraph {
   directDependents(pos: Position): string[] {
     const out = new Set<string>();
     const cell = this.cellDependents.get(nodeKey(pos.sheetId, pos.row, pos.col));
-    if (cell) for (const f of cell) out.add(f);
+    if (typeof cell === 'string') out.add(cell);
+    else if (cell) for (const f of cell) out.add(f);
     for (const range of this.rangesContaining(pos.sheetId, pos.row, pos.col)) {
       for (const f of range.dependents) out.add(f);
     }
@@ -249,7 +257,10 @@ export class DependencyGraph {
     /** Registra as dependências de uma posição que mudou; `source` é a fórmula que a produz (se for uma). */
     const expand = (sheetId: string, row: number, col: number, source: string | null): void => {
       const cell = this.cellDependents.get(nodeKey(sheetId, row, col));
-      if (cell) {
+      if (typeof cell === 'string') {
+        markDirty(cell);
+        if (source !== null) addEdge(source, cell);
+      } else if (cell) {
         for (const dependent of cell) {
           markDirty(dependent);
           if (source !== null) addEdge(source, dependent);
@@ -305,9 +316,8 @@ export class DependencyGraph {
     const cycles: CycleReport[] = [];
     const remaining = new Set(indegree.keys());
 
+    // A ordem de descoberta (inserção) desempata de forma estável; não é preciso ordenar as raízes.
     const roots = [...remaining].filter(v => indegree.get(v) === 0);
-    // Desempate estável: aba, linha, coluna (vértices de intervalo não precisam de ordem própria).
-    roots.sort((a, b) => this.compareVertices(a, b));
 
     const release = (queue: string[], vertex: string): void => {
       for (const next of successors.get(vertex) ?? []) {
@@ -351,14 +361,6 @@ export class DependencyGraph {
       }
     }
     return { order, cycles };
-  }
-
-  private compareVertices(a: string, b: string): number {
-    const na = this.formulas.get(a);
-    const nb = this.formulas.get(b);
-    if (!na || !nb) return na ? -1 : nb ? 1 : 0;
-    if (na.sheetId !== nb.sheetId) return na.sheetId < nb.sheetId ? -1 : 1;
-    return na.row - nb.row || na.col - nb.col;
   }
 
   /** Componentes fortemente conexos com ciclo (tamanho > 1 ou laço), via Tarjan iterativo. */

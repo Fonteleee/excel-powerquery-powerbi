@@ -3,6 +3,20 @@
 
 import { parseNumberSafely, valuesMatch } from '../numbers';
 import { FunctionHandler } from './types';
+import { indexFor } from './valueIndex';
+
+/**
+ * Critério de IGUALDADE (sem operador ou com =): índices dos itens que casam, em ordem crescente.
+ * 
+ull quando não dá para indexar (sem sessão de recálculo, operador de comparação ou curingas):
+ * o chamador então varre o vetor como sempre.
+ */
+function equalityHits(values: readonly unknown[], criteriaRaw: unknown, criteriaStr: string): number[] | null {
+  if (/^(>=|<=|<>|>|<)/.test(criteriaStr)) return null;
+  const index = indexFor(values);
+  if (!index) return null;
+  return index.matches(criteriaStr.startsWith('=') ? criteriaStr.substring(1) : criteriaRaw);
+}
 
 const somarproduto: FunctionHandler = (args, ctx) => {
   if (args.length === 0) return 0;
@@ -69,6 +83,19 @@ const mediase: FunctionHandler = (args, ctx) => {
 
   let total = 0;
   let count = 0;
+  const hits = equalityHits(rangeVals, criteriaRaw, criteriaStr);
+  if (hits) {
+    for (const i of hits) {
+      if (avgVals[i] === undefined) continue;
+      const n = parseNumberSafely(avgVals[i], true);
+      if (n !== null) {
+        total += n;
+        count++;
+      }
+    }
+    if (count === 0) throw new Error('#DIV/0!');
+    return total / count;
+  }
   for (let i = 0; i < rangeVals.length; i++) {
     const v = rangeVals[i];
     if (v === null || v === undefined) continue;
@@ -161,6 +188,8 @@ const contSe: FunctionHandler = (args, ctx) => {
 
   const vals = resolved.flatValues;
   let count = 0;
+  const hits = equalityHits(vals, criteriaRaw, criteriaStr);
+  if (hits) return hits.length;
 
   for (const v of vals) {
     if (v === null || v === undefined) continue;
@@ -201,6 +230,15 @@ const somase: FunctionHandler = (args, ctx) => {
   const sumVals = sumRes ? sumRes.flatValues : rangeVals;
 
   let total = 0;
+  const hits = equalityHits(rangeVals, criteriaRaw, criteriaStr);
+  if (hits) {
+    for (const i of hits) {
+      if (sumVals[i] === undefined) continue;
+      const n = parseNumberSafely(sumVals[i], true);
+      if (n !== null) total += n;
+    }
+    return total;
+  }
   for (let i = 0; i < rangeVals.length; i++) {
     const v = rangeVals[i];
     if (v === null || v === undefined) continue;

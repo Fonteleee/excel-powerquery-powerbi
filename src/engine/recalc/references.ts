@@ -63,17 +63,19 @@ export class SheetNameIndex {
   }
 }
 
-const SHEET = String.raw`(?:'((?:[^']|'')+)'|([\p{L}\p{N}_.]+))!`;
+const SHEET = String.raw`(?:'((?:[^']|'')+)'|([A-Za-z0-9\u00C0-\u024F_.]+))!`;
 const CELL = String.raw`\$?[A-Za-z]{1,3}\$?\d+`;
 const COLUMN = String.raw`\$?[A-Za-z]{1,3}`;
-const BEFORE = String.raw`(?<![\p{L}\p{N}_$.'])`;
+const BEFORE = String.raw`(?<![A-Za-z0-9\u00C0-\u024F_$.'])`;
 
-const CELL_OR_RANGE = new RegExp(String.raw`${BEFORE}(?:${SHEET})?(${CELL})(?::(${CELL}))?(?![\p{L}\p{N}_(])`, 'gu');
-const COLUMN_RANGE = new RegExp(String.raw`${BEFORE}(?:${SHEET})?(${COLUMN}):(${COLUMN})(?![\p{L}\p{N}_($])`, 'gu');
-const VOLATILE = /(?<![\p{L}\p{N}_.])(HOJE|TODAY|AGORA|NOW)\s*\(/iu;
+const CELL_OR_RANGE = new RegExp(String.raw`${BEFORE}(?:${SHEET})?(${CELL})(?::(${CELL}))?(?![A-Za-z0-9\u00C0-\u024F_(])`, 'g');
+const COLUMN_RANGE = new RegExp(String.raw`${BEFORE}(?:${SHEET})?(${COLUMN}):(${COLUMN})(?![A-Za-z0-9\u00C0-\u024F_($])`, 'g');
+const VOLATILE_HINT = /HOJE|TODAY|AGORA|NOW/i;
+const VOLATILE = /(?<![A-Za-z0-9\u00C0-\u024F_.])(HOJE|TODAY|AGORA|NOW)\s*\(/i;
 
 /** Troca o conteúdo de textos entre aspas por espaços (referências dentro de texto não contam). */
 function blankStrings(formula: string): string {
+  if (!formula.includes('"')) return formula;
   return formula.replace(/"(?:[^"]|"")*"/g, m => ' '.repeat(m.length));
 }
 
@@ -88,7 +90,7 @@ export function extractReferences(formula: string, currentSheetId: string, names
   if (!formula.startsWith('=')) return refs;
 
   const text = blankStrings(formula);
-  refs.volatile = VOLATILE.test(text);
+  refs.volatile = VOLATILE_HINT.test(text) && VOLATILE.test(text);
 
   for (const m of text.matchAll(CELL_OR_RANGE)) {
     const sheetIds = names.resolve(sheetNameOf(m[1], m[2]), currentSheetId);

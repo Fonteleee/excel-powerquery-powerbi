@@ -91,6 +91,7 @@ function measureEdit(scenario: Scenario, engine: EngineName, runs: number): Meas
   const out: Measurement[] = [];
   const buildTimes: number[] = [];
   const editTimes: number[] = [];
+  const inPlaceTimes: number[] = [];
   let detail = '';
 
   for (let i = 0; i < runs; i++) {
@@ -111,12 +112,24 @@ function measureEdit(scenario: Scenario, engine: EngineName, runs: number): Meas
       );
       editTimes.push(ms);
       detail = `${checksum(result.sheets)} | recalculadas=${result.recalculated} de ${result.stats.formulas}`;
+
+      // Mesma edição, mas o motor é dono do estado (como no worker): sem copiar o mapa de células.
+      const owned = recalcFull('graph', scenario, cloneSheets(scenario.sheets));
+      const ownedEngine = new RecalcEngine(owned);
+      const edited = applyEdit(owned, edit);
+      const inPlace = time(() =>
+        ownedEngine.apply(edited, [{ sheetId: edit.sheetId, row: edit.row, col: edit.col }], { inPlace: true })
+      );
+      inPlaceTimes.push(inPlace.ms);
     }
   }
   if (engine === 'graph') {
     out.push({ scenario: scenario.name, engine, operation: 'construção do grafo', ms: median(buildTimes), detail: '' });
   }
   out.push({ scenario: scenario.name, engine, operation: 'edição pontual', ms: median(editTimes), detail });
+  if (inPlaceTimes.length > 0) {
+    out.push({ scenario: scenario.name, engine, operation: 'edição pontual in-place', ms: median(inPlaceTimes), detail: '' });
+  }
   return out;
 }
 
