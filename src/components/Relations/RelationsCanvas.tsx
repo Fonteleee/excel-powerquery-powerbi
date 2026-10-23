@@ -16,6 +16,8 @@ interface RelationsCanvasProps {
   onOpenImportModal?: () => void;
   /** Abre uma aba na grade de dados (usado pelo botão "Ver na aba Dados"). */
   onOpenSheet?: (sheetId: string) => void;
+  /** Desfaz a última alteração das planilhas (histórico do App). */
+  onUndoSheets?: () => void;
 }
 
 export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
@@ -24,6 +26,7 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
   onOpenCopilot,
   onOpenImportModal,
   onOpenSheet,
+  onUndoSheets,
 }) => (
   <FlowCanvas
     sheets={sheets}
@@ -31,5 +34,6 @@ export const RelationsCanvas: React.FC<RelationsCanvasProps> = ({
     onOpenCopilot={onOpenCopilot}
     onOpenImportModal={onOpenImportModal}
     onOpenSheet={onOpenSheet}
+    onUndoSheets={onUndoSheets}
   />
 );

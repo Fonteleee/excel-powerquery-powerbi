@@ -797,6 +797,7 @@ export function App() {
             onOpenShare={() => setIsShareModalOpen(true)}
             onOpenCopilot={() => setIsCopilotOpen(true)}
             onOpenImportModal={() => setIsImportExportOpen(true)}
+            onUndoSheets={handleUndo}
             onOpenSheet={sheetId => {
               setActiveSheetId(sheetId);
               setActiveView('spreadsheet');

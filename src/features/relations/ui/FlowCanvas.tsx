@@ -4,7 +4,7 @@
 // Este componente só compõe estado e eventos; a lógica fica em model/, analysis/ e runtime/.
 
 import React, { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { HeartPulse, Sparkles } from 'lucide-react';
 import { Sheet } from '../../../types/spreadsheet';
 import { AddTableModal } from '../../../components/Relations/AddTableModal';
 import { loadRelationEdges } from '../../../utils/storageManager';
@@ -37,6 +37,9 @@ import { buildCardColumns, flowBounds, outputStatus } from './cardData';
 import { resolveEdgeEndpoints, sourceColumnHint } from './cableEndpoints';
 import { CableBadge, CableLayer, CableView } from './CableLayer';
 import { CableInspector, InspectorAnchor } from './CableInspector';
+import { DataHealthPanel } from './DataHealthPanel';
+import { applyFixToSheets, healthTargetSheet } from './healthModel';
+import type { HealthFix } from '../analysis/healthTypes';
 import { CanvasLegend, CanvasToolbar, ZoomControls } from './CanvasToolbar';
 import { ConnectionPopover, PopoverTarget } from './ConnectionPopover';
 import {
@@ -71,6 +74,8 @@ export interface FlowCanvasProps {
   onOpenSheet?: (sheetId: string) => void;
   onOpenCopilot?: () => void;
   onOpenImportModal?: () => void;
+  /** Desfaz a última alteração das planilhas (histórico do App); usado pelo painel de saúde. */
+  onUndoSheets?: () => void;
 }
 
 interface Toast {
@@ -95,7 +100,7 @@ const INSPECTOR_ID = 'rel-cable-inspector';
 const TOOLTIP_WIDTH = 380;
 const DRAWER_RESERVE_PX = 440;
 
-export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, onOpenSheet, onOpenCopilot, onOpenImportModal }) => {
+export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, onOpenSheet, onOpenCopilot, onOpenImportModal, onUndoSheets }) => {
   const doc = useFlowDocument(sheets);
   const { graph, updateGraph, view, patchView } = doc;
   const results = useFlowEvaluation(graph, sheets);
@@ -137,6 +142,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
   const [popover, setPopover] = useState<PopoverTarget | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [tip, setTip] = useState<HoverTip | null>(null);
+  const [healthOpen, setHealthOpen] = useState(false);
   const [inspector, setInspector] = useState<(InspectorAnchor & { cableId: string }) | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [legacyReport, setLegacyReport] = useState<LegacyMigrationResult | null>(null);
@@ -440,6 +446,18 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
     onDrop: handleDrop,
   });
 
+  // ---- Saúde dos dados: a correção entra no histórico de desfazer das planilhas (onUpdateSheets do App) ----
+  const healthSheet = useMemo(
+    () => (healthOpen ? healthTargetSheet(graph, selectedNodeId, sheets) : null),
+    [healthOpen, graph, selectedNodeId, sheets]
+  );
+  const handleApplyFix = useCallback((sheetId: string, fix: HealthFix): string | null => {
+    const outcome = applyFixToSheets(sheets, sheetId, fix);
+    if (!outcome.ok) return outcome.error;
+    onUpdateSheets(outcome.sheets);
+    return null;
+  }, [sheets, onUpdateSheets]);
+
   // ---- Inspetor de falhas do cabo (hover e foco no selo) -----------------------------------------
   const handleInspect = useCallback((cable: CableView, el: HTMLElement | null) => {
     const surface = surfaceRef.current?.getBoundingClientRect();
@@ -541,7 +559,20 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
         onAddOutput={handleAddOutput}
         onToggleKeysOnly={value => patchView({ showKeysOnly: value })}
         onRun={handleRun}
-        extras={<FlowExportPopover graph={graph} sheets={sheets} onImportGraph={handleImportGraph} fileBase="fluxo" />}
+        extras={
+          <>
+            <button
+              type="button"
+              onClick={() => setHealthOpen(v => !v)}
+              aria-pressed={healthOpen}
+              title="Saúde dos dados da tabela selecionada, com correções propostas"
+              className="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-2.5 py-1.5 text-[length:var(--rel-text-body)] font-bold text-emerald-900 transition-colors hover:bg-emerald-50"
+            >
+              <HeartPulse className="size-4" aria-hidden /> Saúde
+            </button>
+            <FlowExportPopover graph={graph} sheets={sheets} onImportGraph={handleImportGraph} fileBase="fluxo" />
+          </>
+        }
       />
 
       <div className="relative min-h-0 flex-1">
@@ -724,6 +755,16 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
             <div className="mb-1 truncate text-[length:var(--rel-text-caption)] font-bold">{nodeDisplayName(tipNode, sheetNames)}</div>
             <PreviewPanel result={results.get(tipNode.id)} limit={5} maxHeight={130} />
           </div>
+        )}
+
+        {healthOpen && (
+          <DataHealthPanel
+            sheet={healthSheet}
+            onApply={handleApplyFix}
+            onClose={() => setHealthOpen(false)}
+            onUndo={onUndoSheets}
+            rightOffset={drawerOpen && selectedNode ? DRAWER_RESERVE_PX : 16}
+          />
         )}
 
         {inspector && (
