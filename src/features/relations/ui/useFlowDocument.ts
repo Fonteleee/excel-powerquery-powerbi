@@ -6,14 +6,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Sheet } from '../../../types/spreadsheet';
 import { syncTableNodes } from '../model/editor';
 import { FlowGraph } from '../model/graph';
+import { canRedo, canUndo, createHistory, GraphHistory, recordEdit, redo, undo } from '../model/history';
 import { loadFlowGraph, loadViewState, saveFlowGraph, saveViewState } from '../model/persistence';
 import { FlowViewState, StoredViewport } from '../model/viewState';
 
 const SAVE_DELAY_MS = 300;
 
+export interface GraphEditOptions {
+  /** Edições seguidas com a mesma chave (ex.: arrastar um nó) viram um único passo de desfazer. */
+  coalesceKey?: string;
+}
+
 export interface FlowDocument {
   graph: FlowGraph;
-  updateGraph: (update: (graph: FlowGraph) => FlowGraph) => void;
+  updateGraph: (update: (graph: FlowGraph) => FlowGraph, options?: GraphEditOptions) => void;
+  undoGraph: () => boolean;
+  redoGraph: () => boolean;
+  canUndo: boolean;
+  canRedo: boolean;
   view: FlowViewState;
   patchView: (patch: Partial<Omit<FlowViewState, 'viewport'>>) => void;
   /** Guarda zoom/pan sem re-renderizar (só persiste). */
@@ -77,7 +87,46 @@ export function useFlowDocument(sheets: readonly Sheet[]): FlowDocument {
     []
   );
 
-  const updateGraph = useCallback((update: (g: FlowGraph) => FlowGraph) => setGraph(update), []);
+  // Histórico do grafo (independente do das planilhas). Mantido em ref; só os flags viram estado.
+  const historyRef = useRef<GraphHistory>(createHistory());
+  const [flags, setFlags] = useState({ canUndo: false, canRedo: false });
+  const syncFlags = useCallback(() => {
+    const next = { canUndo: canUndo(historyRef.current), canRedo: canRedo(historyRef.current) };
+    setFlags(prev => (prev.canUndo === next.canUndo && prev.canRedo === next.canRedo ? prev : next));
+  }, []);
+
+  const updateGraph = useCallback(
+    (update: (g: FlowGraph) => FlowGraph, options?: GraphEditOptions) => {
+      const previous = graphRef.current;
+      const next = update(previous);
+      if (next === previous) return;
+      historyRef.current = recordEdit(historyRef.current, previous, { coalesceKey: options?.coalesceKey });
+      graphRef.current = next;
+      setGraph(next);
+      syncFlags();
+    },
+    [syncFlags]
+  );
+
+  const undoGraph = useCallback((): boolean => {
+    const step = undo(historyRef.current, graphRef.current);
+    if (!step) return false;
+    historyRef.current = step.history;
+    graphRef.current = step.graph;
+    setGraph(step.graph);
+    syncFlags();
+    return true;
+  }, [syncFlags]);
+
+  const redoGraph = useCallback((): boolean => {
+    const step = redo(historyRef.current, graphRef.current);
+    if (!step) return false;
+    historyRef.current = step.history;
+    graphRef.current = step.graph;
+    setGraph(step.graph);
+    syncFlags();
+    return true;
+  }, [syncFlags]);
   const patchView = useCallback(
     (patch: Partial<Omit<FlowViewState, 'viewport'>>) => setView(v => ({ ...v, ...patch })),
     []
@@ -90,5 +139,5 @@ export function useFlowDocument(sheets: readonly Sheet[]): FlowDocument {
     [schedulePersist]
   );
 
-  return { graph, updateGraph, view, patchView, rememberViewport };
+  return { graph, updateGraph, view, patchView, rememberViewport, undoGraph, redoGraph, canUndo: flags.canUndo, canRedo: flags.canRedo };
 }

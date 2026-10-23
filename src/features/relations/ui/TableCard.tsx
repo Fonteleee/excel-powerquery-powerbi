@@ -5,6 +5,8 @@
 import React, { memo, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Search, Table2, TriangleAlert, X } from 'lucide-react';
 import { ColumnTypeInfo, TYPE_LABELS } from '../analysis/typeInference';
+import type { GhostSuggestion } from '../analysis/ghostLinks';
+import { ghostTitle } from './ghostCache';
 import { DetailLevel } from './geometry';
 import { formatCount } from './format';
 import { Pin } from './Pin';
@@ -39,6 +41,10 @@ interface TableCardProps {
   /** Pino de saída que está sendo arrastado a partir deste cartão, se houver. */
   activePin: string | null;
   report: ReportAnchors;
+  /** Campos deste cartão sugeridos como ligação ao campo sob o mouse em outro cartão (só visual). */
+  ghosts?: ReadonlyMap<string, GhostSuggestion>;
+  /** Mouse entra (coluna) ou sai (null) de um campo deste cartão. */
+  onFieldHover?: (nodeId: string, column: string | null) => void;
   onToggleCollapse: (nodeId: string) => void;
   onRemove: (nodeId: string) => void;
 }
@@ -55,7 +61,7 @@ const SHORT_TYPE: Record<string, string> = {
 function TableCardImpl(props: TableCardProps): React.ReactElement {
   const {
     nodeId, x, y, sheetName, rowCount, error, columns, collapsed, showKeysOnly, lod, zoom,
-    selected, connecting, linkedColumns, activePin, report, onToggleCollapse, onRemove,
+    selected, connecting, linkedColumns, activePin, report, ghosts, onFieldHover, onToggleCollapse, onRemove,
   } = props;
   const rootRef = useRef<HTMLDivElement>(null);
   const [filter, setFilter] = useState('');
@@ -169,13 +175,17 @@ function TableCardImpl(props: TableCardProps): React.ReactElement {
           {visible.map(col => {
             const pinOut = `out:${col.name}`;
             const type = col.info?.type;
+            const ghost = ghosts?.get(col.name);
             return (
               <div
                 key={col.name}
                 role="listitem"
                 className="rel-field"
                 data-linked={linkedColumns.has(col.name) ? 'true' : undefined}
-                title={`${col.name} — ${type ? TYPE_LABELS[type] : 'sem dados'}`}
+                data-ghost={ghost ? 'true' : undefined}
+                title={ghost ? ghostTitle(ghost) : `${col.name} — ${type ? TYPE_LABELS[type] : 'sem dados'}`}
+                onPointerEnter={onFieldHover && !connecting ? () => onFieldHover(nodeId, col.name) : undefined}
+                onPointerLeave={onFieldHover ? () => onFieldHover(nodeId, null) : undefined}
               >
                 <Pin pinKey={`in:${col.name}`} side="left" title={`Soltar aqui para ligar a ${col.name}`} accepts={connecting} />
                 <TypeIcon type={type} />
@@ -183,6 +193,11 @@ function TableCardImpl(props: TableCardProps): React.ReactElement {
                 {lod === 'micro' && col.samples.length > 0 && (
                   <span className="rel-num min-w-0 flex-1 truncate text-[length:var(--rel-text-micro)] text-slate-600">
                     {col.samples.join(' · ')}
+                  </span>
+                )}
+                {ghost && (
+                  <span className="rel-ghost-badge rel-num" aria-label={ghostTitle(ghost)}>
+                    ~{Math.round(ghost.score * 100)}%
                   </span>
                 )}
                 <span className="ml-auto shrink-0 text-[length:var(--rel-text-micro)] font-semibold uppercase tracking-wide text-slate-600">
