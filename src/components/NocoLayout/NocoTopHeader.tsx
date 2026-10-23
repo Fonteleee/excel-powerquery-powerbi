@@ -119,6 +119,14 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
         {/* View Switcher Tabs (Dados vs Relacionamentos vs Painel BI) */}
         <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 ml-2">
           <button
+            onClick={() => onSelectView('relations')}
+            title="Relacionamentos: cruze tabelas com um fluxo visual"
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-extrabold transition-all btn-tactile cursor-pointer border ${activeView === 'relations' ? 'bg-indigo-700 text-white border-indigo-800 shadow-sm' : 'bg-indigo-50 text-indigo-900 border-indigo-300 hover:bg-indigo-100'}`}
+          >
+            <GitBranch className="size-3.5" />
+            <span>Relacionamentos</span>
+          </button>
+          <button
             onClick={() => onSelectView('spreadsheet')}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all btn-tactile cursor-pointer ${
               activeView === 'spreadsheet'
@@ -128,18 +136,6 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
           >
             <TableIcon className="size-3.5 text-indigo-600" />
             <span>Dados</span>
-          </button>
-
-          <button
-            onClick={() => onSelectView('relations')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all btn-tactile cursor-pointer ${
-              activeView === 'relations'
-                ? 'bg-white text-indigo-900 shadow-xs font-bold border border-slate-200/60'
-                : 'text-slate-700 hover:text-slate-950'
-            }`}
-          >
-            <GitBranch className="size-3.5 text-indigo-600" />
-            <span>Relacionamentos</span>
           </button>
 
           <button
