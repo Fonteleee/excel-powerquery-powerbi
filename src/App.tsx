@@ -55,6 +55,7 @@ import { NocoFormatModal } from './components/NocoLayout/NocoFormatModal';
 import { RelationsCanvas } from './components/Relations/RelationsCanvas';
 import {
   loadInitialSheetsSync,
+  resetWorkspaceStorage,
   loadSheetsFromStorageAsync,
   saveSheetsToStorage,
   saveActiveSheetId,
@@ -67,9 +68,12 @@ import {
 
 export function App() {
   const initialPrefs = useMemo(() => loadUserPreferences(), []);
-  const initialSheets = useMemo(() => loadInitialSheetsSync(), []);
+  const initialSheets = useMemo(() => {
+    resetWorkspaceStorage(); // o sistema sempre abre vazio: descarta dados de sessões anteriores
+    return loadInitialSheetsSync();
+  }, []);
 
-  // Initialize with persisted sheets or domain dataset
+  // Começa com uma tabela em branco (sem nenhum dado)
   const [sheets, setSheets] = useState<Sheet[]>(initialSheets);
   const [activeSheetId, setActiveSheetId] = useState<string>(() => loadActiveSheetId(initialSheets));
   const [activeCell, setActiveCell] = useState<CellPosition>({ row: 0, col: 0 });

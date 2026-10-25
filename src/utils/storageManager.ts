@@ -1,6 +1,26 @@
 import { Sheet } from '../types/spreadsheet';
 import { RelationEdge } from '../types/relations';
-import { createAgentPauseSampleSheet } from '../data/sampleDatasets';
+import { createEmptySheet } from '../data/sampleDatasets';
+import {
+  FLOW_GRAPH_BACKUP_KEY,
+  FLOW_GRAPH_STORAGE_KEY,
+  FLOW_VIEW_STORAGE_KEY,
+} from '../features/relations/model/persistence';
+
+/**
+ * O sistema SEMPRE abre vazio: sem planilha de exemplo e sem dados de sessões anteriores.
+ * Para trabalhar, o usuário importa arquivos ou cria tabelas; para guardar, exporta.
+ * Mude para `false` apenas se a persistência automática no navegador voltar a ser desejada.
+ */
+export const START_EMPTY_WORKSPACE = true;
+
+export const EMPTY_SHEET_ID = 'sheet-1';
+export const EMPTY_SHEET_NAME = 'Tabela 1';
+
+/** Planilha em branco (sem nenhum dado) usada como ponto de partida. */
+export function createBlankWorkspace(): Sheet[] {
+  return [createEmptySheet(EMPTY_SHEET_ID, EMPTY_SHEET_NAME)];
+}
 
 const DB_NAME = 'NocoDB_Excel_Storage_v2';
 const DB_VERSION = 1;
@@ -43,6 +63,7 @@ function openDB(): Promise<IDBDatabase> {
  * Synchronous initial sheet loader for instantaneous initial paint without flickering
  */
 export function loadInitialSheetsSync(): Sheet[] {
+  if (START_EMPTY_WORKSPACE) return createBlankWorkspace();
   try {
     if (typeof localStorage !== 'undefined') {
       const raw = localStorage.getItem(LOCAL_STORAGE_SHEETS_KEY);
@@ -57,14 +78,45 @@ export function loadInitialSheetsSync(): Sheet[] {
     console.warn('Could not read sheets from localStorage:', err);
   }
 
-  // Fallback to initial domain dataset
-  return [createAgentPauseSampleSheet('sheet-1', 'Acompanhamento_de_Pausa_Agente_1787943161501')];
+  return createBlankWorkspace();
+}
+
+/**
+ * Apaga tudo que uma sessão anterior deixou no navegador (planilhas, fluxo, relações antigas),
+ * para que o sistema abra realmente vazio. Preferências de interface (zoom, grade) são mantidas.
+ * Seguro de chamar várias vezes.
+ */
+export function resetWorkspaceStorage(): void {
+  if (!START_EMPTY_WORKSPACE) return;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      for (const key of [
+        LOCAL_STORAGE_SHEETS_KEY,
+        LOCAL_STORAGE_ACTIVE_SHEET_KEY,
+        LOCAL_STORAGE_STARRED_KEY,
+        LOCAL_STORAGE_EDGES_KEY,
+        FLOW_GRAPH_STORAGE_KEY,
+        FLOW_GRAPH_BACKUP_KEY,
+        FLOW_VIEW_STORAGE_KEY,
+      ]) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch {
+    // storage indisponível: nada a limpar
+  }
+  try {
+    if (typeof indexedDB !== 'undefined') indexedDB.deleteDatabase(DB_NAME);
+  } catch {
+    // sem IndexedDB: nada a limpar
+  }
 }
 
 /**
  * Asynchronously loads the complete sheets dataset from IndexedDB (with localStorage fallback)
  */
 export async function loadSheetsFromStorageAsync(): Promise<Sheet[]> {
+  if (START_EMPTY_WORKSPACE) return createBlankWorkspace();
   try {
     const db = await openDB();
     return new Promise((resolve) => {
@@ -89,6 +141,7 @@ export async function loadSheetsFromStorageAsync(): Promise<Sheet[]> {
  * Persists sheets dataset into both IndexedDB (full size) and localStorage (fast snapshot)
  */
 export async function saveSheetsToStorage(sheets: Sheet[]): Promise<void> {
+  if (START_EMPTY_WORKSPACE) return; // o sistema abre sempre vazio: nada é guardado entre sessões
   if (!sheets || sheets.length === 0) return;
 
   // 1. Fast snapshot in localStorage for instantaneous boot
