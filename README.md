@@ -1,4 +1,4 @@
-# 📊 Excel Pro Studio & NocoDB Master Cockpit
+# 📊 Verxel
 
 > **Ambiente Unificado de Engenharia de Dados, Planilhas Relacionais, ETL Power Query com DuckDB WASM e Dashboard Power BI In-Browser.**
 
@@ -21,7 +21,7 @@ Acesse a aplicação em produção diretamente pelo seu navegador:
 
 ## 📑 Visão Geral
 
-O **Excel Pro Studio & NocoDB Master Cockpit** é uma plataforma moderna desenvolvida para preencher a lacuna entre a agilidade das planilhas eletrônicas convencionais, o poder dos bancos de dados relacionais (NocoDB / Airtable) e o processamento analítico massivo (Power Query / Power BI).
+O **Verxel** é uma plataforma moderna desenvolvida para preencher a lacuna entre a agilidade das planilhas eletrônicas convencionais, o poder dos bancos de dados relacionais (NocoDB / Airtable) e o processamento analítico massivo (Power Query / Power BI).
 
 Toda a arquitetura é executada **100% no navegador (Client-Side)** com latência zero, tirando proveito de **WebAssembly (DuckDB WASM)** para consultas analíticas SQL em alta velocidade e renderização virtualizada para suporte a milhares de linhas e colunas simultâneas.
 
@@ -31,10 +31,10 @@ Toda a arquitetura é executada **100% no navegador (Client-Side)** com latênci
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│                      EXCEL PRO STUDIO & NOCODB MASTER COCKPIT                     │
+│                                    V E R X E L                                    │
 ├─────────────────┬───────────────────┬───────────────────┬────────────────────────┤
 │  📊 PLANILHA    │  🔗 RELAÇÕES n8n  │  ⚡ POWER QUERY   │  📈 POWER BI STUDIO    │
-│  Grade NocoDB   │  Canvas Visual    │  DuckDB WASM      │  KPIs Executivos       │
+│  Grade de Dados   │  Canvas Visual    │  DuckDB WASM      │  KPIs Executivos       │
 │  50+ Fórmulas   │  Wizard 4 Passos  │  Applied Steps    │  Gráficos Spline       │
 │  Flash Fill     │  Cruzamento PROCX │  Perfil Colunar   │  Pivot Table Dinâmica  │
 │  Formatação Cond│  Intra-Tabela     │  SQL Analítico    │  Relatórios XLSX       │
@@ -43,10 +43,10 @@ Toda a arquitetura é executada **100% no navegador (Client-Side)** com latênci
 
 ---
 
-### 1. 📊 Grade de Dados NocoDB Super HD & Motor Excel Nativo
+### 1. 📊 Grade de Dados Super HD & Motor Excel Nativo
 
 - **Virtualização Ultra-Rápida**: Construída com `@tanstack/react-virtual`, suportando rolagem fluida em 60 FPS sem gargalos de DOM.
-- **Tipagem Visual Vetorial (Badges NocoDB)**: Identificação instantânea e tipada de colunas com ícones Lucide vetoriais:
+- **Tipagem Visual Vetorial (Badges de Tipo)**: Identificação instantânea e tipada de colunas com ícones Lucide vetoriais:
   - 🔑 **ID / Chave Primária**: `<Key />` Âmbar
   - 📅 **Data & Criação**: `<Calendar />` Esmeralda
   - ⏱ **Hora / Duração**: `<Clock />` Azul-Celeste (formatado em `HH:MM:SS`)
@@ -120,7 +120,7 @@ Toda a arquitetura é executada **100% no navegador (Client-Side)** com latênci
 
 ---
 
-### 5. 🔮 NocoAI Copilot (Tema Obsidian Luxe)
+### 5. 🔮 IA do Verxel
 
 - Assistente de IA acessível na barra superior e no rodapé da aplicação.
 - Botão no estilo *Obsidian Luxe AI* (`bg-slate-900`, `border-violet-500/40`, `text-violet-200`).
@@ -147,7 +147,7 @@ Toda a arquitetura é executada **100% no navegador (Client-Side)** com latênci
 | Camada | Tecnologia | Descrição |
 | :--- | :--- | :--- |
 | **Frontend Framework** | React 19 + TypeScript | Interface reativa orientada a componentes com tipagem estrita |
-| **Estilização & Design** | Tailwind CSS v4 + Plus Jakarta Sans | Sistema de tokens semânticos OKLCH / Obsidian Master Cockpit |
+| **Estilização & Design** | Tailwind CSS v4 + Plus Jakarta Sans | Sistema de tokens semânticos OKLCH / Obsidian Verxel |
 | **Engine SQL In-Browser** | `@duckdb/duckdb-wasm` + Apache Arrow | Processamento colunar analítico com suporte a SQL padrão |
 | **Virtualização de Grade** | `@tanstack/react-virtual` | Renderização virtualizada para suporte a grandes volumes |
 | **Visualização de Dados** | Recharts 3 | Gráficos responsivos, splines suaves e tabelas dinâmicas |
@@ -219,7 +219,7 @@ excel-powerquery-powerbi/
 │   │   ├── Grid/               # Grade de dados virtualizada, células e autocomplete
 │   │   ├── Header/             # Barra de fórmulas e controles superiores
 │   │   ├── Modals/             # Análise Rápida, Formatação Condicional e Atalhos
-│   │   ├── NocoLayout/         # Master Cockpit, Sidebar, Toolbar e Modal de Formatação
+│   │   ├── NocoLayout/         # Verxel, Sidebar, Toolbar e Modal de Formatação
 │   │   ├── PowerBI/            # Dashboard Studio, KPIs, Gráficos e Pivot Tables
 │   │   ├── PowerQuery/         # ETL Studio, pipeline de etapas e perfilamento DuckDB
 │   │   └── Relations/          # Canvas visual de relacionamentos n8n, Cards e Wizard

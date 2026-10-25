@@ -17,7 +17,8 @@ import {
   createHRStaffSampleSheet,
   createFinancialBudgetSheet,
 } from '../../data/sampleDatasets';
-import { autoFormatTabularData, parseCSVToAutoFormattedSheet } from '../../utils/csvAutoFormatter';
+import { parseCSVToAutoFormattedSheet } from '../../utils/csvAutoFormatter';
+import { importWorkbookFile } from '../../utils/workbookImport';
 
 
 interface ImportExportModalProps {
@@ -26,6 +27,8 @@ interface ImportExportModalProps {
   sheets: Sheet[];
   activeSheetId: string;
   onLoadSheet: (sheet: Sheet) => void;
+  /** Arquivos importados: todas as abas de uma vez. */
+  onImportSheets: (sheets: Sheet[]) => void;
 }
 
 export const ImportExportModal: React.FC<ImportExportModalProps> = ({
@@ -34,6 +37,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   sheets,
   activeSheetId,
   onLoadSheet,
+  onImportSheets,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -74,7 +78,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
       XLSX.utils.book_append_sheet(wb, ws, sheet.name.substring(0, 31));
     });
 
-    XLSX.writeFile(wb, `${currentSheet.name || 'Planilha_Excel'}.xlsx`);
+    XLSX.writeFile(wb, `${currentSheet.name || 'Planilha_Verxel'}.xlsx`);
     onClose();
   };
 
@@ -123,7 +127,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'excel_studio_workbook.json';
+    link.download = 'verxel_workbook.json';
     link.click();
     URL.revokeObjectURL(url);
     onClose();
@@ -159,7 +163,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
             csvText,
             file.name.replace(/\.[^/.]+$/, '')
           );
-          onLoadSheet(formattedSheet);
+          onImportSheets([formattedSheet]);
           onClose();
         } catch {
           alert('Erro ao formatar e carregar arquivo CSV.');
@@ -170,23 +174,13 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
       reader.onload = event => {
         try {
           const data = new Uint8Array(event.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const firstSheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[firstSheetName];
-          const rawAoa: any[][] = XLSX.utils.sheet_to_json(worksheet, {
-            header: 1,
-            defval: '',
-            raw: false,
-          });
-
-
-          const autoFormatted = autoFormatTabularData(
-            rawAoa,
-            firstSheetName || file.name.replace(/\.[^/.]+$/, '')
-          );
-
-
-          onLoadSheet(autoFormatted);
+          const { sheets: imported, skipped } = importWorkbookFile(data, file.name);
+          if (imported.length === 0) {
+            alert('Não encontrei dados neste arquivo.');
+            return;
+          }
+          onImportSheets(imported);
+          if (skipped.length > 0) console.info('Abas ignoradas na importação:', skipped.join(', '));
           onClose();
         } catch (err) {
           alert('Erro ao processar planilha Excel.');

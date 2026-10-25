@@ -350,7 +350,7 @@ export function buildWorksheetFromSheet(sheet: Sheet): XLSX.WorkSheet {
  */
 export function exportSheetToExcel(
   sheets: Sheet | Sheet[],
-  filename = 'Planilha_Excel_Studio',
+  filename = 'Planilha_Verxel',
   flowGraph?: FlowGraph
 ): void {
   const sheetArray = Array.isArray(sheets) ? sheets : [sheets];
@@ -394,7 +394,7 @@ export async function exportPivotReportToExcel(
   options?: PowerBIExportOptions
 ): Promise<void> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'NocoDB Power BI Studio';
+  wb.creator = 'Verxel';
   wb.created = new Date();
 
   const dimensionName = options?.dimensionName || 'Dimensão';

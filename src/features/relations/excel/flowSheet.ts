@@ -7,7 +7,9 @@ import { MAX_EDGES, MAX_NODES, parseFlowGraph } from '../model/schema';
 import { restoreSpreadsheetText, sanitizeRows } from './sanitize';
 
 export const FLOW_SHEET_NAME = '_Flow_v1';
-export const FLOW_SHEET_FORMAT = 'nocodb-flow';
+export const FLOW_SHEET_FORMAT = 'verxel-flow';
+/** Identificador usado antes do nome Verxel: arquivos exportados com ele continuam podendo ser importados. */
+const LEGACY_FLOW_SHEET_FORMATS: readonly string[] = ['nocodb-flow'];
 export const FLOW_SHEET_VERSION = 1;
 export const FLOW_SHEET_HEADER = ['Tipo', 'Id', 'Descrição', 'Parte', 'JSON'] as const;
 
@@ -162,7 +164,8 @@ export function parseFlowFromRows(rows: readonly (readonly unknown[])[]): FlowSh
     // Outras linhas (cabeçalho, comentários) são ignoradas.
   }
 
-  if (meta.get('formato') !== FLOW_SHEET_FORMAT) {
+  const format = meta.get('formato');
+  if (format !== FLOW_SHEET_FORMAT && !LEGACY_FLOW_SHEET_FORMATS.includes(String(format))) {
     return { ok: false, errors: ['A aba não é um fluxo exportado por este aplicativo (formato desconhecido)'] };
   }
   if (meta.get('versao') !== String(FLOW_SHEET_VERSION)) {

@@ -35,7 +35,7 @@ const PRESET_BG_COLORS = [
   { label: 'Verde Suave', val: '#f0fdf4', border: '#bbf7d0' },
   { label: 'Amarelo Alerta', val: '#fefce8', border: '#fef08a' },
   { label: 'Vermelho / Rosa', val: '#fff1f2', border: '#fecdd3' },
-  { label: 'Roxo NocoDB', val: '#faf5ff', border: '#e9d5ff' },
+  { label: 'Roxo', val: '#faf5ff', border: '#e9d5ff' },
   { label: 'Índigo Real', val: '#e0e7ff', border: '#c7d2fe' },
   { label: 'Cinza Neutro', val: '#f1f5f9', border: '#cbd5e1' },
   { label: 'Verde Esmeralda', val: '#10b981', text: '#ffffff' },

@@ -334,7 +334,7 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
           {/* Copilot AI Button (Office 365 / Gemini Pro) */}
           <button
             onClick={onToggleCopilot}
-            title="Abrir Excel Copilot AI (Google Gemini Pro)"
+            title="Abrir a IA do Verxel (Google Gemini)"
             className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer shadow-2xs ${
               isCopilotOpen
                 ? 'bg-purple-700 text-white shadow-xs'
@@ -985,14 +985,14 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
                 className="flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs font-semibold text-[#242424] cursor-pointer"
               >
                 <Keyboard className="size-3.5 text-indigo-600" />
-                <span>Teclas de Atalho do Excel</span>
+                <span>Teclas de Atalho do Verxel</span>
               </button>
               <button
                 onClick={onToggleCopilot}
                 className="flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs font-semibold text-purple-700 cursor-pointer"
               >
                 <Sparkles className="size-3.5" />
-                <span>Excel Copilot AI (Gemini)</span>
+                <span>IA do Verxel (Gemini)</span>
               </button>
               <button
                 onClick={onOpenFormulaWizard}

@@ -51,7 +51,7 @@ export const NocoIconRail: React.FC<NocoIconRailProps> = ({
         {/* NocoDB Logo Badge */}
         <div
           onClick={onOpenUserProfile}
-          title="Estúdio de Dados • Clique para ver Perfil"
+          title="Verxel • Clique para ver Perfil"
           className="size-8 rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-700 flex items-center justify-center text-white font-bold text-sm shadow-sm cursor-pointer mb-2 hover:opacity-90 transition-opacity"
         >
           <span className="tracking-tighter">V</span>

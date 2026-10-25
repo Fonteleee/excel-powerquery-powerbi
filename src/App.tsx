@@ -554,6 +554,24 @@ export function App() {
     onNeedKey: () => setIsApiKeyModalOpen(true),
   });
 
+  // Arquivos importados entram com todas as abas. A tabela em branco inicial é substituída; senão as abas são acrescentadas.
+  const handleImportSheets = (imported: Sheet[]): void => {
+    if (imported.length === 0) return;
+    pushHistory(sheets);
+    const replacesBlank = sheets.length === 1 && Object.keys(sheets[0].data).length === 0;
+    const kept = replacesBlank ? [] : sheets;
+    const taken = new Set(kept.map(s => s.name.toLowerCase()));
+    const renamed = imported.map(sheet => {
+      let name = sheet.name;
+      for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${sheet.name} (${n})`;
+      taken.add(name.toLowerCase());
+      return { ...sheet, name };
+    });
+    const all = [...kept, ...renamed];
+    setSheets(all.map(sheet => recalculateSheet(sheet, all)));
+    setActiveSheetId(renamed[0].id);
+  };
+
   const handleCreateNewSheetFromData = useCallback((name: string, columns: string[], rows: any[]) => {
     pushHistory(sheets);
     const newSheetId = `sheet-${Date.now()}`;
@@ -942,6 +960,7 @@ export function App() {
         onClose={() => setIsImportExportOpen(false)}
         sheets={sheets}
         activeSheetId={activeSheetId}
+        onImportSheets={handleImportSheets}
         onLoadSheet={newSheet => {
           pushHistory(sheets);
           const { sheet: recognizedSheet } = autoRecognizeAndFormatSheet(newSheet);

@@ -1,5 +1,6 @@
 import { Sheet, CellData, CellFormat } from '../types/spreadsheet';
 import { cellPosToKey, parseNumberSafely, colIndexToLabel } from '../engine/formulaParser';
+import { detectHeaderRow, filledCount, isFilled, isSingleCellRow, tableBlockEnd } from './tableLayout';
 
 /**
  * Intelligent CSV / Table Auto-Formatter
@@ -7,9 +8,15 @@ import { cellPosToKey, parseNumberSafely, colIndexToLabel } from '../engine/form
  * infers column types (Currency, Percentage, Date, Numbers, Badges),
  * computes optimal column widths, and adds summary formula rows.
  */
+export interface AutoFormatOptions {
+  /** Linha (base 0) do cabeçalho. Se omitida, é detectada: títulos e observações acima da tabela são mantidos. */
+  headerRow?: number;
+}
+
 export function autoFormatTabularData(
   rawData: any[][],
-  sheetName = 'Dados Importados'
+  sheetName = 'Dados Importados',
+  options: AutoFormatOptions = {}
 ): Sheet {
   if (!rawData || rawData.length === 0) {
     return {
@@ -34,6 +41,11 @@ export function autoFormatTabularData(
     }
   });
 
+  // A tabela é o bloco que começa no cabeçalho e vai até a primeira linha em branco; o que está fora dele
+  // (títulos, observações, outros blocos) é importado como está, sem forçar tipos de coluna.
+  const headerRow = Math.min(Math.max(options.headerRow ?? detectHeaderRow(rawData), 0), numRows - 1);
+  const blockEnd = tableBlockEnd(rawData, headerRow);
+
   const rowCount = Math.max(numRows + 20, 100);
   const colCount = Math.max(numCols + 6, 20);
 
@@ -43,8 +55,9 @@ export function autoFormatTabularData(
 
   // Initialize row heights
   for (let r = 0; r < rowCount; r++) {
-    rowHeights[r] = r === 0 ? 32 : 28;
+    rowHeights[r] = r === headerRow ? 32 : 28;
   }
+  const firstFilledRow = rawData.findIndex(row => filledCount(row) > 0);
 
   // 1. Analyze each column to infer type and calculate optimal width
   const columnTypes: ('currency' | 'percentage' | 'number' | 'date' | 'time' | 'status' | 'text')[] = [];
@@ -58,17 +71,18 @@ export function autoFormatTabularData(
     let timeCount = 0;
     let statusCount = 0;
     let sampleCount = 0;
-    const headerTitle = String(rawData[0]?.[c] || '').trim();
+    const headerTitle = String(rawData[headerRow]?.[c] ?? '').trim();
 
     const isTextHeader = /motivo|raz[aã]o|tipo|descri[cç][aã]o|categoria|nome|agente|id|status/i.test(headerTitle);
 
-    for (let r = 0; r < numRows; r++) {
+    // Só o bloco da tabela define tipo e largura da coluna.
+    for (let r = headerRow; r <= blockEnd; r++) {
       const val = rawData[r]?.[c];
       if (val !== null && val !== undefined && val !== '') {
         const strVal = String(val).trim();
         if (strVal.length > maxCharLen) maxCharLen = strVal.length;
 
-        if (r > 0) {
+        if (r > headerRow) {
           sampleCount++;
           // Check Time strings (HH:MM or HH:MM:SS) or Header containing Time/Pausa/Duration (excluding Motivo/Razão/Tipo)
           if (
@@ -101,8 +115,8 @@ export function autoFormatTabularData(
           else if (/^(conclu[ií]do|pendente|ativo|inativo|aprovado|reprovado|cancelado|pago|aberto)$/i.test(strVal)) {
             statusCount++;
           }
-          // Check pure numbers
-          else if (parseNumberSafely(strVal) !== null) {
+          // Check pure numbers (códigos com zero à esquerda, como "001", são texto: o zero faz parte do código)
+          else if (parseNumberSafely(strVal) !== null && !/^0\d+$/.test(strVal)) {
             numberCount++;
           }
         }
@@ -136,9 +150,21 @@ export function autoFormatTabularData(
       const key = cellPosToKey(rIdx, cIdx);
       const colType = columnTypes[cIdx] || 'text';
 
+      // Fora da tabela (títulos, observações, outros blocos): valor como está. Números continuam números.
+      if (rIdx < headerRow || rIdx > blockEnd) {
+        // Título do relatório (primeira linha) e títulos de seção (linha sozinha depois de uma linha em branco).
+        const afterBlank = rIdx > 0 && filledCount(rawData[rIdx - 1]) === 0;
+        const isTitle = isSingleCellRow(row) && (rIdx === firstFilledRow || (afterBlank && rIdx > blockEnd));
+        data[key] = {
+          raw: strVal,
+          value: typeof cellVal === 'number' ? cellVal : strVal.startsWith('=') ? null : strVal,
+          ...(isTitle ? { format: { bold: true, fontSize: rIdx === firstFilledRow ? 13 : undefined } } : {}),
+        };
+        return;
+      }
 
-      // Header Row (Row 0)
-      if (rIdx === 0) {
+      // Cabeçalho da tabela
+      if (rIdx === headerRow) {
         data[key] = {
           raw: strVal,
           value: strVal,
