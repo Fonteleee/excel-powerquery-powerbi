@@ -14,6 +14,8 @@ import { createDefaultViewState, FlowViewState, parseViewState } from './viewSta
 export const FLOW_GRAPH_STORAGE_KEY = 'nocodb_flow_graph_v1';
 export const FLOW_GRAPH_BACKUP_KEY = 'nocodb_flow_graph_v1_invalid_backup';
 export const FLOW_VIEW_STORAGE_KEY = 'nocodb_flow_view_v1';
+/** Evento de janela: outro módulo (ex.: a IA) alterou o grafo salvo; a aba Relacionamentos aberta deve recarregá-lo. */
+export const FLOW_EXTERNAL_UPDATE_EVENT = 'flowgraph:external-update';
 const MAX_STORED_BYTES = 2_000_000;
 
 /** Subconjunto de `Storage` usado aqui (permite testar sem navegador). */

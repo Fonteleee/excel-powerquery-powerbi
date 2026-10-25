@@ -4,7 +4,7 @@
 // Este componente só compõe estado e eventos; a lógica fica em model/, analysis/ e runtime/.
 
 import React, { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { HeartPulse, Redo2, Sparkles, Undo2 } from 'lucide-react';
+import { Redo2, Sparkles, Undo2 } from 'lucide-react';
 import { Sheet } from '../../../types/spreadsheet';
 import { AddTableModal } from '../../../components/Relations/AddTableModal';
 import { loadRelationEdges } from '../../../utils/storageManager';
@@ -57,6 +57,8 @@ import {
   zoomAround,
 } from './geometry';
 import { LegacyBanner } from './LegacyBanner';
+import { FormulaLinksPanel } from './FormulaLinksPanel';
+import { linkToLegacyEdge } from '../analysis/formulaLinks';
 import { NodeDrawer } from './NodeDrawer';
 import { OutputNodeView } from './OutputNodeView';
 import { PreviewPanel } from './PreviewGrid';
@@ -146,6 +148,16 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
   const [toast, setToast] = useState<Toast | null>(null);
   const [tip, setTip] = useState<HoverTip | null>(null);
   const [healthOpen, setHealthOpen] = useState(false);
+
+  // A dica de uso aparece por 20 segundos e some de vez (até recarregar a página).
+  const [tipExpired, setTipExpired] = useState(false);
+  const tipWanted = graph.nodes.length > 0 && !graph.nodes.some(n => n.kind === 'transform');
+  useEffect(() => {
+    if (!tipWanted || tipExpired) return undefined;
+    const timer = setTimeout(() => setTipExpired(true), 20_000);
+    return () => clearTimeout(timer);
+  }, [tipWanted, tipExpired]);
+  const tipVisible = tipWanted && !tipExpired;
   const [inspector, setInspector] = useState<(InspectorAnchor & { cableId: string }) | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [legacyReport, setLegacyReport] = useState<LegacyMigrationResult | null>(null);
@@ -621,15 +633,6 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
                 <Redo2 className="size-4" aria-hidden />
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setHealthOpen(v => !v)}
-              aria-pressed={healthOpen}
-              title="Saúde dos dados da tabela selecionada, com correções propostas"
-              className="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-2.5 py-1.5 text-[length:var(--rel-text-body)] font-bold text-emerald-900 transition-colors hover:bg-emerald-50"
-            >
-              <HeartPulse className="size-4" aria-hidden /> Saúde
-            </button>
             <FlowExportPopover graph={graph} sheets={sheets} onImportGraph={handleImportGraph} fileBase="fluxo" />
           </>
         }
@@ -759,7 +762,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
           </div>
         )}
 
-        {graph.nodes.length > 0 && !graph.nodes.some(n => n.kind === 'transform') && (
+        {tipVisible && (
           <div className="pointer-events-none absolute left-1/2 top-3 z-10 max-w-lg -translate-x-1/2 rounded-xl border border-indigo-300 bg-white/95 px-4 py-2 text-center text-[length:var(--rel-text-body)] text-slate-800 shadow-md">
             <strong>Dica:</strong> arraste do pino à direita de um campo até o pino à esquerda de um campo de outra tabela. A chave é inferida e
             as operações aparecem ordenadas pelo tipo dos dados.
@@ -783,6 +786,21 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
           />
         )}
 
+        <FormulaLinksPanel
+          sheets={sheets}
+          graph={graph}
+          onBring={link => {
+            const migrated = migrateLegacyEdges([linkToLegacyEdge(link)], sheets, graphRef.current);
+            if (migrated.converted.length === 0) {
+              showToast(migrated.skipped[0]?.reason ?? 'Não foi possível trazer esta fórmula para o fluxo.', 'error');
+              return;
+            }
+            updateGraph(() => migrated.graph);
+            pendingFit.current = true;
+            showToast('Fórmula trazida para o fluxo.', 'ok');
+          }}
+        />
+
         <ZoomControls
           zoom={viewport.zoom}
           onZoomIn={() => zoomBy(1.2)}
@@ -799,7 +817,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ sheets, onUpdateSheets, 
             className="absolute bottom-4 right-4 z-10 flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-2 text-[length:var(--rel-text-body)] font-bold text-violet-100 shadow-lg hover:bg-slate-800"
             style={{ right: drawerOpen && selectedNode ? 'calc(var(--rel-drawer-width, 420px) + 16px)' : undefined }}
           >
-            <Sparkles className="size-4 text-violet-300" aria-hidden /> NocoAI
+            <Sparkles className="size-4 text-violet-300" aria-hidden /> IA
           </button>
         )}
 

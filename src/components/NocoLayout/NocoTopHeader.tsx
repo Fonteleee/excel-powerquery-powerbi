@@ -83,9 +83,6 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
 
         {/* Breadcrumb Path */}
         <div className="flex items-center gap-1.5 text-xs text-slate-800 font-semibold">
-          <span className="hover:text-slate-950 cursor-pointer">Espaço_de_Trabalho</span>
-          <span className="text-slate-400">/</span>
-          
           {isRenaming ? (
             <input
               type="text"
@@ -199,15 +196,15 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
           <span>Exportar</span>
         </button>
 
-        {/* NocoAI Copilot Trigger - Obsidian Luxe AI Button */}
+        {/* Botão do assistente de IA */}
         <button
           onClick={onToggleCopilot}
-          title="NocoAI Assistente Copilot"
-          aria-label="Abrir assistente NocoAI"
+          title="Assistente de IA"
+          aria-label="Abrir assistente de IA"
           className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-slate-900 hover:bg-slate-800 text-violet-200 border border-violet-500/30 shadow-xs hover:shadow-violet-500/10 transition-all btn-tactile cursor-pointer ml-1 group"
         >
           <Sparkles className="size-3.5 text-violet-400 group-hover:scale-110 transition-transform" />
-          <span>NocoAI</span>
+          <span>IA</span>
         </button>
 
         {/* Share Button (NocoDB Signature Blue) */}

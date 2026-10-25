@@ -7,9 +7,7 @@ import {
   Settings,
   HelpCircle,
   Plus,
-  Bookmark,
   Clock,
-  Sparkles,
 } from 'lucide-react';
 
 export type NocoNavView = 'relations' | 'data' | 'workflows' | 'interfaces' | 'settings' | 'help' | 'activity';
@@ -56,7 +54,7 @@ export const NocoIconRail: React.FC<NocoIconRailProps> = ({
           title="Estúdio de Dados • Clique para ver Perfil"
           className="size-8 rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-700 flex items-center justify-center text-white font-bold text-sm shadow-sm cursor-pointer mb-2 hover:opacity-90 transition-opacity"
         >
-          <span className="tracking-tighter">N</span>
+          <span className="tracking-tighter">V</span>
         </div>
 
         {/* Navigation Items */}
@@ -87,37 +85,10 @@ export const NocoIconRail: React.FC<NocoIconRailProps> = ({
         >
           <Plus className="size-4.5" />
         </button>
-
-        {/* Bookmarks */}
-        <button
-          onClick={onToggleFavorites}
-          title={isStarred ? "Remover dos Favoritos" : "Adicionar aos Favoritos"}
-          className={`size-9 rounded-lg flex flex-col items-center justify-center transition-colors cursor-pointer ${
-            isStarred
-              ? 'text-amber-500 bg-amber-50 shadow-xs'
-              : 'text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#1e293b]'
-          }`}
-        >
-          <Bookmark className="size-4 fill-current" />
-          <span className="text-[8px] font-medium leading-none">Favoritos</span>
-        </button>
       </div>
 
       {/* Bottom Nav Items & User Avatar */}
       <div className="flex flex-col items-center w-full gap-2">
-        {/* NocoAI Trigger Icon */}
-        <button
-          onClick={onToggleCopilot}
-          title="NocoAI Copilot"
-          className={`size-9 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-            isCopilotOpen
-              ? 'bg-rose-500 text-white shadow-xs'
-              : 'text-rose-500 hover:bg-rose-50'
-          }`}
-        >
-          <Sparkles className="size-4.5" />
-        </button>
-
         {/* Histórico Trigger */}
         <button
           onClick={onOpenHistory}

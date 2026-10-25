@@ -39,16 +39,16 @@ export function GridStatusBar({ recordCount, onAddRow, onSummary, onToggleCopilo
           </button>
         </div>
 
-        {/* NocoAI Floating Button on Bottom Right */}
+        {/* Botão do assistente de IA, canto inferior direito */}
         {onToggleCopilot && (
           <div className="flex items-center gap-2">
             <button
               onClick={onToggleCopilot}
-              aria-label="Abrir assistente NocoAI"
+              aria-label="Abrir assistente de IA"
               className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/90 hover:bg-slate-900 text-violet-200 border border-violet-500/40 font-bold text-xs shadow-lg backdrop-blur-xs hover:shadow-violet-500/20 hover:scale-105 btn-tactile cursor-pointer"
             >
               <Sparkles className="size-3.5 text-violet-400 animate-pulse" />
-              <span>NocoAI</span>
+              <span>IA</span>
             </button>
           </div>
         )}

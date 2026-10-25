@@ -7,7 +7,8 @@ import { Sheet } from '../../../types/spreadsheet';
 import { syncTableNodes } from '../model/editor';
 import { FlowGraph } from '../model/graph';
 import { canRedo, canUndo, createHistory, GraphHistory, recordEdit, redo, undo } from '../model/history';
-import { loadFlowGraph, loadViewState, saveFlowGraph, saveViewState } from '../model/persistence';
+import { FLOW_EXTERNAL_UPDATE_EVENT, loadFlowGraph, loadViewState, saveFlowGraph, saveViewState } from '../model/persistence';
+import { parseFlowGraph } from '../model/schema';
 import { FlowViewState, StoredViewport } from '../model/viewState';
 
 const SAVE_DELAY_MS = 300;
@@ -107,6 +108,16 @@ export function useFlowDocument(sheets: readonly Sheet[]): FlowDocument {
     },
     [syncFlags]
   );
+
+  // Alterações vindas de fora (a IA) entram como uma edição normal, com desfazer.
+  useEffect(() => {
+    const onExternal = (event: Event): void => {
+      const checked = parseFlowGraph((event as CustomEvent<unknown>).detail);
+      if (checked.ok) updateGraph(() => checked.graph);
+    };
+    window.addEventListener(FLOW_EXTERNAL_UPDATE_EVENT, onExternal);
+    return () => window.removeEventListener(FLOW_EXTERNAL_UPDATE_EVENT, onExternal);
+  }, [updateGraph]);
 
   const undoGraph = useCallback((): boolean => {
     const step = undo(historyRef.current, graphRef.current);

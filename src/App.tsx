@@ -14,6 +14,7 @@ import {
   colIndexToLabel,
   cellPosToKey,
   getCellValue,
+  rangeToAddress,
   parseNumberSafely,
 } from './engine/formulaParser';
 
@@ -24,7 +25,8 @@ import { SpreadsheetGrid } from './components/Grid/SpreadsheetGrid';
 import { SheetTabs } from './components/Grid/SheetTabs';
 import { PowerQueryEditor } from './components/PowerQuery/PowerQueryEditor';
 import { DashboardStudio } from './components/PowerBI/DashboardStudio';
-import { CopilotPanel } from './components/Copilot/CopilotPanel';
+import { AgentPanel } from './features/agent/ui/AgentPanel';
+import { useAgentSession } from './features/agent/ui/useAgentSession';
 import { applyAgentActions } from './engine/agentActionExecutor';
 import { AgentAction } from './engine/agentActionProtocol';
 import { NocoIconRail, NocoNavView } from './components/NocoLayout/NocoIconRail';
@@ -535,6 +537,23 @@ export function App() {
     }
   }, [sheets, activeSheetId, pushHistory]);
 
+  // ---- Assistente de IA: a sessão vive aqui para a conversa sobreviver à troca de aba ----
+  const agentSelection = useMemo(() => rangeToAddress(selectedRange), [selectedRange]);
+  const handleCreateSheetFromAgent = (name: string, columns: string[], rows: (string | number | boolean | null)[][]): void =>
+    handleCreateNewSheetFromData(name, columns, rows.map(r => Object.fromEntries(columns.map((c, i) => [c, r[i]]))));
+  const agent = useAgentSession({
+    sheets,
+    activeSheetId,
+    selection: agentSelection,
+    onBeginRun: () => pushHistory(sheets),
+    onWorkspace: (nextSheets, nextActiveId) => {
+      setSheets(nextSheets);
+      setActiveSheetId(nextActiveId);
+    },
+    onUndoSheets: handleUndo,
+    onNeedKey: () => setIsApiKeyModalOpen(true),
+  });
+
   const handleCreateNewSheetFromData = useCallback((name: string, columns: string[], rows: any[]) => {
     pushHistory(sheets);
     const newSheetId = `sheet-${Date.now()}`;
@@ -753,16 +772,15 @@ export function App() {
               />
               }
               side={
-              <CopilotPanel
+              <AgentPanel
                 isOpen={isCopilotOpen}
                 onClose={() => setIsCopilotOpen(false)}
-                sheet={activeSheet}
-                activeCell={activeCell}
-                onInsertFormula={handleInsertFormulaFromCopilot}
+                session={agent}
+                sheets={sheets}
+                selection={agentSelection}
                 onOpenSettings={() => setIsApiKeyModalOpen(true)}
                 onOpenPowerBI={() => setActiveView('powerbi')}
-                onExecuteAgentActions={handleExecuteAgentActions}
-                onCreateNewSheet={handleCreateNewSheetFromData}
+                onCreateSheet={handleCreateSheetFromAgent}
               />
               }
             />
@@ -809,6 +827,22 @@ export function App() {
           />
         )}
       </div>
+
+      {/* Painel da IA nas demais abas (na aba de dados ele fica ao lado da grade, em 25%) */}
+      {isCopilotOpen && activeView !== 'spreadsheet' && (
+        <div className="fixed bottom-0 right-0 top-12 z-40 w-[440px] max-w-[95vw] shadow-2xl">
+          <AgentPanel
+            isOpen
+            onClose={() => setIsCopilotOpen(false)}
+            session={agent}
+            sheets={sheets}
+            selection={agentSelection}
+            onOpenSettings={() => setIsApiKeyModalOpen(true)}
+            onOpenPowerBI={() => setActiveView('powerbi')}
+            onCreateSheet={handleCreateSheetFromAgent}
+          />
+        </div>
+      )}
 
       {/* MODALS & DRAWERS */}
       <NocoFormatModal

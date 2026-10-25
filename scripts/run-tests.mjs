@@ -22,7 +22,7 @@ function collect(dir) {
 }
 
 const files = collect(join(root, 'src'))
-  .filter(f => f.includes(filter))
+  .filter(f => f.split(sep).join('/').includes(filter))
   .sort();
 
 if (files.length === 0) {

@@ -77,7 +77,8 @@ function uniqueName(name: string, used: Set<string>): string {
 
 const isFilled = (value: unknown): boolean => value !== null && value !== undefined && value !== '';
 
-function evaluateTable(sheet: Sheet | undefined, sheetId: string): NodeResult {
+/** Lê uma planilha como tabela (cabeçalho + linhas), ignorando colunas reservadas vazias. */
+export function evaluateTable(sheet: Sheet | undefined, sheetId: string): NodeResult {
   if (!sheet) return fail(`Planilha "${sheetId}" não encontrada`);
   const extracted = extractSheetRecords(sheet);
   const bad = extracted.headers.find(h => FORBIDDEN_KEYS.has(h));

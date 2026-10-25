@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { CellData, CellPosition, CellRange, ConditionalFormatRule, MergedRegion } from '../../types/spreadsheet';
 import { formatCellValue, parseNumberSafely } from '../../engine/formulaParser';
 import { FormulaAutocomplete } from './FormulaAutocomplete';
+import { readableTextColor } from '../../utils/contrast';
 
 export interface FormulaCellHighlightInfo {
   color: string;
@@ -184,6 +185,9 @@ const GridCellComponent: React.FC<GridCellProps> = ({
     effectiveTextColor = '#0f172a';
   }
 
+  // Cabeçalhos e células com fundo colorido sempre precisam de texto legível (contraste mínimo 3:1).
+  effectiveTextColor = readableTextColor(effectiveBgColor, effectiveTextColor);
+
   const cellStyle: React.CSSProperties = {
     fontWeight: fmt?.bold ? 700 : 500,
     fontStyle: fmt?.italic ? 'italic' : 'normal',
@@ -329,7 +333,7 @@ const GridCellComponent: React.FC<GridCellProps> = ({
         <div className={`relative z-1 truncate w-full flex items-center ${
           cellStyle.textAlign === 'center' ? 'justify-center' : cellStyle.textAlign === 'right' ? 'justify-end' : 'justify-start'
         }`}>
-          <span className={`truncate text-slate-900 ${typeof cellVal === 'number' || /^\d{2}:\d{2}/.test(String(cellVal)) ? 'font-mono tabular-nums font-semibold text-[13px]' : 'font-sans text-[13px]'}`}>
+          <span className={`truncate text-inherit ${typeof cellVal === 'number' || /^\d{2}:\d{2}/.test(String(cellVal)) ? 'font-mono tabular-nums font-semibold text-[13px]' : 'font-sans text-[13px]'}`}>
             {displayFormatted}
           </span>
         </div>
