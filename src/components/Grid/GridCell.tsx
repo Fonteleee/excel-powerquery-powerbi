@@ -32,6 +32,8 @@ interface GridCellProps {
   mergedRegion?: MergedRegion;
   isMergeCovered?: boolean;
   conditionalRules: ConditionalFormatRule[];
+  /** Regra por fórmula já avaliada para esta célula (tem prioridade sobre as demais). */
+  formulaRule?: ConditionalFormatRule;
   allColumnValues?: any[];
   onMouseDown: (e: React.MouseEvent, row: number, col: number) => void;
   onMouseEnter: (e: React.MouseEvent, row: number, col: number) => void;
@@ -62,6 +64,7 @@ const GridCellComponent: React.FC<GridCellProps> = ({
   mergedRegion,
   isMergeCovered,
   conditionalRules,
+  formulaRule,
   allColumnValues = [],
   onMouseDown,
   onMouseEnter,
@@ -98,6 +101,7 @@ const GridCellComponent: React.FC<GridCellProps> = ({
   };
 
   const matchedRule = useMemo(() => {
+    if (formulaRule) return formulaRule;
     for (const rule of conditionalRules) {
       if (
         row >= rule.range.startRow &&
@@ -125,7 +129,7 @@ const GridCellComponent: React.FC<GridCellProps> = ({
       }
     }
     return null;
-  }, [conditionalRules, row, col, cellVal, allColumnValues]);
+  }, [conditionalRules, formulaRule, row, col, cellVal, allColumnValues]);
 
 
   // Compute Data Bar percentage if matched
@@ -364,7 +368,8 @@ export const GridCell = React.memo(GridCellComponent, (prev, next) => {
     prev.cell?.raw === next.cell?.raw &&
     prev.cell?.value === next.cell?.value &&
     prev.cell?.format === next.cell?.format &&
-    prev.conditionalRules === next.conditionalRules
+    prev.conditionalRules === next.conditionalRules &&
+    prev.formulaRule === next.formulaRule
   );
 });
 

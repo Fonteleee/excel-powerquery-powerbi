@@ -19,6 +19,8 @@ const DB_VERSION = 1;
 const STORE_NAME = 'sheets_store';
 
 const LOCAL_STORAGE_SHEETS_KEY = 'nocodb_persisted_sheets_v2';
+const LOCAL_STORAGE_SNAPSHOT_AT_KEY = 'nocodb_persisted_sheets_at_v2';
+const LOCAL_STORAGE_LATEST_AT_KEY = 'nocodb_latest_save_at_v2';
 const LOCAL_STORAGE_ACTIVE_SHEET_KEY = 'nocodb_active_sheet_id_v2';
 const LOCAL_STORAGE_STARRED_KEY = 'nocodb_starred_sheet_ids_v2';
 const LOCAL_STORAGE_EDGES_KEY = 'nocodb_relations_edges_v2';
@@ -61,6 +63,7 @@ export function loadInitialSheetsSync(): Sheet[] {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
+          loadedFromSnapshot = true;
           return parsed;
         }
       }
@@ -72,54 +75,78 @@ export function loadInitialSheetsSync(): Sheet[] {
   return createBlankWorkspace();
 }
 
-/**
- * Asynchronously loads the complete sheets dataset from IndexedDB (with localStorage fallback)
- */
-export async function loadSheetsFromStorageAsync(): Promise<Sheet[]> {
+/** Carimbo de quando um conjunto de planilhas foi guardado: decide qual cópia (localStorage ou IndexedDB) é a mais nova. */
+function readStamp(key: string): number {
   try {
-    const db = await openDB();
-    return new Promise((resolve) => {
-      const tx = db.transaction(STORE_NAME, 'readonly');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.get('current_sheets');
-      req.onsuccess = () => {
-        if (req.result && Array.isArray(req.result) && req.result.length > 0) {
-          resolve(req.result);
-        } else {
-          resolve(loadInitialSheetsSync());
-        }
-      };
-      req.onerror = () => resolve(loadInitialSheetsSync());
-    });
+    return Number(localStorage.getItem(key)) || 0;
   } catch {
-    return loadInitialSheetsSync();
+    return 0;
   }
 }
 
 /**
- * Persists sheets dataset into both IndexedDB (full size) and localStorage (fast snapshot)
+ * Lê o IndexedDB e devolve as planilhas só se forem MAIS NOVAS que a cópia já carregada do localStorage.
+ * Devolve null quando a cópia atual já é a mais recente (ou não há nada guardado).
+ */
+export async function loadSheetsFromStorageAsync(): Promise<Sheet[] | null> {
+  try {
+    const db = await openDB();
+    return await new Promise<Sheet[] | null>(resolve => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const sheetsReq = store.get('current_sheets');
+      const stampReq = store.get('saved_at');
+      tx.oncomplete = () => {
+        const stored = sheetsReq.result;
+        if (!Array.isArray(stored) || stored.length === 0) return resolve(null);
+        const idbStamp = Number(stampReq.result) || 0;
+        const lsStamp = readStamp(LOCAL_STORAGE_SNAPSHOT_AT_KEY);
+        const legacy = idbStamp === 0 && lsStamp === 0; // gravado antes dos carimbos: o IndexedDB é a cópia completa
+        resolve(idbStamp > lsStamp || legacy || !loadedFromSnapshot ? stored : null);
+      };
+      tx.onerror = () => resolve(null);
+      tx.onabort = () => resolve(null);
+    });
+  } catch {
+    return null;
+  }
+}
+
+let loadedFromSnapshot = false;
+
+/**
+ * Persists sheets dataset into both IndexedDB (full size) and localStorage (fast snapshot).
+ * Se o localStorage estourar a cota, a cópia antiga é APAGADA: uma cópia velha nunca pode voltar no lugar da nova.
  */
 export async function saveSheetsToStorage(sheets: Sheet[]): Promise<void> {
   if (!sheets || sheets.length === 0) return;
+  const stamp = String(Date.now());
 
-  // 1. Fast snapshot in localStorage for instantaneous boot
   try {
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(LOCAL_STORAGE_SHEETS_KEY, JSON.stringify(sheets));
+      localStorage.setItem(LOCAL_STORAGE_LATEST_AT_KEY, stamp);
+      try {
+        localStorage.setItem(LOCAL_STORAGE_SHEETS_KEY, JSON.stringify(sheets));
+        localStorage.setItem(LOCAL_STORAGE_SNAPSHOT_AT_KEY, stamp);
+      } catch {
+        localStorage.removeItem(LOCAL_STORAGE_SHEETS_KEY);
+        localStorage.removeItem(LOCAL_STORAGE_SNAPSHOT_AT_KEY);
+      }
     }
   } catch {
-    // If quota exceeded in localStorage, IndexedDB will handle large files
+    // Sem localStorage: o IndexedDB guarda tudo.
   }
 
-  // 2. Full unlimited persistence in IndexedDB
   try {
     const db = await openDB();
-    return new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
-      const req = store.put(sheets, 'current_sheets');
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
+      store.put(sheets, 'current_sheets');
+      store.put(Number(stamp), 'saved_at');
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
   } catch (err) {
     console.warn('Error persisting sheets to IndexedDB:', err);

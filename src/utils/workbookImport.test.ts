@@ -204,6 +204,7 @@ describe('importação de formatação condicional, gráficos, imagens e ocultos
     'xl/worksheets/sheet1.xml': enc(
       '<worksheet><sheetData/>' +
         '<conditionalFormatting sqref="B2:B5"><cfRule type="cellIs" dxfId="0" priority="1" operator="greaterThan"><formula>10</formula></cfRule></conditionalFormatting>' +
+        '<conditionalFormatting sqref="A2:A5"><cfRule type="expression" dxfId="0" priority="3"><formula>AND($B2&gt;10,$B2&lt;20)</formula></cfRule></conditionalFormatting>' +
         '<conditionalFormatting sqref="C2:C5"><cfRule type="colorScale" priority="2"><colorScale><cfvo type="min"/><cfvo type="max"/><color rgb="FFFFFFFF"/><color rgb="FF63BE7B"/></colorScale></cfRule></conditionalFormatting>' +
         '</worksheet>'
     ),
@@ -237,7 +238,10 @@ describe('importação de formatação condicional, gráficos, imagens e ocultos
   const sheet = workbookToSheets(wb).sheets[0];
 
   it('regras de formatação condicional entram com a cor do estilo do arquivo', () => {
-    const [greater, scale] = sheet.conditionalRules;
+    const [greater, byFormula, scale] = sheet.conditionalRules;
+    assert.equal(byFormula.type, 'custom_formula');
+    assert.equal(byFormula.formula, '=AND($B2>10;$B2<20)');
+    assert.deepEqual(byFormula.anchor, { row: 1, col: 0 });
     assert.equal(greater.type, 'highlight_greater');
     assert.equal(greater.value1, 10);
     assert.equal(greater.style.bgColor, '#ffc7ce');

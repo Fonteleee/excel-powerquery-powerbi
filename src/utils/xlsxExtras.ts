@@ -46,7 +46,18 @@ function blend(a: string, b: string): string {
 }
 
 function unquote(value: string): string {
-  return value.trim().replace(/^"(.*)"$/, '$1').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+  return value.trim().replace(/^"(.*)"$/, '$1').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+}
+
+/** O arquivo guarda fórmulas no padrão inglês (`MOD(ROW(),2)`); o sistema lê `;` entre argumentos, sem confundir com decimal. */
+export function argumentSeparatorsToSemicolon(formula: string): string {
+  let out = '';
+  let quoted = false;
+  for (const ch of formula) {
+    if (ch === '"') quoted = !quoted;
+    out += ch === ',' && !quoted ? ';' : ch;
+  }
+  return out;
 }
 
 const ICON_SETS: [RegExp, 'traffic' | 'arrows' | 'stars' | 'flags'][] = [
@@ -74,6 +85,7 @@ function conditionalRules(sheetXml: string, dxfs: ConditionalFormatRule['style']
       let type: ConditionalRuleType | undefined;
       let value1: string | number | undefined;
       let value2: string | number | undefined;
+      let formula: string | undefined;
 
       if (kind === 'cellIs') {
         const op = attr(m[1], 'operator');
@@ -87,6 +99,9 @@ function conditionalRules(sheetXml: string, dxfs: ConditionalFormatRule['style']
       } else if (kind === 'containsText') {
         type = 'highlight_text';
         value1 = attr(m[1], 'text') ?? '';
+      } else if (kind === 'expression' && formulas[0]) {
+        type = 'custom_formula';
+        formula = `=${argumentSeparatorsToSemicolon(formulas[0])}`;
       } else if (kind === 'duplicateValues') {
         type = 'highlight_duplicate';
       } else if (kind === 'aboveAverage') {
@@ -109,7 +124,16 @@ function conditionalRules(sheetXml: string, dxfs: ConditionalFormatRule['style']
       }
       if (!type) continue;
       for (const range of ranges) {
-        rules.push({ id: `cf-${rules.length + 1}`, type, range, ...(value1 !== undefined ? { value1 } : {}), ...(value2 !== undefined ? { value2 } : {}), style });
+        rules.push({
+          id: `cf-${rules.length + 1}`,
+          type,
+          range,
+          ...(value1 !== undefined ? { value1 } : {}),
+          ...(value2 !== undefined ? { value2 } : {}),
+          // A fórmula do Excel é escrita para a 1ª célula do 1º intervalo da regra.
+          ...(formula ? { formula, anchor: { row: ranges[0].startRow, col: ranges[0].startCol } } : {}),
+          style,
+        });
       }
     }
   }

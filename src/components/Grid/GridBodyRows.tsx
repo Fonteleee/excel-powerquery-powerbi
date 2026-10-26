@@ -2,7 +2,7 @@
 // Linhas visíveis da grade (janela virtual): cabeçalho de linha e células.
 
 import React from 'react';
-import { CellPosition, CellRange, Sheet } from '../../types/spreadsheet';
+import { CellPosition, CellRange, ConditionalFormatRule, Sheet } from '../../types/spreadsheet';
 import { cellPosToKey } from '../../engine/formulaParser';
 import { FormulaCellHighlightInfo, GridCell } from './GridCell';
 
@@ -12,6 +12,8 @@ export interface GridBodyRowsProps {
   selectedRange: CellRange;
   renderedCols: number;
   rowIndices: number[];
+  /** Regra por fórmula que se aplica a cada célula visível. */
+  formulaRuleHits: Map<string, ConditionalFormatRule>;
   isEditing: boolean;
   editValue: string;
   multiSelectedKeys: Set<string>;
@@ -34,7 +36,7 @@ export interface GridBodyRowsProps {
 
 export function GridBodyRows(props: GridBodyRowsProps) {
   const {
-    sheet, activeCell, selectedRange, renderedCols, rowIndices, isEditing, editValue, multiSelectedKeys,
+    sheet, activeCell, selectedRange, renderedCols, rowIndices, formulaRuleHits, isEditing, editValue, multiSelectedKeys,
     formulaHighlights, columnValueMap, setEditValue, startEditing, commitEdit, setIsEditing, onSelectCell,
     onSelectRange, handleRowHeaderMouseDown, handleRowHeaderMouseEnter, handleRowResizeMouseDown,
     handleCellMouseDown, handleCellMouseEnter, handleFillMouseDown, handleFillDoubleClick,
@@ -141,6 +143,7 @@ export function GridBodyRows(props: GridBodyRowsProps) {
                       mergedRegion={merged}
                       isMergeCovered={isCovered}
                       conditionalRules={sheet.conditionalRules}
+                      formulaRule={formulaRuleHits.get(key)}
                       allColumnValues={columnValueMap[colIdx] || []}
 
 

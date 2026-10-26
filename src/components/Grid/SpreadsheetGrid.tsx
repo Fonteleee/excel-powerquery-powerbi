@@ -58,6 +58,7 @@ import { GridBodyRows } from './GridBodyRows';
 import { GridHeaderRow } from './GridHeaderRow';
 import { SheetChartsLayer } from '../../features/charts/SheetChartsLayer';
 import { SheetImagesLayer } from '../../features/charts/SheetImagesLayer';
+import { formulaRuleMatches } from '../../features/charts/formulaRules';
 import { GridContextMenu } from './GridContextMenu';
 import { GridOverlays } from './GridOverlays';
 import { GridStatusBar } from './GridStatusBar';
@@ -825,6 +826,8 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   const bottomSpacerHeight = Math.max(0, (totalVisibleCount - 1 - endVisibleIdx) * defaultRowHeight);
 
   const renderedCols = sheet.colCount;
+  const windowRows = useMemo(() => visibleRowIndices.slice(startVisibleIdx, endVisibleIdx + 1), [visibleRowIndices, startVisibleIdx, endVisibleIdx]);
+  const formulaRuleHits = useMemo(() => formulaRuleMatches(sheet, windowRows), [sheet, windowRows]);
   // Memoize column numeric values for conditional formatting (Data Bars, Color Scales, Average)
   const columnValueMap = useMemo(() => {
     const map: Record<number, any[]> = {};
@@ -899,7 +902,8 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
             activeCell={activeCell}
             selectedRange={selectedRange}
             renderedCols={renderedCols}
-            rowIndices={visibleRowIndices.slice(startVisibleIdx, endVisibleIdx + 1)}
+            rowIndices={windowRows}
+            formulaRuleHits={formulaRuleHits}
             isEditing={isEditing}
             editValue={editValue}
             multiSelectedKeys={multiSelectedKeys}

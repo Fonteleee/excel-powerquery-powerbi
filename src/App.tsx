@@ -136,29 +136,47 @@ export function App() {
   const [starredSheetIds, setStarredSheetIds] = useState<Set<string>>(() => loadStarredSheets());
 
   // Asynchronous IndexedDB re-hydration on mount
+  // Só depois de ler o que está guardado é que se pode gravar: gravar antes sobrescreveria a cópia nova
+  // com a cópia antiga do localStorage (era o que fazia voltar um arquivo velho ao atualizar).
+  const [storageReady, setStorageReady] = useState(false);
   useEffect(() => {
     let isMounted = true;
-    loadSheetsFromStorageAsync().then(storedSheets => {
-      if (isMounted && storedSheets && storedSheets.length > 0) {
-        setSheets(storedSheets);
-        setActiveSheetId(prev => {
-          if (storedSheets.some(s => s.id === prev)) return prev;
-          return loadActiveSheetId(storedSheets);
-        });
-      }
-    });
+    loadSheetsFromStorageAsync()
+      .then(storedSheets => {
+        if (isMounted && storedSheets && storedSheets.length > 0) {
+          setSheets(storedSheets);
+          setActiveSheetId(prev => {
+            if (storedSheets.some(s => s.id === prev)) return prev;
+            return loadActiveSheetId(storedSheets);
+          });
+        }
+      })
+      .finally(() => {
+        if (isMounted) setStorageReady(true);
+      });
     return () => {
       isMounted = false;
     };
   }, []);
 
   // Auto-Save Sheets to Persistent Storage
+  const latestSheets = useRef(sheets);
+  latestSheets.current = sheets;
   useEffect(() => {
+    if (!storageReady) return;
     const timer = setTimeout(() => {
       saveSheetsToStorage(sheets);
     }, 200);
     return () => clearTimeout(timer);
-  }, [sheets]);
+  }, [sheets, storageReady]);
+
+  // Ao fechar ou atualizar a página dentro dos 200 ms da gravação, grava na hora.
+  useEffect(() => {
+    if (!storageReady) return;
+    const flush = () => void saveSheetsToStorage(latestSheets.current);
+    window.addEventListener('pagehide', flush);
+    return () => window.removeEventListener('pagehide', flush);
+  }, [storageReady]);
 
   // Persist Active Sheet ID
   useEffect(() => {

@@ -90,13 +90,17 @@ export type ConditionalRuleType =
   | 'color_scale_2'
   | 'color_scale_3'
   | 'data_bar'
-  | 'icon_set';
+  | 'icon_set'
+  | 'custom_formula';
 
 export interface ConditionalFormatRule {
   id: string;
   type: ConditionalRuleType;
   value1?: string | number;
   value2?: string | number;
+  /** Regra por fórmula (`custom_formula`): "=E(\$A2>5;\$B2<3)", escrita para a célula `anchor` e deslocada para as demais. */
+  formula?: string;
+  anchor?: CellPosition;
   range: CellRange;
   style: {
     bgColor?: string;

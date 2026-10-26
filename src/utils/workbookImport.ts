@@ -143,7 +143,11 @@ function faithfulSheet(ws: XLSX.WorkSheet, rows: RawValue[][], name: string, sty
 
   const colWidths: Sheet['colWidths'] = {};
   (ws['!cols'] ?? []).forEach((col, c) => {
-    if (col && col.wpx && c < colCount) colWidths[c] = Math.round(col.wpx);
+    // Largura em caracteres do arquivo × 7 px (fonte padrão Calibri 11) + margem. O `wpx` do SheetJS usa uma
+    // largura de dígito errada em alguns arquivos e dobra a coluna.
+    if (!col || c >= colCount) return;
+    const px = typeof col.width === 'number' && col.width > 0 ? col.width * 7 + 5 : col.wpx;
+    if (px) colWidths[c] = Math.round(px);
   });
   const rowHeights: Sheet['rowHeights'] = {};
   (ws['!rows'] ?? []).forEach((row, r) => {
