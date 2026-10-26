@@ -7,12 +7,13 @@ import { CellPosition, CellRange, Sheet } from '../../types/spreadsheet';
 import { cellPosToKey, colIndexToLabel } from '../../engine/formulaParser';
 import { ColumnFilterDropdown } from './ColumnFilterDropdown';
 import { getNocoColumnIcon } from './columnMeta';
+import { ColWindow } from './colWindow';
 
 export interface GridHeaderRowProps {
   sheet: Sheet;
   activeCell: CellPosition;
   selectedRange: CellRange;
-  renderedCols: number;
+  colWindow: ColWindow;
   openFilterCol: number | null;
   setOpenFilterCol: (col: number | null) => void;
   onSelectAll: () => void;
@@ -26,7 +27,7 @@ export interface GridHeaderRowProps {
 
 export function GridHeaderRow(props: GridHeaderRowProps) {
   const {
-    sheet, activeCell, selectedRange, renderedCols, openFilterCol, setOpenFilterCol, onSelectAll,
+    sheet, activeCell, selectedRange, colWindow, openFilterCol, setOpenFilterCol, onSelectAll,
     handleColHeaderMouseDown, handleColHeaderMouseEnter, handleColResizeMouseDown, handleColAutoFit,
     handleApplyColumnFilter, handleSortColumn,
   } = props;
@@ -42,7 +43,9 @@ export function GridHeaderRow(props: GridHeaderRowProps) {
               #
             </th>
 
-            {Array.from({ length: renderedCols }).map((_, colIdx) => {
+            {colWindow.leftPx > 0 && <th aria-hidden style={{ width: colWindow.leftPx, minWidth: colWindow.leftPx, maxWidth: colWindow.leftPx }} className="p-0 border-0" />}
+            {Array.from({ length: colWindow.end - colWindow.start + 1 }).map((_, i) => {
+              const colIdx = colWindow.start + i;
               if (sheet.hiddenCols?.includes(colIdx)) return null;
               const colLabel = colIndexToLabel(colIdx);
               const isColSelected =
@@ -127,6 +130,7 @@ export function GridHeaderRow(props: GridHeaderRowProps) {
                 </th>
               );
             })}
+            {colWindow.rightPx > 0 && <th aria-hidden style={{ width: colWindow.rightPx, minWidth: colWindow.rightPx, maxWidth: colWindow.rightPx }} className="p-0 border-0" />}
           </tr>
     </thead>
   );

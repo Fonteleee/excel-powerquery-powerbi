@@ -57,6 +57,7 @@ import { deleteRowsData, sortRowsData } from './gridOps';
 import { GridBodyRows } from './GridBodyRows';
 import { GridHeaderRow } from './GridHeaderRow';
 import { SheetChartsLayer } from '../../features/charts/SheetChartsLayer';
+import { columnOffsets, computeColWindow, VIRTUALIZE_FROM_COLS } from './colWindow';
 import { SheetImagesLayer } from '../../features/charts/SheetImagesLayer';
 import { formulaRuleMatches } from '../../features/charts/formulaRules';
 import { GridContextMenu } from './GridContextMenu';
@@ -813,14 +814,23 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(700);
 
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const [viewportWidth, setViewportWidth] = useState(1400);
+
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     setScrollTop(e.currentTarget.scrollTop);
+    setScrollLeft(e.currentTarget.scrollLeft);
   };
 
   useEffect(() => {
-    if (gridRef.current) {
+    const measure = () => {
+      if (!gridRef.current) return;
       setViewportHeight(gridRef.current.clientHeight || 700);
-    }
+      setViewportWidth(gridRef.current.clientWidth || 1400);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
   }, []);
 
   const defaultRowHeight = 28;
@@ -833,13 +843,34 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   const topSpacerHeight = startVisibleIdx * defaultRowHeight;
   const bottomSpacerHeight = Math.max(0, (totalVisibleCount - 1 - endVisibleIdx) * defaultRowHeight);
 
-  const renderedCols = sheet.colCount;
+  // Colunas: só as da tela (planilhas vão até XFD = 16384 colunas). Com zoom menor cabem mais colunas na tela.
+  const colOffsets = useMemo(() => columnOffsets(sheet.colCount, sheet.colWidths, sheet.hiddenCols), [sheet.colCount, sheet.colWidths, sheet.hiddenCols]);
+  const colWindow = useMemo(
+    () => computeColWindow(colOffsets, scrollLeft, (viewportWidth * 100) / Math.max(10, zoomLevel)),
+    [colOffsets, scrollLeft, viewportWidth, zoomLevel]
+  );
+  // Navegar pelo teclado até uma coluna fora da janela rola a grade até ela.
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el || sheet.colCount <= VIRTUALIZE_FROM_COLS) return;
+    const left = colOffsets[activeCell.col];
+    const right = colOffsets[activeCell.col + 1];
+    if (left === undefined || right === undefined) return;
+    const visibleWidth = (el.clientWidth * 100) / Math.max(10, zoomLevel) - 40;
+    if (left < el.scrollLeft) el.scrollLeft = Math.max(0, left - 40);
+    else if (right > el.scrollLeft + visibleWidth) el.scrollLeft = right - visibleWidth + 40;
+  }, [activeCell.col, colOffsets, sheet.colCount, zoomLevel]);
   const windowRows = useMemo(() => visibleRowIndices.slice(startVisibleIdx, endVisibleIdx + 1), [visibleRowIndices, startVisibleIdx, endVisibleIdx]);
   const formulaRuleHits = useMemo(() => formulaRuleMatches(sheet, windowRows), [sheet, windowRows]);
   // Memoize column numeric values for conditional formatting (Data Bars, Color Scales, Average)
   const columnValueMap = useMemo(() => {
     const map: Record<number, any[]> = {};
-    for (let c = 0; c < sheet.colCount; c++) {
+    // Só as colunas que têm regra de formatação condicional precisam dos valores da coluna inteira.
+    const ruleCols = new Set<number>();
+    for (const rule of sheet.conditionalRules) {
+      for (let c = rule.range.startCol; c <= Math.min(rule.range.endCol, sheet.colCount - 1); c++) ruleCols.add(c);
+    }
+    for (const c of ruleCols) {
       const vals: any[] = [];
       for (let r = 1; r < sheet.rowCount; r++) {
         const cell = sheet.data[cellPosToKey(r, c)];
@@ -850,7 +881,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       map[c] = vals;
     }
     return map;
-  }, [sheet.data, sheet.rowCount, sheet.colCount]);
+  }, [sheet.data, sheet.rowCount, sheet.colCount, sheet.conditionalRules]);
 
   useGridKeyboard({
     sheet, activeCell, selectedRange, selectionAnchor, isEditing, clipboard, multiSelectedKeys, flashFillHint,
@@ -880,7 +911,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
           sheet={sheet}
           activeCell={activeCell}
           selectedRange={selectedRange}
-          renderedCols={renderedCols}
+          colWindow={colWindow}
           openFilterCol={openFilterCol}
           setOpenFilterCol={setOpenFilterCol}
           onSelectAll={() => {
@@ -901,7 +932,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         <tbody>
           {topSpacerHeight > 0 && (
             <tr style={{ height: `${topSpacerHeight}px` }}>
-              <td colSpan={renderedCols + 1} />
+              <td colSpan={colWindow.end - colWindow.start + 4} />
             </tr>
           )}
 
@@ -909,7 +940,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
             sheet={sheet}
             activeCell={activeCell}
             selectedRange={selectedRange}
-            renderedCols={renderedCols}
+            colWindow={colWindow}
             rowIndices={windowRows}
             formulaRuleHits={formulaRuleHits}
             onPickValue={handlePickListValue}
@@ -935,7 +966,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
 
           {bottomSpacerHeight > 0 && (
             <tr style={{ height: `${bottomSpacerHeight}px` }}>
-              <td colSpan={renderedCols + 1} />
+              <td colSpan={colWindow.end - colWindow.start + 4} />
             </tr>
           )}
         </tbody>

@@ -5,12 +5,13 @@ import React from 'react';
 import { CellPosition, CellRange, ConditionalFormatRule, Sheet } from '../../types/spreadsheet';
 import { cellPosToKey } from '../../engine/formulaParser';
 import { FormulaCellHighlightInfo, GridCell } from './GridCell';
+import { ColWindow } from './colWindow';
 
 export interface GridBodyRowsProps {
   sheet: Sheet;
   activeCell: CellPosition;
   selectedRange: CellRange;
-  renderedCols: number;
+  colWindow: ColWindow;
   rowIndices: number[];
   /** Regra por fórmula que se aplica a cada célula visível. */
   formulaRuleHits: Map<string, ConditionalFormatRule>;
@@ -37,7 +38,7 @@ export interface GridBodyRowsProps {
 
 export function GridBodyRows(props: GridBodyRowsProps) {
   const {
-    sheet, activeCell, selectedRange, renderedCols, rowIndices, formulaRuleHits, onPickValue, isEditing, editValue, multiSelectedKeys,
+    sheet, activeCell, selectedRange, colWindow, rowIndices, formulaRuleHits, onPickValue, isEditing, editValue, multiSelectedKeys,
     formulaHighlights, columnValueMap, setEditValue, startEditing, commitEdit, setIsEditing, onSelectCell,
     onSelectRange, handleRowHeaderMouseDown, handleRowHeaderMouseEnter, handleRowResizeMouseDown,
     handleCellMouseDown, handleCellMouseEnter, handleFillMouseDown, handleFillDoubleClick,
@@ -72,7 +73,9 @@ export function GridBodyRows(props: GridBodyRowsProps) {
                 </th>
 
                 {/* Cells in row */}
-                {Array.from({ length: renderedCols }).map((_, colIdx) => {
+                {colWindow.leftPx > 0 && <td aria-hidden style={{ width: colWindow.leftPx, minWidth: colWindow.leftPx, maxWidth: colWindow.leftPx }} className="p-0 border-0" />}
+                {Array.from({ length: colWindow.end - colWindow.start + 1 }).map((_, i) => {
+                  const colIdx = colWindow.start + i;
                   if (sheet.hiddenCols?.includes(colIdx)) return null;
 
                   const key = cellPosToKey(rowIdx, colIdx);
@@ -185,6 +188,7 @@ export function GridBodyRows(props: GridBodyRowsProps) {
                     />
                   );
                 })}
+                {colWindow.rightPx > 0 && <td aria-hidden style={{ width: colWindow.rightPx, minWidth: colWindow.rightPx, maxWidth: colWindow.rightPx }} className="p-0 border-0" />}
               </tr>
             );
           })}

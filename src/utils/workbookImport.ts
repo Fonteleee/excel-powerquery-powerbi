@@ -9,7 +9,8 @@ import { RawValidation, readSheetExtras, splitSheetRef } from './xlsxExtras';
 import { numberFormatOf, readWorkbookStyles, WorkbookStyles, ZipFiles } from './xlsxStyles';
 
 const MAX_IMPORT_ROWS = 100_000;
-const MAX_IMPORT_COLS = 200;
+/** XFD, a última coluna do Excel: todas as colunas do arquivo entram (a grade só desenha as que estão na tela). */
+const MAX_IMPORT_COLS = 16_384;
 const MAX_SHEETS = 50;
 
 /**
