@@ -45,9 +45,9 @@ export function GridStatusBar({ recordCount, onAddRow, onSummary, onToggleCopilo
             <button
               onClick={onToggleCopilot}
               aria-label="Abrir assistente de IA"
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/90 hover:bg-slate-900 text-violet-200 border border-violet-500/40 font-bold text-xs shadow-lg backdrop-blur-xs hover:shadow-violet-500/20 hover:scale-105 btn-tactile cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 hover:border-emerald-300 font-semibold text-xs shadow-xs transition-colors btn-tactile cursor-pointer group"
             >
-              <Sparkles className="size-3.5 text-violet-400 animate-pulse" />
+              <Sparkles className="size-3.5 text-emerald-600 group-hover:scale-110 transition-transform" />
               <span>IA</span>
             </button>
           </div>

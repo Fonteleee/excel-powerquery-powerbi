@@ -201,9 +201,9 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
           onClick={onToggleCopilot}
           title="Assistente de IA"
           aria-label="Abrir assistente de IA"
-          className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-slate-900 hover:bg-slate-800 text-violet-200 border border-violet-500/30 shadow-xs hover:shadow-violet-500/10 transition-all btn-tactile cursor-pointer ml-1 group"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 hover:border-emerald-300 transition-colors btn-tactile cursor-pointer ml-1 group"
         >
-          <Sparkles className="size-3.5 text-violet-400 group-hover:scale-110 transition-transform" />
+          <Sparkles className="size-3.5 text-emerald-600 group-hover:scale-110 transition-transform" />
           <span>IA</span>
         </button>
 
