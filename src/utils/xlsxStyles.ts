@@ -4,7 +4,7 @@
 
 import { CellBorder, CellFormat, CellFormatType } from '../types/spreadsheet';
 
-type ZipFiles = Record<string, { content?: unknown }> | undefined;
+export type ZipFiles = Record<string, { content?: unknown }> | undefined;
 
 interface XlFont {
   bold?: boolean;
@@ -39,7 +39,7 @@ const INDEXED = ['000000', 'FFFFFF', 'FF0000', '00FF00', '0000FF', 'FFFF00', 'FF
 
 const MAX_STYLED_CELLS = 400_000;
 
-function text(files: ZipFiles, path: string): string {
+export function text(files: ZipFiles, path: string): string {
   const entry = files?.[path]?.content;
   if (!entry) return '';
   if (typeof entry === 'string') return entry;
@@ -50,7 +50,7 @@ function text(files: ZipFiles, path: string): string {
   }
 }
 
-function attr(source: string, name: string): string | undefined {
+export function attr(source: string, name: string): string | undefined {
   const m = new RegExp(`(?:^|\\s)${name}="([^"]*)"`).exec(source);
   return m ? m[1] : undefined;
 }
@@ -63,19 +63,19 @@ function flag(block: string, tag: string): boolean | undefined {
   return val === undefined ? true : !(val === '0' || val === 'false' || val === 'none');
 }
 
-function blocks(xml: string, tag: string): string[] {
+export function blocks(xml: string, tag: string): string[] {
   const out: string[] = [];
   const re = new RegExp(`<${tag}(?:\\s[^>]*)?(?:/>|>([\\s\\S]*?)</${tag}>)`, 'g');
   for (let m = re.exec(xml); m; m = re.exec(xml)) out.push(m[1] ?? '');
   return out;
 }
 
-function section(xml: string, tag: string): string {
+export function section(xml: string, tag: string): string {
   const m = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`).exec(xml);
   return m ? m[1] : '';
 }
 
-function parseTheme(xml: string): string[] {
+export function parseTheme(xml: string): string[] {
   const palette = [...DEFAULT_THEME];
   THEME_ORDER.forEach((name, i) => {
     const m = new RegExp(`<a:${name}>([\\s\\S]*?)</a:${name}>`).exec(xml);
@@ -96,7 +96,7 @@ function applyTint(hex: string, tint: number): string {
 }
 
 /** Cor de um elemento <color .../> ou <fgColor .../>: rgb, tema (com tonalidade) ou índice. */
-function resolveColor(source: string | undefined, theme: string[]): string | undefined {
+export function resolveColor(source: string | undefined, theme: string[]): string | undefined {
   if (!source) return undefined;
   let hex: string | undefined;
   const rgb = attr(source, 'rgb');
@@ -111,7 +111,7 @@ function resolveColor(source: string | undefined, theme: string[]): string | und
   return `#${hex.toLowerCase()}`;
 }
 
-function colorTag(block: string, tag: string): string | undefined {
+export function colorTag(block: string, tag: string): string | undefined {
   const m = new RegExp(`<${tag}(\\s[^>]*)?/?>`).exec(block);
   return m ? (m[1] ?? '') : undefined;
 }
@@ -220,7 +220,7 @@ function toFormat(xf: XlXf, fonts: XlFont[], fills: (string | undefined)[], bord
 }
 
 /** Caminho de cada aba (na ordem do arquivo) dentro do .xlsx. */
-function sheetPaths(files: ZipFiles): string[] {
+export function sheetPaths(files: ZipFiles): string[] {
   const workbook = text(files, 'xl/workbook.xml');
   const rels = text(files, 'xl/_rels/workbook.xml.rels');
   const targets = new Map<string, string>();

@@ -193,6 +193,81 @@ describe('importação fiel ao arquivo', () => {
   });
 });
 
+describe('importação de formatação condicional, gráficos, imagens e ocultos', () => {
+  const enc = (s: string) => ({ content: new TextEncoder().encode(s) });
+  const files = {
+    'xl/workbook.xml': enc('<workbook><sheets><sheet name="Vendas" sheetId="1" r:id="rId1"/></sheets></workbook>'),
+    'xl/_rels/workbook.xml.rels': enc('<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>'),
+    'xl/styles.xml': enc(
+      '<styleSheet><dxfs count="1"><dxf><font><color rgb="FF9C0006"/></font><fill><patternFill><bgColor rgb="FFFFC7CE"/></patternFill></fill></dxf></dxfs></styleSheet>'
+    ),
+    'xl/worksheets/sheet1.xml': enc(
+      '<worksheet><sheetData/>' +
+        '<conditionalFormatting sqref="B2:B5"><cfRule type="cellIs" dxfId="0" priority="1" operator="greaterThan"><formula>10</formula></cfRule></conditionalFormatting>' +
+        '<conditionalFormatting sqref="C2:C5"><cfRule type="colorScale" priority="2"><colorScale><cfvo type="min"/><cfvo type="max"/><color rgb="FFFFFFFF"/><color rgb="FF63BE7B"/></colorScale></cfRule></conditionalFormatting>' +
+        '</worksheet>'
+    ),
+    'xl/worksheets/_rels/sheet1.xml.rels': enc('<Relationships><Relationship Id="rId1" Target="../drawings/drawing1.xml"/></Relationships>'),
+    'xl/drawings/drawing1.xml': enc(
+      '<xdr:wsDr>' +
+        '<xdr:twoCellAnchor><xdr:from><xdr:col>4</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>1</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>' +
+        '<xdr:to><xdr:col>9</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>16</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>' +
+        '<xdr:graphicFrame><a:graphic><a:graphicData><c:chart r:id="rId1"/></a:graphicData></a:graphic></xdr:graphicFrame></xdr:twoCellAnchor>' +
+        '<xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>20</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:ext cx="952500" cy="476250"/>' +
+        '<xdr:pic><xdr:blipFill><a:blip r:embed="rId2"/></xdr:blipFill></xdr:pic></xdr:oneCellAnchor>' +
+        '</xdr:wsDr>'
+    ),
+    'xl/drawings/_rels/drawing1.xml.rels': enc(
+      '<Relationships><Relationship Id="rId1" Target="../charts/chart1.xml"/><Relationship Id="rId2" Target="../media/image1.png"/></Relationships>'
+    ),
+    'xl/charts/chart1.xml': enc(
+      '<c:chartSpace><c:chart><c:title><c:tx><c:rich><a:p><a:r><a:t>Vendas por mês</a:t></a:r></a:p></c:rich></c:tx></c:title>' +
+        '<c:plotArea><c:lineChart><c:ser><c:tx><c:strRef><c:f>Vendas!$B$1</c:f></c:strRef></c:tx>' +
+        '<c:cat><c:strRef><c:f>Vendas!$A$2:$A$5</c:f></c:strRef></c:cat><c:val><c:numRef><c:f>Vendas!$B$2:$B$5</c:f></c:numRef></c:val></c:ser></c:lineChart></c:plotArea></c:chart></c:chartSpace>'
+    ),
+    'xl/media/image1.png': { content: new Uint8Array([137, 80, 78, 71]) },
+  };
+
+  const ws = XLSX.utils.aoa_to_sheet([['Mês', 'Vendas', 'Meta'], ['Jan', 5, 1], ['Fev', 12, 2], ['Mar', 8, 3], ['Abr', 15, 4]]);
+  ws['!cols'] = [{ wpx: 100 }, { hidden: true, wpx: 100 }, { wpx: 100 }];
+  ws['!rows'] = [{}, {}, { hidden: true }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Vendas');
+  (wb as unknown as { files: unknown }).files = files;
+  const sheet = workbookToSheets(wb).sheets[0];
+
+  it('regras de formatação condicional entram com a cor do estilo do arquivo', () => {
+    const [greater, scale] = sheet.conditionalRules;
+    assert.equal(greater.type, 'highlight_greater');
+    assert.equal(greater.value1, 10);
+    assert.equal(greater.style.bgColor, '#ffc7ce');
+    assert.equal(greater.style.textColor, '#9c0006');
+    assert.deepEqual([greater.range.startRow, greater.range.endRow, greater.range.startCol], [1, 4, 1]);
+    assert.equal(scale.type, 'color_scale_3');
+    assert.equal(scale.style.maxColor, '#63be7b');
+  });
+
+  it('colunas e linhas ocultas são guardadas', () => {
+    assert.deepEqual(sheet.hiddenCols, [1]);
+    assert.deepEqual(sheet.hiddenRows, [2]);
+  });
+
+  it('o gráfico vira gráfico da planilha, sobre o intervalo certo e na posição do arquivo', () => {
+    assert.equal(sheet.charts?.length, 1);
+    const chart = sheet.charts![0];
+    assert.equal(chart.title, 'Vendas por mês');
+    assert.equal(chart.type, 'line');
+    assert.equal(chart.range, 'A1:B5');
+    assert.ok(chart.x > 300 && chart.width >= 240 && chart.height >= 160);
+  });
+
+  it('a imagem entra embutida, no tamanho do arquivo', () => {
+    assert.equal(sheet.images?.length, 1);
+    assert.match(sheet.images![0].src, /^data:image\/png;base64,/);
+    assert.deepEqual([sheet.images![0].width, sheet.images![0].height], [100, 50]);
+  });
+});
+
 describe('textos longos', () => {
   const longo = 'Regra explícita sua (ou já aprovada no v4). Entra no mapeamento sem decisão sua, mas confira cada linha antes de usar o resultado final.';
   const sheet = autoFormatTabularData([['Status', 'VQs', 'Significado'], ['CONFIRMADO', 73, longo], ['SUGERIDO', 18, 'curto']], 'T');

@@ -57,6 +57,7 @@ import { deleteRowsData, sortRowsData } from './gridOps';
 import { GridBodyRows } from './GridBodyRows';
 import { GridHeaderRow } from './GridHeaderRow';
 import { SheetChartsLayer } from '../../features/charts/SheetChartsLayer';
+import { SheetImagesLayer } from '../../features/charts/SheetImagesLayer';
 import { GridContextMenu } from './GridContextMenu';
 import { GridOverlays } from './GridOverlays';
 import { GridStatusBar } from './GridStatusBar';
@@ -776,7 +777,9 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     const filters = sheet.filters || {};
     const activeFilterEntries = Object.entries(filters);
 
+    const hiddenRows = new Set(sheet.hiddenRows);
     for (let r = 1; r < sheet.rowCount; r++) {
+      if (hiddenRows.has(r)) continue;
       let isVisible = true;
       for (const [colStr, allowedValues] of activeFilterEntries) {
         const c = parseInt(colStr, 10);
@@ -925,6 +928,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         </tbody>
       </table>
       <SheetChartsLayer sheet={sheet} onUpdateSheet={onUpdateSheet} />
+      <SheetImagesLayer sheet={sheet} />
 
 
       <GridOverlays

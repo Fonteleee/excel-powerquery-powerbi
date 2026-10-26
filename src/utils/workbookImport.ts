@@ -5,7 +5,8 @@ import * as XLSX from 'xlsx';
 import { CellFormat, MergedRegion, Sheet } from '../types/spreadsheet';
 import { cellPosToKey } from '../engine/formulaParser';
 import { filledCount, RawValue } from './tableLayout';
-import { numberFormatOf, readWorkbookStyles, WorkbookStyles } from './xlsxStyles';
+import { readSheetExtras } from './xlsxExtras';
+import { numberFormatOf, readWorkbookStyles, WorkbookStyles, ZipFiles } from './xlsxStyles';
 
 const MAX_IMPORT_ROWS = 100_000;
 const MAX_IMPORT_COLS = 200;
@@ -80,7 +81,8 @@ export function workbookToSheets(workbook: XLSX.WorkBook, fallbackName = 'Planil
   const skipped: string[] = [];
   const taken = new Set<string>();
   const stamp = Date.now().toString(36);
-  const styles = readWorkbookStyles((workbook as { files?: Record<string, { content?: unknown }> }).files);
+  const files = (workbook as { files?: ZipFiles }).files;
+  const styles = readWorkbookStyles(files);
 
   workbook.SheetNames.forEach((name, index) => {
     const ws = workbook.Sheets[name];
@@ -94,7 +96,7 @@ export function workbookToSheets(workbook: XLSX.WorkBook, fallbackName = 'Planil
       return;
     }
     sheets.push({
-      ...faithfulSheet(ws, rows, uniqueName(name || fallbackName, taken), styles, index),
+      ...faithfulSheet(ws, rows, uniqueName(name || fallbackName, taken), styles, files, index),
       id: `sheet-${stamp}-${index + 1}`,
     });
   });
@@ -105,7 +107,7 @@ export function workbookToSheets(workbook: XLSX.WorkBook, fallbackName = 'Planil
  * A aba como está no arquivo: mesmos valores nas mesmas células, com as cores, fontes, bordas, alinhamentos,
  * larguras, alturas, mesclagens e filtro do Excel. Nada de cabeçalho recolorido nem tipos adivinhados.
  */
-function faithfulSheet(ws: XLSX.WorkSheet, rows: RawValue[][], name: string, styles: WorkbookStyles, index: number): Sheet {
+function faithfulSheet(ws: XLSX.WorkSheet, rows: RawValue[][], name: string, styles: WorkbookStyles, files: ZipFiles, index: number): Sheet {
   const numRows = rows.length;
   let numCols = 0;
   rows.forEach(row => (numCols = Math.max(numCols, row.length)));
@@ -148,6 +150,10 @@ function faithfulSheet(ws: XLSX.WorkSheet, rows: RawValue[][], name: string, sty
     if (row && row.hpx && r < rowCount) rowHeights[r] = Math.round(row.hpx);
   });
 
+  const hiddenCols = (ws['!cols'] ?? []).flatMap((col, c) => (col?.hidden && c < colCount ? [c] : []));
+  const hiddenRows = (ws['!rows'] ?? []).flatMap((row, r) => (row?.hidden && r > 0 && r < rowCount ? [r] : []));
+  const extras = readSheetExtras(files, index, name, { colWidths, rowHeights, hiddenCols, hiddenRows });
+
   const tabColor = styles.tabColor(index);
   return {
     id: `sheet-${Date.now()}`,
@@ -158,7 +164,11 @@ function faithfulSheet(ws: XLSX.WorkSheet, rows: RawValue[][], name: string, sty
     colWidths,
     rowHeights,
     mergedRegions: mergedRegions(ws, rowCount, colCount),
-    conditionalRules: [],
+    conditionalRules: extras.conditionalRules,
+    ...(extras.charts.length > 0 ? { charts: extras.charts } : {}),
+    ...(extras.images.length > 0 ? { images: extras.images } : {}),
+    ...(hiddenCols.length > 0 ? { hiddenCols } : {}),
+    ...(hiddenRows.length > 0 ? { hiddenRows } : {}),
     ...(tabColor ? { tabColor } : {}),
     ...(ws['!autofilter'] ? { filterEnabled: true } : {}),
   };

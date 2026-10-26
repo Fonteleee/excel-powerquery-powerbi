@@ -124,6 +124,21 @@ export interface Sheet {
   filters?: { [col: number]: string[] };
   /** Gráficos desenhados em cima da planilha. Eles leem as células e se atualizam sozinhos. */
   charts?: SheetChart[];
+  /** Imagens coladas na planilha (vindas do Excel). Ficam sobre as células. */
+  images?: SheetImage[];
+  /** Colunas e linhas (base 0) ocultas, como no Excel: os dados continuam lá, só não aparecem. */
+  hiddenCols?: number[];
+  hiddenRows?: number[];
+}
+
+export interface SheetImage {
+  id: string;
+  /** Imagem embutida (data URL). */
+  src: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export type SheetChartType = 'bar' | 'line' | 'area' | 'pie';

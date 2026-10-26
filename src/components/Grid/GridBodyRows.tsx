@@ -70,6 +70,7 @@ export function GridBodyRows(props: GridBodyRowsProps) {
 
                 {/* Cells in row */}
                 {Array.from({ length: renderedCols }).map((_, colIdx) => {
+                  if (sheet.hiddenCols?.includes(colIdx)) return null;
 
                   const key = cellPosToKey(rowIdx, colIdx);
                   const cell = sheet.data[key];

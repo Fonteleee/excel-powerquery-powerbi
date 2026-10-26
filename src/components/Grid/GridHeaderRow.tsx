@@ -43,6 +43,7 @@ export function GridHeaderRow(props: GridHeaderRowProps) {
             </th>
 
             {Array.from({ length: renderedCols }).map((_, colIdx) => {
+              if (sheet.hiddenCols?.includes(colIdx)) return null;
               const colLabel = colIndexToLabel(colIdx);
               const isColSelected =
                 colIdx >= selectedRange.startCol && colIdx <= selectedRange.endCol;
