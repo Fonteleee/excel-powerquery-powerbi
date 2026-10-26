@@ -8,6 +8,7 @@ import { cellPosToKey } from '../engine/formulaParser';
 import { autoFormatTabularData } from './csvAutoFormatter';
 import { detectHeaderRow, tableBlockEnd } from './tableLayout';
 import { importWorkbookFile, workbookToSheets } from './workbookImport';
+import { numberFormatOf } from './xlsxStyles';
 
 const resumo = [
   ['Mapeamento VQ → Serviço: CHAT (WhatsApp)', '', ''],
@@ -100,7 +101,8 @@ describe('importWorkbookFile', () => {
   it('cada aba tem o cabeçalho certo e números como números', () => {
     const map = result.sheets[1];
     assert.equal(map.data[cellPosToKey(0, 0)].value, 'VQ (widget FILAS CHAT GERAL)');
-    assert.equal(map.data[cellPosToKey(0, 0)].format?.bgColor, '#107c41');
+    // Importação fiel: o cabeçalho não ganha cor própria quando o arquivo não tem estilo.
+    assert.equal(map.data[cellPosToKey(0, 0)].format?.bgColor, undefined);
     assert.equal(map.data[cellPosToKey(2, 1)].value, 12);
     const resumoSheet = result.sheets[0];
     assert.equal(resumoSheet.data[cellPosToKey(3, 0)].value, 'Status');
@@ -136,6 +138,58 @@ describe('importWorkbookFile', () => {
     const sheet = workbookToSheets(wb).sheets[0];
     assert.equal(sheet.mergedRegions.length, 1);
     assert.deepEqual([sheet.mergedRegions[0].startCol, sheet.mergedRegions[0].endCol], [0, 2]);
+  });
+});
+
+describe('importação fiel ao arquivo', () => {
+  const enc = (s: string) => ({ content: new TextEncoder().encode(s) });
+  const files = {
+    'xl/workbook.xml': enc('<workbook><sheets><sheet name="Fila" sheetId="1" r:id="rId1"/></sheets></workbook>'),
+    'xl/_rels/workbook.xml.rels': enc('<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>'),
+    'xl/theme/theme1.xml': enc('<a:theme><a:dk1><a:sysClr lastClr="000000"/></a:dk1><a:accent1><a:srgbClr val="5B9BD5"/></a:accent1></a:theme>'),
+    'xl/styles.xml': enc(
+      '<styleSheet><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font>' +
+        '<font><b/><sz val="14"/><color rgb="FFFFFFFF"/><name val="Arial"/></font></fonts>' +
+        '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>' +
+        '<fill><patternFill patternType="solid"><fgColor rgb="FF1F4E78"/></patternFill></fill></fills>' +
+        '<borders count="2"><border><left/><right/><top/><bottom/></border>' +
+        '<border><left/><right/><top/><bottom style="thin"><color rgb="FF999999"/></bottom></border></borders>' +
+        '<cellXfs count="3"><xf fontId="0" fillId="0" borderId="0"/>' +
+        '<xf fontId="1" fillId="2" borderId="1"><alignment horizontal="center" wrapText="1"/></xf>' +
+        '<xf fontId="0" fillId="2" borderId="0"/></cellXfs></styleSheet>'
+    ),
+    'xl/worksheets/sheet1.xml': enc('<worksheet><sheetData><row r="1"><c r="A1" s="1" t="s"><v>0</v></c><c r="B1" s="2"/></row></sheetData></worksheet>'),
+  };
+
+  it('traz fonte, cor de fundo, borda e alinhamento do arquivo', () => {
+    const ws = XLSX.utils.aoa_to_sheet([['Fila', ''], ['A', 5]]);
+    ws['!cols'] = [{ wpx: 240 }];
+    ws['!rows'] = [{ hpx: 40 }];
+    ws['!autofilter'] = { ref: 'A1:B2' };
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Fila');
+    (wb as unknown as { files: unknown }).files = files;
+    const sheet = workbookToSheets(wb).sheets[0];
+    const head = sheet.data[cellPosToKey(0, 0)];
+    assert.equal(head.value, 'Fila');
+    assert.equal(head.format?.bgColor, '#1f4e78');
+    assert.equal(head.format?.textColor, '#ffffff');
+    assert.equal(head.format?.bold, true);
+    assert.equal(head.format?.fontSize, 14);
+    assert.equal(head.format?.align, 'center');
+    assert.equal(head.format?.wrap, true);
+    assert.equal(head.format?.border?.bottom, true);
+    assert.equal(sheet.data[cellPosToKey(0, 1)].format?.bgColor, '#1f4e78'); // célula vazia pintada continua pintada
+    assert.equal(sheet.colWidths[0], 240);
+    assert.equal(sheet.rowHeights[0], 40);
+    assert.equal(sheet.filterEnabled, true);
+  });
+
+  it('formatos numéricos do Excel viram o tipo de formato', () => {
+    assert.deepEqual(numberFormatOf('0.00%'), { type: 'percentage', decimals: 2 });
+    assert.deepEqual(numberFormatOf('#,##0.00'), { type: 'number', decimals: 2 });
+    assert.deepEqual(numberFormatOf('"R$" #,##0.00'), { type: 'currency', decimals: 2 });
+    assert.equal(numberFormatOf('General'), undefined);
   });
 });
 
