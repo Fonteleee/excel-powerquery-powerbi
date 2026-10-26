@@ -6,6 +6,8 @@
 export interface RangeValuesCache {
   flat?: any[];
   matrix?: any[][];
+  /** Matriz no formato do avaliador xl (vazio = null, texto numérico = número). */
+  xl?: any[][];
 }
 
 export interface EvalSession {

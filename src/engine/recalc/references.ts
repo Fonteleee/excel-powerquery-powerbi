@@ -29,6 +29,8 @@ export interface FormulaRefs {
   ranges: RangeRef[];
   /** Depende do relógio (HOJE/AGORA): precisa ser recalculada a cada rodada. */
   volatile: boolean;
+  /** Usa PROCX/PROCV/ÍNDICE...: um intervalo que contém a própria célula não é circular (ela conta como vazia). */
+  lookupLike?: boolean;
 }
 
 /** Resolve o nome de aba citado numa fórmula para os ids de aba possíveis. */
@@ -85,12 +87,15 @@ function sheetNameOf(quoted: string | undefined, bare: string | undefined): stri
   return null;
 }
 
+const LOOKUP_LIKE = /\b(?:PROCX|XLOOKUP|PROCV|VLOOKUP|PROCH|HLOOKUP|ÍNDICE|INDICE|INDEX|CORRESP|MATCH)\s*\(/i;
+
 export function extractReferences(formula: string, currentSheetId: string, names: SheetNameIndex): FormulaRefs {
   const refs: FormulaRefs = { cells: [], ranges: [], volatile: false };
   if (!formula.startsWith('=')) return refs;
 
   const text = blankStrings(formula);
   refs.volatile = VOLATILE_HINT.test(text) && VOLATILE.test(text);
+  refs.lookupLike = LOOKUP_LIKE.test(text);
 
   for (const m of text.matchAll(CELL_OR_RANGE)) {
     const sheetIds = names.resolve(sheetNameOf(m[1], m[2]), currentSheetId);

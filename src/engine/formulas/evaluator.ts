@@ -6,6 +6,9 @@ import { CellRange, Sheet } from '../../types/spreadsheet';
 import { cellPosToKey, parseCellAddress, parseRangeAddress } from './addressing';
 import { findFunction } from './functions';
 import { FunctionContext, ResolvedRange } from './functions/types';
+import { Host } from '../xl/call';
+import { evaluateText } from '../xl/interp';
+import { Matrix, Scalar, XlError } from '../xl/values';
 import { parseNumberSafely } from './numbers';
 import { activeSession } from './session';
 import {
@@ -204,156 +207,89 @@ function readCellReference(row: number, col: number, sheet: Sheet, allSheets: Sh
   return num !== null ? num : (cell.value ?? cell.raw ?? 0);
 }
 
-// Main Expression Evaluator
-function evaluateExpression(
-  expr: string,
-  sheet: Sheet,
-  allSheets: Sheet[],
-  callStack: Set<string>
-): any {
+// Avaliador de expressões: o texto é analisado por ../xl (precedência do Excel, matrizes, erros como valores)
+// e as funções vêm da biblioteca nativa de ../xl/lib ou, quando só existem lá, das funções de ./functions.
+
+/** Valor de uma célula para o novo avaliador: vazio é null (não 0); texto numérico vira número. */
+function readCellValue(row: number, col: number, sheet: Sheet, allSheets: Sheet[], callStack: Set<string>): Scalar {
+  const cellKey = cellPosToKey(row, col);
+  const cell = sheet.data[cellKey];
+  if (!cell) return null;
+  if (callStack.has(`${sheet.id}:${cellKey}`)) throw new Error('#CIRCULAR!');
+  if (cell.raw && cell.raw.startsWith('=')) {
+    const session = activeSession();
+    if (session && cell.value !== undefined && cell.value !== null && session.isFresh(sheet.id, cellKey)) return cell.value as Scalar;
+    const nextStack = new Set(callStack);
+    nextStack.add(`${sheet.id}:${cellKey}`);
+    return evaluateFormula(cell.raw, sheet, allSheets, nextStack);
+  }
+  const raw = cell.value ?? cell.raw;
+  if (raw === '' || raw === undefined || raw === null) return null;
+  const num = parseNumberSafely(raw);
+  return num !== null ? num : (raw as Scalar);
+}
+
+const LEADING_ZERO_CODE = /^0\d+$/;
+
+/** Intervalo como matriz. Células em andamento (a própria fórmula) contam como vazias; texto numérico vira número. */
+function readRangeValues(sheet: Sheet, range: CellRange, allSheets: Sheet[], callStack: Set<string>): Matrix {
+  // Dentro de um recálculo o intervalo é lido uma única vez por rodada (colunas inteiras são caras).
+  const session = activeSession();
+  if (session) {
+    const cacheKey = `${sheet.id}|${range.startRow}|${range.startCol}|${range.endRow}|${range.endCol}`;
+    let entry = session.rangeCache.get(cacheKey);
+    if (!entry) {
+      entry = {};
+      session.rangeCache.set(cacheKey, entry);
+    }
+    return (entry.xl ??= buildRangeMatrix(sheet, range, allSheets, callStack));
+  }
+  return buildRangeMatrix(sheet, range, allSheets, callStack);
+}
+
+function buildRangeMatrix(sheet: Sheet, range: CellRange, allSheets: Sheet[], callStack: Set<string>): Matrix {
+  const out: Matrix = [];
+  for (let r = range.startRow; r <= range.endRow; r++) {
+    const row: Scalar[] = [];
+    for (let c = range.startCol; c <= range.endCol; c++) {
+      if (callStack.has(`${sheet.id}:${cellPosToKey(r, c)}`)) {
+        row.push(null);
+        continue;
+      }
+      const v = getCellValue(sheet, r, c, allSheets, callStack);
+      if (typeof v === 'string' && v !== '' && !LEADING_ZERO_CODE.test(v.trim())) {
+        const n = parseNumberSafely(v);
+        row.push(n !== null ? n : v);
+      } else row.push(v === undefined ? null : (v as Scalar));
+    }
+    out.push(row);
+  }
+  return out;
+}
+
+function makeHost(sheet: Sheet, allSheets: Sheet[], callStack: Set<string>): Host {
+  const legacyContext = makeContext(sheet, allSheets, callStack);
+  return {
+    sheet,
+    allSheets,
+    resolveSheet: name => findSheetByReferenceName(name, allSheets),
+    readCell: (s, row, col) => readCellValue(row, col, s, allSheets, callStack),
+    readRange: (s, range) => readRangeValues(s, range, allSheets, callStack),
+    parseRange: (address, s) => parseRangeAddress(address, s.rowCount),
+    legacy: (name, args) => {
+      const handler = findFunction(name);
+      return handler ? { found: true, value: handler(args, legacyContext) } : { found: false };
+    },
+  };
+}
+
+function evaluateExpression(expr: string, sheet: Sheet, allSheets: Sheet[], callStack: Set<string>): any {
   expr = expr.trim();
   if (!expr) return '';
-
-  // Atalhos exatos: uma referência simples (A1, $B$2) ou um número literal passariam pelas mesmas regras abaixo.
-  if (CELL_ONLY.test(expr)) {
-    const pos = parseCellAddress(expr);
-    if (pos) return readCellReference(pos.row, pos.col, sheet, allSheets, callStack);
+  try {
+    return evaluateText(expr, makeHost(sheet, allSheets, callStack));
+  } catch (error) {
+    if (error instanceof XlError) throw new Error(error.code);
+    throw error;
   }
-  if (NUMBER_ONLY.test(expr)) return parseFloat(expr);
-
-  // Handle outer parentheses: (1 - I2) or ((A1+B1)*2)
-  if (expr.startsWith('(') && expr.endsWith(')')) {
-    let depth = 0;
-    let canStrip = true;
-    for (let i = 0; i < expr.length - 1; i++) {
-      if (expr[i] === '(') depth++;
-      else if (expr[i] === ')') depth--;
-      if (depth === 0) {
-        canStrip = false;
-        break;
-      }
-    }
-    if (canStrip) {
-      return evaluateExpression(expr.substring(1, expr.length - 1).trim(), sheet, allSheets, callStack);
-    }
-  }
-
-  // Check function call: FUNC(arg1, arg2, ...)
-  const funcMatch = expr.match(/^([A-ZÁÉÍÓÚÂÊÔÃÕÇ._]+)\s*\((.*)\)$/i);
-  if (funcMatch) {
-    const funcName = funcMatch[1].toUpperCase();
-    const argsRaw = funcMatch[2];
-    const args = splitFormulaArguments(argsRaw);
-
-    return executeFunction(funcName, args, makeContext(sheet, allSheets, callStack));
-  }
-
-
-  // Handle concatenation with & operator
-  const ops = scanTopLevelOperators(expr);
-  if (ops & OP.AMP) {
-    const tokens = splitByTopLevelOperator(expr, '&');
-    return tokens
-      .map(t => {
-        const res = evaluateExpression(t, sheet, allSheets, callStack);
-        return res === null || res === undefined ? '' : String(res);
-      })
-      .join('');
-  }
-
-  // Handle comparison operators: =, <>, <=, >=, <, >
-  const compOps: [string, number][] = [['<=', OP.LE], ['>=', OP.GE], ['<>', OP.NE], ['=', OP.EQ], ['<', OP.LT], ['>', OP.GT]];
-  for (const [op, bit] of compOps) {
-    if (ops & bit) {
-      const parts = splitByTopLevelOperator(expr, op);
-      if (parts.length === 2) {
-        const left = evaluateExpression(parts[0], sheet, allSheets, callStack);
-        const right = evaluateExpression(parts[1], sheet, allSheets, callStack);
-        if (op === '=') return left === right;
-        if (op === '<>') return left !== right;
-        if (op === '<') return Number(left) < Number(right);
-        if (op === '>') return Number(left) > Number(right);
-        if (op === '<=') return Number(left) <= Number(right);
-        if (op === '>=') return Number(left) >= Number(right);
-      }
-    }
-  }
-
-  // Handle arithmetic: +, -
-  if (ops & (OP.PLUS | OP.MINUS)) {
-    const parts = splitAdditive(expr);
-    let total = 0;
-    for (const part of parts) {
-      const val = evaluateExpression(part.expr, sheet, allSheets, callStack);
-      const num = Number(val);
-      if (isNaN(num)) throw new Error('#VALOR!');
-      if (part.sign === '+') total += num;
-      else total -= num;
-    }
-    return total;
-  }
-
-  // Handle arithmetic: *, /
-  if (ops & (OP.MUL | OP.DIV)) {
-    const parts = splitMultiplicative(expr);
-    let total = 1;
-    for (let i = 0; i < parts.length; i++) {
-      const val = evaluateExpression(parts[i].expr, sheet, allSheets, callStack);
-      const num = Number(val);
-      if (isNaN(num)) throw new Error('#VALOR!');
-      if (i === 0) {
-        total = num;
-      } else {
-        if (parts[i].op === '*') {
-          total *= num;
-        } else {
-          if (num === 0) throw new Error('#DIV/0!');
-          total /= num;
-        }
-      }
-    }
-    return total;
-  }
-
-  // Handle string literals "Hello"
-  if (expr.startsWith('"') && expr.endsWith('"') && expr.length >= 2) {
-    return expr.substring(1, expr.length - 1);
-  }
-
-  // Handle boolean literals
-  if (expr.toUpperCase() === 'VERDADEIRO' || expr.toUpperCase() === 'TRUE') return true;
-  if (expr.toUpperCase() === 'FALSO' || expr.toUpperCase() === 'FALSE') return false;
-
-  // Handle sheet qualified reference "Sheet2!A1" or "'Acompanhamento de Pagamentos'!A1:B10" or "Acompanhamento!B5"
-
-  if (expr.includes('!')) {
-    const exclamationIdx = expr.indexOf('!');
-    const rawSheetName = expr.substring(0, exclamationIdx).trim().replace(/^'|'$/g, '');
-    const cellRef = expr.substring(exclamationIdx + 1).trim();
-
-    const clean = rawSheetName.toUpperCase().replace(/\.+$/, '');
-    const targetSheet = allSheets.find(s => {
-      const sName = s.name.toUpperCase();
-      return sName === rawSheetName.toUpperCase() || sName.startsWith(clean) || clean.startsWith(sName);
-    }) || sheet;
-
-    return evaluateExpression(cellRef, targetSheet, allSheets, callStack);
-  }
-
-
-  // Handle cell range "A1:B10"
-  const range = parseRangeAddress(expr, sheet.rowCount);
-  if (range && (range.startRow !== range.endRow || range.startCol !== range.endCol)) {
-    return getRangeValues(sheet, range);
-  }
-
-  // Handle single cell "A1"
-  const cellPos = parseCellAddress(expr);
-  if (cellPos) return readCellReference(cellPos.row, cellPos.col, sheet, allSheets, callStack);
-
-  // Number literal
-  const num = parseNumberSafely(expr);
-  if (num !== null) return num;
-
-  return expr;
 }

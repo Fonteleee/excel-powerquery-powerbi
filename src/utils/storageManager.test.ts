@@ -1,21 +1,14 @@
 // src/utils/storageManager.test.ts
-// O sistema precisa abrir sempre vazio, mesmo que exista dado de sessões anteriores no navegador.
+// Primeira abertura vazia; depois disso o trabalho do usuário volta ao atualizar a página.
 
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
-import {
-  createBlankWorkspace,
-  loadInitialSheetsSync,
-  loadSheetsFromStorageAsync,
-  resetWorkspaceStorage,
-  saveSheetsToStorage,
-  START_EMPTY_WORKSPACE,
-} from './storageManager';
+import { createBlankWorkspace, loadInitialSheetsSync, saveSheetsToStorage } from './storageManager';
 
 const g = globalThis as { localStorage?: Storage };
 const original = g.localStorage;
 
-function fakeStorage(initial: Record<string, string>): Storage & { dump(): Record<string, string> } {
+function fakeStorage(initial: Record<string, string> = {}): Storage & { dump(): Record<string, string> } {
   const data = new Map(Object.entries(initial));
   return {
     getItem: key => data.get(key) ?? null,
@@ -35,47 +28,28 @@ afterEach(() => {
   else delete g.localStorage;
 });
 
-describe('workspace sempre vazio', () => {
-  it('está configurado para abrir vazio', () => {
-    assert.equal(START_EMPTY_WORKSPACE, true);
-  });
-
-  it('começa com uma única tabela sem nenhum dado', () => {
+describe('persistência do espaço de trabalho', () => {
+  it('na primeira abertura vem uma única tabela, sem nenhum dado', () => {
+    g.localStorage = fakeStorage();
     const sheets = loadInitialSheetsSync();
     assert.equal(sheets.length, 1);
     assert.deepEqual(sheets[0].data, {});
-    assert.deepEqual(createBlankWorkspace()[0].data, {});
   });
 
-  it('ignora planilhas guardadas por sessões anteriores', async () => {
-    g.localStorage = fakeStorage({
-      nocodb_persisted_sheets_v2: JSON.stringify([{ id: 'velha', name: 'Velha', data: { R0C0: { raw: 'x', value: 'x' } } }]),
-    });
-    assert.equal(loadInitialSheetsSync()[0].id, 'sheet-1');
-    assert.deepEqual((await loadSheetsFromStorageAsync())[0].data, {});
-  });
-
-  it('não grava planilhas para a próxima sessão', async () => {
-    const storage = fakeStorage({});
+  it('o que o usuário salvou volta ao atualizar a página', async () => {
+    const storage = fakeStorage();
     g.localStorage = storage;
-    await saveSheetsToStorage(createBlankWorkspace());
-    assert.deepEqual(storage.dump(), {});
+    const sheet = createBlankWorkspace()[0];
+    sheet.name = 'Vendas';
+    sheet.data['R0C0'] = { raw: 'Produto', value: 'Produto' };
+    await saveSheetsToStorage([sheet]);
+    const back = loadInitialSheetsSync();
+    assert.equal(back[0].name, 'Vendas');
+    assert.equal(back[0].data['R0C0'].value, 'Produto');
   });
 
-  it('resetWorkspaceStorage apaga planilhas, relações e fluxo, e mantém preferências', () => {
-    const storage = fakeStorage({
-      nocodb_persisted_sheets_v2: '[]',
-      nocodb_active_sheet_id_v2: 'velha',
-      nocodb_starred_sheet_ids_v2: '[]',
-      nocodb_relations_edges_v2: '[]',
-      nocodb_flow_graph_v1: '{}',
-      nocodb_flow_graph_v1_invalid_backup: '{}',
-      nocodb_flow_view_v1: '{}',
-      nocodb_user_prefs_v2: '{"zoomLevel":120}',
-    });
-    g.localStorage = storage;
-    resetWorkspaceStorage();
-    assert.deepEqual(storage.dump(), { nocodb_user_prefs_v2: '{"zoomLevel":120}' });
-    assert.doesNotThrow(() => resetWorkspaceStorage());
+  it('conteúdo corrompido não derruba a abertura', () => {
+    g.localStorage = fakeStorage({ nocodb_persisted_sheets_v2: '{não é json' });
+    assert.equal(loadInitialSheetsSync().length, 1);
   });
 });

@@ -44,6 +44,8 @@ import {
   withCell,
 } from './common';
 import { scanFormulaErrors } from './read';
+import { createChart, detectRegion } from '../../charts/chartData';
+import { rangeToAddress } from '../../../engine/formulaParser';
 
 const SHEET_PARAM = { type: 'string', description: 'Nome (ou id) da planilha.' } as const;
 const HEADER_FORMAT: CellFormat = { bold: true, bgColor: '#1e293b', textColor: '#ffffff', align: 'center' };
@@ -415,7 +417,7 @@ const PALETTE = ['#107c41', '#2563eb', '#f59e0b', '#7c3aed', '#ec4899', '#06b6d4
 export const criarGrafico: ToolDef = {
   name: 'criar_grafico',
   description:
-    'Gera um gráfico a partir dos dados: agrupa a coluna do eixo X e soma/média as colunas do eixo Y. O gráfico aparece no painel para o usuário.',
+    'Gera um gráfico no painel de conversa (não fica na planilha) agrupando a coluna do eixo X e somando/tirando a média das colunas do eixo Y. Para colocar um gráfico DENTRO da planilha, use inserir_grafico.',
   risk: 'read',
   parameters: {
     type: 'object',
@@ -456,7 +458,39 @@ export const criarGrafico: ToolDef = {
   },
 };
 
+export const inserirGrafico: ToolDef = {
+  name: 'inserir_grafico',
+  description:
+    'Insere um gráfico DENTRO da planilha, desenhado sobre as células. Ele lê o intervalo (1ª coluna = categorias, colunas seguintes = séries numéricas, 1ª linha = nomes) e se atualiza sozinho quando os dados mudam. Se o intervalo não for informado, usa a tabela que começa em A1.',
+  risk: 'write',
+  parameters: {
+    type: 'object',
+    properties: {
+      planilha: SHEET_PARAM,
+      intervalo: { type: 'string', description: 'Ex.: A1:C13. Opcional.' },
+      tipo: { type: 'string', enum: ['bar', 'line', 'area', 'pie'], description: 'Padrão: bar (barras).' },
+      titulo: { type: 'string', description: 'Título do gráfico. Opcional.' },
+    },
+    required: ['planilha'],
+  },
+  summarize: a => `Inserir gráfico em "${String(a.planilha)}"`,
+  run: (ws, args) => {
+    const sheet = findSheet(ws, str(args, 'planilha'));
+    const range = optStr(args, 'intervalo') ?? rangeToAddress(detectRegion(sheet, 0, 0));
+    const type = (optStr(args, 'tipo') ?? 'bar') as 'bar' | 'line' | 'area' | 'pie';
+    if (!['bar', 'line', 'area', 'pie'].includes(type)) throw new ToolError(`Tipo de gráfico "${type}" inválido.`);
+    const created = createChart(sheet, { range, type, title: optStr(args, 'titulo') });
+    if (!created.ok) return fail(created.error);
+    const updated = { ...sheet, charts: [...(sheet.charts ?? []), created.chart] };
+    return ok(`Gráfico "${created.chart.title}" inserido em "${sheet.name}" sobre o intervalo ${range}.`, {
+      workspace: { ...ws, sheets: ws.sheets.map(s => (s.id === sheet.id ? updated : s)) },
+      touchedSheetIds: [sheet.id],
+    });
+  },
+};
+
 export const writeTools: ToolDef[] = [
+  inserirGrafico,
   criarPlanilha,
   escreverCelulas,
   escreverBloco,

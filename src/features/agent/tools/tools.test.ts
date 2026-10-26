@@ -281,3 +281,20 @@ describe('fluxo', () => {
     assert.equal(r.workspace!.graph.edges.length, 0);
   });
 });
+
+describe('gráfico na planilha', () => {
+  it('inserir_grafico coloca o gráfico dentro da planilha e ele lê os dados', () => {
+    const r = run(workspace(), 'inserir_grafico', { planilha: 'Pausas', tipo: 'bar', titulo: 'Minutos por agente' });
+    const sheet = r.workspace!.sheets.find(s => s.id === 'pausas')!;
+    assert.equal(sheet.charts?.length, 1);
+    assert.equal(sheet.charts![0].range, 'A1:C5');
+    assert.equal(sheet.charts![0].title, 'Minutos por agente');
+    assert.equal(r.ok, true);
+  });
+
+  it('avisa quando os dados não servem para gráfico', () => {
+    const r = run(workspace(), 'inserir_grafico', { planilha: 'Agentes', intervalo: 'A1:B3' });
+    assert.equal(r.ok, false);
+    assert.match(r.message, /números/);
+  });
+});

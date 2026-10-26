@@ -101,8 +101,19 @@ export class DependencyGraph {
   // ---------- manutenção ----------
 
   /** Registra (ou substitui) a fórmula de uma célula. */
-  setFormula(sheetId: string, row: number, col: number, refs: FormulaRefs): void {
+  setFormula(sheetId: string, row: number, col: number, rawRefs: FormulaRefs): void {
     const key = nodeKey(sheetId, row, col);
+    // Em buscas (PROCX, PROCV, ÍNDICE...), um intervalo que contém a própria célula (ex.: B16 = PROCX(D18; A:A; B:B))
+    // não é circular: a própria célula conta como vazia dentro do intervalo e o resto continua valendo.
+    // Em SOMA e similares continua sendo referência circular, como no Excel.
+    const refs: FormulaRefs = {
+      ...rawRefs,
+      ranges: rawRefs.lookupLike
+        ? rawRefs.ranges.filter(
+            r => !(r.sheetId === sheetId && row >= r.startRow && row <= r.endRow && col >= r.startCol && col <= r.endCol)
+          )
+        : rawRefs.ranges,
+    };
     if (this.formulas.has(key)) this.removeFormula(key);
     this.formulas.set(key, { key, sheetId, row, col, refs });
     if (refs.volatile) this.volatileKeys.add(key);

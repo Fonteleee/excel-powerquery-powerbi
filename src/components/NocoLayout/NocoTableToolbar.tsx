@@ -10,6 +10,7 @@ import {
   Search,
   FunctionSquare,
   Wand2,
+  BarChart3,
   Maximize2,
   MoreHorizontal,
   Plus,
@@ -21,6 +22,7 @@ interface NocoTableToolbarProps {
   sheet: Sheet;
   onOpenFormulaWizard: () => void;
   onOpenQuickAnalysis: () => void;
+  onInsertChart?: () => void;
   onOpenConditionalFormat: () => void;
   onOpenFindReplace: () => void;
   onAutoRecognize: () => void;
@@ -37,6 +39,7 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
   sheet,
   onOpenFormulaWizard,
   onOpenQuickAnalysis,
+  onInsertChart,
   onOpenConditionalFormat,
   onOpenFindReplace,
   onAutoRecognize,
@@ -146,6 +149,18 @@ export const NocoTableToolbar: React.FC<NocoTableToolbarProps> = ({
           <Wand2 className="size-3.5 text-indigo-700" strokeWidth={2} />
           <span>Análise Rápida</span>
         </button>
+
+        {/* Gráfico dentro da própria planilha */}
+        {onInsertChart && (
+          <button
+            onClick={onInsertChart}
+            title="Inserir gráfico na planilha (usa a seleção ou a tabela onde está o cursor)"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold text-emerald-900 hover:bg-emerald-50 transition-colors btn-tactile cursor-pointer"
+          >
+            <BarChart3 className="size-3.5 text-emerald-700" strokeWidth={2} />
+            <span>Gráfico</span>
+          </button>
+        )}
       </div>
 
       {/* Right Tools (Search & Record Count) */}

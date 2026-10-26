@@ -26,6 +26,7 @@ import { SheetTabs } from './components/Grid/SheetTabs';
 import { PowerQueryEditor } from './components/PowerQuery/PowerQueryEditor';
 import { DashboardStudio } from './components/PowerBI/DashboardStudio';
 import { AgentPanel } from './features/agent/ui/AgentPanel';
+import { chartFromSelection } from './features/charts/chartData';
 import { useAgentSession } from './features/agent/ui/useAgentSession';
 import { applyAgentActions } from './engine/agentActionExecutor';
 import { AgentAction } from './engine/agentActionProtocol';
@@ -57,7 +58,6 @@ import { NocoFormatModal } from './components/NocoLayout/NocoFormatModal';
 import { RelationsCanvas } from './components/Relations/RelationsCanvas';
 import {
   loadInitialSheetsSync,
-  resetWorkspaceStorage,
   loadSheetsFromStorageAsync,
   saveSheetsToStorage,
   saveActiveSheetId,
@@ -70,10 +70,7 @@ import {
 
 export function App() {
   const initialPrefs = useMemo(() => loadUserPreferences(), []);
-  const initialSheets = useMemo(() => {
-    resetWorkspaceStorage(); // o sistema sempre abre vazio: descarta dados de sessões anteriores
-    return loadInitialSheetsSync();
-  }, []);
+  const initialSheets = useMemo(() => loadInitialSheetsSync(), []);
 
   // Começa com uma tabela em branco (sem nenhum dado)
   const [sheets, setSheets] = useState<Sheet[]>(initialSheets);
@@ -539,6 +536,15 @@ export function App() {
 
   // ---- Assistente de IA: a sessão vive aqui para a conversa sobreviver à troca de aba ----
   const agentSelection = useMemo(() => rangeToAddress(selectedRange), [selectedRange]);
+  // Gráfico dentro da planilha, a partir da seleção (ou da tabela onde está o cursor).
+  const handleInsertChart = (): void => {
+    const result = chartFromSelection(activeSheet, selectedRange, activeCell);
+    if (!result.ok) {
+      window.alert(result.error);
+      return;
+    }
+    handleUpdateSheet({ ...activeSheet, charts: [...(activeSheet.charts ?? []), result.chart] });
+  };
   const handleCreateSheetFromAgent = (name: string, columns: string[], rows: (string | number | boolean | null)[][]): void =>
     handleCreateNewSheetFromData(name, columns, rows.map(r => Object.fromEntries(columns.map((c, i) => [c, r[i]]))));
   const agent = useAgentSession({
@@ -718,6 +724,7 @@ export function App() {
               sheet={activeSheet}
               onOpenFormulaWizard={() => setIsFormulaWizardOpen(true)}
               onOpenQuickAnalysis={() => setIsQuickAnalysisOpen(true)}
+              onInsertChart={handleInsertChart}
               onOpenConditionalFormat={() => setIsConditionalModalOpen(true)}
               onOpenFindReplace={() => setIsFindReplaceOpen(true)}
               onAutoRecognize={() => {

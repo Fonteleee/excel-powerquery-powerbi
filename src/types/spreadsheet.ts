@@ -122,6 +122,24 @@ export interface Sheet {
   tabColor?: string;
   filterEnabled?: boolean;
   filters?: { [col: number]: string[] };
+  /** Gráficos desenhados em cima da planilha. Eles leem as células e se atualizam sozinhos. */
+  charts?: SheetChart[];
+}
+
+export type SheetChartType = 'bar' | 'line' | 'area' | 'pie';
+
+/** Gráfico dentro da planilha: lê o intervalo (1ª coluna = categorias, demais = séries, 1ª linha = nomes). */
+export interface SheetChart {
+  id: string;
+  title: string;
+  type: SheetChartType;
+  /** Intervalo de origem em A1, ex.: "A1:C13". */
+  range: string;
+  /** Posição e tamanho em pixels, a partir do canto superior esquerdo da área de dados. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 

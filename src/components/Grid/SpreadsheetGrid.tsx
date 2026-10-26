@@ -56,6 +56,7 @@ import { computeFilledData } from './fillOps';
 import { deleteRowsData, sortRowsData } from './gridOps';
 import { GridBodyRows } from './GridBodyRows';
 import { GridHeaderRow } from './GridHeaderRow';
+import { SheetChartsLayer } from '../../features/charts/SheetChartsLayer';
 import { GridContextMenu } from './GridContextMenu';
 import { GridOverlays } from './GridOverlays';
 import { GridStatusBar } from './GridStatusBar';
@@ -923,6 +924,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
           )}
         </tbody>
       </table>
+      <SheetChartsLayer sheet={sheet} onUpdateSheet={onUpdateSheet} />
 
 
       <GridOverlays

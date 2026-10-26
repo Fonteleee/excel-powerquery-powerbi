@@ -271,7 +271,8 @@ export class RecalcEngine {
 
           let outcomeSpill: CellRange | undefined;
           try {
-            const value = evaluateFormula(cell.raw, ws, work);
+            // A própria célula entra na pilha: ela é ignorada ao ler intervalos que a contêm.
+            const value = evaluateFormula(cell.raw, ws, work, new Set([`${ws.id}:${dataKey}`]));
             const outcome = writeFormulaResult(ws.data, dataKey, node.row, node.col, cell, value);
             outcomeSpill = outcome.spill;
             for (const k of outcome.touched) touch(node.sheetId, k);
