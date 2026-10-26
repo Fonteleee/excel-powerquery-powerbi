@@ -5,12 +5,26 @@ import * as XLSX from 'xlsx';
 import { CellFormat, MergedRegion, Sheet } from '../types/spreadsheet';
 import { cellPosToKey } from '../engine/formulaParser';
 import { filledCount, RawValue } from './tableLayout';
-import { readSheetExtras } from './xlsxExtras';
+import { RawValidation, readSheetExtras, splitSheetRef } from './xlsxExtras';
 import { numberFormatOf, readWorkbookStyles, WorkbookStyles, ZipFiles } from './xlsxStyles';
 
 const MAX_IMPORT_ROWS = 100_000;
 const MAX_IMPORT_COLS = 200;
 const MAX_SHEETS = 50;
+
+/**
+ * Texto de uma data/hora como o Excel brasileiro mostra. O Excel guarda alguns formatos como "do sistema"
+ * (`m/d/yy`, `[$-F400]` = hora longa) e mostra no padrão do Windows; o SheetJS os mostraria no padrão americano.
+ */
+export function dateText(cell: XLSX.CellObject): string {
+  const z = String(cell.z);
+  const code = /\[\$-F400\]/i.test(z) ? 'hh:mm:ss' : /\[\$-F800\]/i.test(z) || /^(m\/d\/yy|mm-dd-yy)$/i.test(z) ? 'd/m/yyyy' : z;
+  try {
+    return XLSX.SSF.format(code, cell.v as number);
+  } catch {
+    return cell.w ?? String(cell.v);
+  }
+}
 
 /** Valor de uma célula do arquivo: número continua número; data/hora vira o texto como aparece no Excel. */
 function cellValue(cell: XLSX.CellObject | undefined): RawValue {
@@ -18,8 +32,9 @@ function cellValue(cell: XLSX.CellObject | undefined): RawValue {
   switch (cell.t) {
     case 'n':
       // Datas e horas são números com formato; o texto formatado preserva "05/01/2024" e "03:17:26".
-      if (typeof cell.z === 'string' && cell.w && XLSX.SSF.is_date(cell.z)) return cell.w;
-      return typeof cell.v === 'number' ? cell.v : Number(cell.v);
+      if (typeof cell.z === 'string' && XLSX.SSF.is_date(cell.z)) return dateText(cell);
+      // Sem formato (Geral) o Excel mostra até 15 dígitos significativos: 150792.33940000006 aparece como 150792.3394.
+      return typeof cell.v === 'number' ? Number(cell.v.toPrecision(15)) : Number(cell.v);
     case 'b':
       return Boolean(cell.v);
     case 'd':
@@ -84,6 +99,10 @@ export function workbookToSheets(workbook: XLSX.WorkBook, fallbackName = 'Planil
   const files = (workbook as { files?: ZipFiles }).files;
   const styles = readWorkbookStyles(files);
 
+  const pendingValidations = new Map<string, RawValidation[]>();
+  const definedNames = new Map<string, string>();
+  for (const n of workbook.Workbook?.Names ?? []) if (n.Name && n.Ref) definedNames.set(n.Name.toLowerCase(), n.Ref);
+
   workbook.SheetNames.forEach((name, index) => {
     const ws = workbook.Sheets[name];
     const rows = ws ? worksheetToRows(ws) : [];
@@ -95,19 +114,60 @@ export function workbookToSheets(workbook: XLSX.WorkBook, fallbackName = 'Planil
       skipped.push(`${name} (limite de ${MAX_SHEETS} abas)`);
       return;
     }
-    sheets.push({
-      ...faithfulSheet(ws, rows, uniqueName(name || fallbackName, taken), styles, files, index),
-      id: `sheet-${stamp}-${index + 1}`,
-    });
+    const built = faithfulSheet(ws, rows, uniqueName(name || fallbackName, taken), styles, files, index, raw => pendingValidations.set(`sheet-${stamp}-${index + 1}`, raw));
+    sheets.push({ ...built, id: `sheet-${stamp}-${index + 1}` });
   });
+
+  // As listas suspensas só podem ser lidas depois de todas as abas existirem (a origem pode estar em outra aba).
+  for (const sheet of sheets) {
+    const raws = pendingValidations.get(sheet.id);
+    if (!raws) continue;
+    const validations = raws.flatMap((raw, i) => {
+      const list = resolveListValues(raw.formula, sheet, sheets, definedNames);
+      return list ? [{ id: `dv-${i + 1}`, range: raw.range, values: list.values, ...(list.source ? { source: list.source } : {}) }] : [];
+    });
+    if (validations.length > 0) sheet.validations = validations;
+  }
   return { sheets, skipped };
+}
+
+/** Opções de uma lista suspensa: texto entre aspas ("a,b,c"), intervalo (de qualquer aba) ou nome definido. */
+function resolveListValues(
+  formula: string,
+  current: Sheet,
+  all: Sheet[],
+  names: Map<string, string>
+): { values: string[]; source?: string } | null {
+  const text = formula.replace(/^=/, '').trim();
+  if (text.startsWith('"')) {
+    const values = text.replace(/^"|"$/g, '').split(',').map(v => v.trim()).filter(Boolean);
+    return values.length > 0 ? { values } : null;
+  }
+  const source = names.get(text.toLowerCase()) ?? text;
+  const ref = splitSheetRef(source);
+  if (!ref) return null;
+  const target = ref.sheet ? all.find(s => s.name.toLowerCase() === ref.sheet!.toLowerCase()) : current;
+  if (!target) return null;
+  const seen = new Set<string>();
+  const values: string[] = [];
+  for (let r = ref.range.startRow; r <= Math.min(ref.range.endRow, target.rowCount - 1); r++) {
+    for (let c = ref.range.startCol; c <= Math.min(ref.range.endCol, target.colCount - 1); c++) {
+      const v = target.data[cellPosToKey(r, c)]?.value;
+      const label = v === null || v === undefined ? '' : String(v);
+      if (label !== '' && !seen.has(label)) {
+        seen.add(label);
+        values.push(label);
+      }
+    }
+  }
+  return values.length > 0 ? { values, source } : null;
 }
 
 /**
  * A aba como está no arquivo: mesmos valores nas mesmas células, com as cores, fontes, bordas, alinhamentos,
  * larguras, alturas, mesclagens e filtro do Excel. Nada de cabeçalho recolorido nem tipos adivinhados.
  */
-function faithfulSheet(ws: XLSX.WorkSheet, rows: RawValue[][], name: string, styles: WorkbookStyles, files: ZipFiles, index: number): Sheet {
+function faithfulSheet(ws: XLSX.WorkSheet, rows: RawValue[][], name: string, styles: WorkbookStyles, files: ZipFiles, index: number, onValidations: (raw: RawValidation[]) => void): Sheet {
   const numRows = rows.length;
   let numCols = 0;
   rows.forEach(row => (numCols = Math.max(numCols, row.length)));
@@ -158,6 +218,7 @@ function faithfulSheet(ws: XLSX.WorkSheet, rows: RawValue[][], name: string, sty
   const hiddenRows = (ws['!rows'] ?? []).flatMap((row, r) => (row?.hidden && r > 0 && r < rowCount ? [r] : []));
   const extras = readSheetExtras(files, index, name, { colWidths, rowHeights, hiddenCols, hiddenRows });
 
+  if (extras.validations.length > 0) onValidations(extras.validations);
   const tabColor = styles.tabColor(index);
   return {
     id: `sheet-${Date.now()}`,

@@ -1,7 +1,7 @@
 ﻿// src/utils/xlsxExtras.ts
 // O que o SheetJS gratuito nÃ£o lÃª e o Excel guarda em XML prÃ³prio: formataÃ§Ã£o condicional, grÃ¡ficos e imagens.
 
-import { ConditionalFormatRule, ConditionalRuleType, SheetChart, SheetChartType, SheetImage } from '../types/spreadsheet';
+import { CellRange, ConditionalFormatRule, ConditionalRuleType, SheetChart, SheetChartType, SheetImage } from '../types/spreadsheet';
 import { parseRangeAddress, rangeToAddress } from '../engine/formulaParser';
 import { attr, blocks, colorTag, parseTheme, resolveColor, section, sheetPaths, text, ZipFiles } from './xlsxStyles';
 
@@ -20,10 +20,51 @@ export interface SheetGeometry {
   hiddenRows: number[];
 }
 
+export interface RawValidation {
+  range: CellRange;
+  /** Fórmula de origem da lista como está no arquivo: `"a,b,c"`, `Aba!$A$1:$A$9` ou um nome definido. */
+  formula: string;
+}
+
 export interface SheetExtras {
   conditionalRules: ConditionalFormatRule[];
   charts: SheetChart[];
   images: SheetImage[];
+  validations: RawValidation[];
+}
+
+/** Listas suspensas da aba: as comuns (`dataValidation`) e as que apontam para outra aba (extensão `x14`). */
+function listValidations(sheetXml: string): RawValidation[] {
+  const out: RawValidation[] = [];
+  const push = (sqref: string | undefined, formula: string | undefined): void => {
+    if (!sqref || !formula) return;
+    for (const ref of sqref.split(/\s+/)) {
+      const range = parseRangeAddress(ref, 1_048_576);
+      if (range) out.push({ range, formula: decodeEntities(formula.trim()) });
+    }
+  };
+  const classic = /<dataValidation\b([^>]*?)>([\s\S]*?)<\/dataValidation>/g;
+  for (let m = classic.exec(sheetXml); m; m = classic.exec(sheetXml)) {
+    if (attr(m[1], 'type') !== 'list') continue;
+    push(attr(m[1], 'sqref'), /<formula1>([\s\S]*?)<\/formula1>/.exec(m[2])?.[1]);
+  }
+  const ext = /<x14:dataValidation\b([^>]*?)>([\s\S]*?)<\/x14:dataValidation>/g;
+  for (let m = ext.exec(sheetXml); m; m = ext.exec(sheetXml)) {
+    if (attr(m[1], 'type') !== 'list') continue;
+    push(/<xm:sqref>([^<]*)<\/xm:sqref>/.exec(m[2])?.[1], /<x14:formula1>\s*<xm:f>([^<]*)<\/xm:f>/.exec(m[2])?.[1]);
+  }
+  return out;
+}
+
+/** Referência `Aba!$A$1:$A$9` (ou só `$A$1:$A$9`, que é a aba atual) separada em aba e intervalo. */
+export function splitSheetRef(ref: string): { sheet?: string; range: CellRange } | null {
+  const plain = plainRef(ref);
+  if (plain) {
+    const range = parseRangeAddress(plain.range, 1_048_576);
+    return range ? { sheet: plain.sheet, range } : null;
+  }
+  const range = parseRangeAddress(ref.replace(/\$/g, '').trim(), 1_048_576);
+  return range ? { range } : null;
 }
 
 function dxfStyles(stylesXml: string, theme: string[]): ConditionalFormatRule['style'][] {
@@ -45,8 +86,12 @@ function blend(a: string, b: string): string {
   return `#${mix(1)}${mix(3)}${mix(5)}`;
 }
 
+function decodeEntities(value: string): string {
+  return value.replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+}
+
 function unquote(value: string): string {
-  return value.trim().replace(/^"(.*)"$/, '$1').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  return decodeEntities(value.trim().replace(/^"(.*)"$/, '$1'));
 }
 
 /** O arquivo guarda fórmulas no padrão inglês (`MOD(ROW(),2)`); o sistema lê `;` entre argumentos, sem confundir com decimal. */
@@ -301,11 +346,13 @@ function drawings(files: ZipFiles, sheetFile: string, sheetName: string, geo: Sh
 
 export function readSheetExtras(files: ZipFiles, sheetIndex: number, sheetName: string, geo: SheetGeometry): SheetExtras {
   const sheetFile = sheetPaths(files)[sheetIndex];
-  if (!sheetFile) return { conditionalRules: [], charts: [], images: [] };
+  if (!sheetFile) return { conditionalRules: [], charts: [], images: [], validations: [] };
   const theme = parseTheme(text(files, 'xl/theme/theme1.xml'));
   const dxfs = dxfStyles(text(files, 'xl/styles.xml'), theme);
+  const sheetXml = text(files, sheetFile);
   return {
-    conditionalRules: conditionalRules(text(files, sheetFile), dxfs, theme),
+    conditionalRules: conditionalRules(sheetXml, dxfs, theme),
+    validations: listValidations(sheetXml),
     ...drawings(files, sheetFile, sheetName, geo),
   };
 }

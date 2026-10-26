@@ -14,6 +14,7 @@ export interface GridBodyRowsProps {
   rowIndices: number[];
   /** Regra por fórmula que se aplica a cada célula visível. */
   formulaRuleHits: Map<string, ConditionalFormatRule>;
+  onPickValue: (row: number, col: number, value: string) => void;
   isEditing: boolean;
   editValue: string;
   multiSelectedKeys: Set<string>;
@@ -36,7 +37,7 @@ export interface GridBodyRowsProps {
 
 export function GridBodyRows(props: GridBodyRowsProps) {
   const {
-    sheet, activeCell, selectedRange, renderedCols, rowIndices, formulaRuleHits, isEditing, editValue, multiSelectedKeys,
+    sheet, activeCell, selectedRange, renderedCols, rowIndices, formulaRuleHits, onPickValue, isEditing, editValue, multiSelectedKeys,
     formulaHighlights, columnValueMap, setEditValue, startEditing, commitEdit, setIsEditing, onSelectCell,
     onSelectRange, handleRowHeaderMouseDown, handleRowHeaderMouseEnter, handleRowResizeMouseDown,
     handleCellMouseDown, handleCellMouseEnter, handleFillMouseDown, handleFillDoubleClick,
@@ -144,6 +145,10 @@ export function GridBodyRows(props: GridBodyRowsProps) {
                       isMergeCovered={isCovered}
                       conditionalRules={sheet.conditionalRules}
                       formulaRule={formulaRuleHits.get(key)}
+                      listOptions={sheet.validations?.find(
+                        v => rowIdx >= v.range.startRow && rowIdx <= v.range.endRow && colIdx >= v.range.startCol && colIdx <= v.range.endCol
+                      )?.values}
+                      onPickValue={onPickValue}
                       allColumnValues={columnValueMap[colIdx] || []}
 
 

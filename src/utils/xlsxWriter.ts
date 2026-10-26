@@ -34,7 +34,7 @@ function numFmt(format: CellFormat | undefined): string | undefined {
     case 'percentage':
       return `0${digits}%`;
     case 'number':
-      return `#,##0${digits}`;
+      return `${format.grouping === false ? '0' : '#,##0'}${digits}`;
     case 'currency':
       return `"R$" #,##0${digits}`;
     case 'currency_usd':
@@ -274,6 +274,18 @@ export async function buildXlsx(sheets: Sheet[], options: XlsxWriteOptions = {})
 
     if (sheet.filterEnabled) ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: Math.max(1, maxR + 1), column: Math.max(1, maxC + 1) } };
     addConditionalRules(ws, sheet.conditionalRules ?? []);
+
+    for (const v of sheet.validations ?? []) {
+      const inline = `"${v.values.join(',').replace(/"/g, '""')}"`;
+      const formula = v.source ?? (inline.length <= 255 ? inline : undefined);
+      if (!formula) continue;
+      // `dataValidations.add` aceita o intervalo inteiro ("S2" ou "S2:S9").
+      (ws as unknown as { dataValidations: { add: (ref: string, rule: unknown) => void } }).dataValidations.add(refOf(v.range), {
+        type: 'list',
+        allowBlank: true,
+        formulae: [formula],
+      });
+    }
 
     const pictures: { src: string; x: number; y: number; width: number; height: number }[] = [];
     for (const image of sheet.images ?? []) pictures.push(image);

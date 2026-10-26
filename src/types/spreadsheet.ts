@@ -52,6 +52,8 @@ export interface CellFormat {
   valign?: 'top' | 'middle' | 'bottom';
   type?: CellFormatType;
   decimals?: number;
+  /** Separador de milhar nos números. `false` mostra 150792 em vez de 150.792 (formatos "0" e "0,00" do Excel). */
+  grouping?: boolean;
   border?: CellBorder;
   /** Quebra o texto em várias linhas em vez de cortá-lo (a altura da linha acompanha). */
   wrap?: boolean;
@@ -130,9 +132,20 @@ export interface Sheet {
   charts?: SheetChart[];
   /** Imagens coladas na planilha (vindas do Excel). Ficam sobre as células. */
   images?: SheetImage[];
+  /** Listas suspensas (validação de dados): a célula ganha uma seta para escolher entre as opções. */
+  validations?: DataValidation[];
   /** Colunas e linhas (base 0) ocultas, como no Excel: os dados continuam lá, só não aparecem. */
   hiddenCols?: number[];
   hiddenRows?: number[];
+}
+
+export interface DataValidation {
+  id: string;
+  range: CellRange;
+  /** Opções da lista, já lidas das células de origem. */
+  values: string[];
+  /** Origem no arquivo (ex.: "Operacoes!$A$2:$A$9"), mantida para exportar a lista ligada às células. */
+  source?: string;
 }
 
 export interface SheetImage {

@@ -35,6 +35,7 @@ function sample(): Sheet {
       { id: 'b', type: 'custom_formula', formula: '=$B2>10', anchor: { row: 1, col: 0 }, range: { startRow: 1, startCol: 0, endRow: 2, endCol: 1 }, style: { bgColor: '#c6efce' } },
     ],
     images: [{ id: 'i', src: PIXEL, x: 300, y: 80, width: 40, height: 20 }],
+    validations: [{ id: 'dv-1', range: { startRow: 1, startCol: 3, endRow: 1, endCol: 3 }, values: ['Exames NDI', 'Consultas NDI'] }],
   };
 }
 
@@ -57,6 +58,8 @@ describe('exportação .xlsx fiel', () => {
     const types = back.conditionalRules.map(r => r.type).sort();
     assert.deepEqual(types, ['custom_formula', 'highlight_greater']);
     assert.equal(back.conditionalRules.find(r => r.type === 'custom_formula')?.formula, '=$B2>10');
+    assert.deepEqual(back.validations?.[0].values, ['Exames NDI', 'Consultas NDI']);
+    assert.deepEqual([back.validations?.[0].range.startRow, back.validations?.[0].range.startCol], [1, 3]);
   });
 
   it('código com zero à esquerda continua texto e percentual vira fração', async () => {

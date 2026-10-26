@@ -287,6 +287,14 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     onUpdateSheet(recalculated);
   };
 
+  // Escolher uma opção da lista suspensa grava o valor na célula (número continua número).
+  const handlePickListValue = (row: number, col: number, value: string) => {
+    const key = cellPosToKey(row, col);
+    const asNumber = value.trim() !== '' && Number.isFinite(Number(value.replace(',', '.'))) ? Number(value.replace(',', '.')) : null;
+    const updatedData = { ...sheet.data, [key]: { raw: value, value: asNumber ?? value, format: sheet.data[key]?.format } };
+    onUpdateSheet(recalculateSheet({ ...sheet, data: updatedData }));
+  };
+
   // Excluir as linhas selecionadas por completo
   const handleDeleteSelectedRows = () => {
     const rStart = selectedRange.startRow;
@@ -904,6 +912,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
             renderedCols={renderedCols}
             rowIndices={windowRows}
             formulaRuleHits={formulaRuleHits}
+            onPickValue={handlePickListValue}
             isEditing={isEditing}
             editValue={editValue}
             multiSelectedKeys={multiSelectedKeys}

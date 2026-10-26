@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { CellData, CellPosition, CellRange, ConditionalFormatRule, MergedRegion } from '../../types/spreadsheet';
 import { formatCellValue, parseNumberSafely } from '../../engine/formulaParser';
 import { FormulaAutocomplete } from './FormulaAutocomplete';
@@ -34,6 +34,9 @@ interface GridCellProps {
   conditionalRules: ConditionalFormatRule[];
   /** Regra por fórmula já avaliada para esta célula (tem prioridade sobre as demais). */
   formulaRule?: ConditionalFormatRule;
+  /** Opções da lista suspensa (validação de dados) desta célula, se tiver. */
+  listOptions?: string[];
+  onPickValue?: (row: number, col: number, value: string) => void;
   allColumnValues?: any[];
   onMouseDown: (e: React.MouseEvent, row: number, col: number) => void;
   onMouseEnter: (e: React.MouseEvent, row: number, col: number) => void;
@@ -65,6 +68,8 @@ const GridCellComponent: React.FC<GridCellProps> = ({
   isMergeCovered,
   conditionalRules,
   formulaRule,
+  listOptions,
+  onPickValue,
   allColumnValues = [],
   onMouseDown,
   onMouseEnter,
@@ -75,6 +80,11 @@ const GridCellComponent: React.FC<GridCellProps> = ({
   onFillMouseDown,
   onFillDoubleClick,
 }) => {
+  const [listOpen, setListOpen] = useState(false);
+  useEffect(() => {
+    if (!isSelected || isEditing) setListOpen(false);
+  }, [isSelected, isEditing]);
+
   if (isMergeCovered) return null;
 
   const rawValue = cell?.raw ?? '';
@@ -291,6 +301,48 @@ const GridCellComponent: React.FC<GridCellProps> = ({
         />
       )}
 
+      {/* Lista suspensa (validação de dados): seta ao selecionar a célula, como no Excel */}
+      {listOptions && isSelected && !isEditing && (
+        <>
+          <button
+            type="button"
+            aria-label="Abrir lista de opções"
+            aria-expanded={listOpen}
+            onMouseDown={e => e.stopPropagation()}
+            onClick={e => {
+              e.stopPropagation();
+              setListOpen(open => !open);
+            }}
+            className="absolute right-0.5 top-1/2 z-30 flex size-5 -translate-y-1/2 items-center justify-center rounded-xs border border-slate-400 bg-white text-[10px] text-slate-700 shadow-2xs hover:bg-slate-100"
+          >
+            ▾
+          </button>
+          {listOpen && (
+            <ul
+              role="listbox"
+              onMouseDown={e => e.stopPropagation()}
+              className="absolute left-0 top-full z-50 max-h-60 min-w-full overflow-auto rounded-md border border-slate-300 bg-white py-1 text-left text-[13px] text-slate-900 shadow-lg"
+            >
+              {listOptions.map(option => (
+                <li key={option} role="option" aria-selected={String(cellVal) === option}>
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      setListOpen(false);
+                      onPickValue?.(row, col, option);
+                    }}
+                    className={`block w-full whitespace-nowrap px-3 py-1 text-left hover:bg-indigo-50 ${String(cellVal) === option ? 'bg-indigo-50 font-semibold' : ''}`}
+                  >
+                    {option}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+
       {/* Data Bar background fill */}
       {dataBarPercent > 0 && (
         <div
@@ -369,7 +421,8 @@ export const GridCell = React.memo(GridCellComponent, (prev, next) => {
     prev.cell?.value === next.cell?.value &&
     prev.cell?.format === next.cell?.format &&
     prev.conditionalRules === next.conditionalRules &&
-    prev.formulaRule === next.formulaRule
+    prev.formulaRule === next.formulaRule &&
+    prev.listOptions === next.listOptions
   );
 });
 

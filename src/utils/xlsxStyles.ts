@@ -282,7 +282,7 @@ export function readWorkbookStyles(files: ZipFiles): WorkbookStyles {
 }
 
 /** Formato numérico do Excel (ex.: `#,##0.00`, `0%`, `"R$" #,##0.00`) para o tipo de formato do sistema. */
-export function numberFormatOf(code: string | undefined): Pick<CellFormat, 'type' | 'decimals'> | undefined {
+export function numberFormatOf(code: string | undefined): Pick<CellFormat, 'type' | 'decimals' | 'grouping'> | undefined {
   if (!code || code === 'General' || code === '@') return undefined;
   const decimals = (/\.(0+)/.exec(code)?.[1] ?? '').length;
   let type: CellFormatType | undefined;
@@ -290,6 +290,8 @@ export function numberFormatOf(code: string | undefined): Pick<CellFormat, 'type
   else if (/R\$/.test(code)) type = 'currency';
   else if (/€/.test(code)) type = 'currency_eur';
   else if (/\$/.test(code)) type = 'currency_usd';
-  else if (code.includes(',') || decimals > 0) type = 'number';
-  return type ? { type, decimals } : undefined;
+  else if (code.includes(',') || decimals > 0 || /^0+$/.test(code)) type = 'number';
+  if (!type) return undefined;
+  // Sem vírgula no código (0, 0.00) o Excel não separa milhares: 150792, não 150.792.
+  return type === 'number' && !code.includes(',') ? { type, decimals, grouping: false } : { type, decimals };
 }

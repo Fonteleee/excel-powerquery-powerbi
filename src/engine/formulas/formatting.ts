@@ -116,12 +116,14 @@ export function formatCellValue(value: any, format?: CellFormat): string {
     if (type === 'percentage') {
       const pct = numVal > 1 && numVal <= 100 ? numVal : numVal * 100;
       return `${pct.toLocaleString('pt-BR', {
+        useGrouping: format?.grouping !== false,
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals,
       })}%`;
     }
     if (type === 'number') {
       return numVal.toLocaleString('pt-BR', {
+        useGrouping: format?.grouping !== false,
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals,
       });

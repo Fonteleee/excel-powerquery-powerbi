@@ -272,6 +272,52 @@ describe('importação de formatação condicional, gráficos, imagens e ocultos
   });
 });
 
+describe('lista suspensa, datas e números como no Excel brasileiro', () => {
+  const enc = (s: string) => ({ content: new TextEncoder().encode(s) });
+  const files = {
+    'xl/workbook.xml': enc('<workbook><sheets><sheet name="Painel" sheetId="1" r:id="rId1"/><sheet name="Listas" sheetId="2" r:id="rId2"/></sheets></workbook>'),
+    'xl/_rels/workbook.xml.rels': enc(
+      '<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Target="worksheets/sheet2.xml"/></Relationships>'
+    ),
+    'xl/worksheets/sheet1.xml': enc(
+      '<worksheet><sheetData/><dataValidations count="1"><dataValidation type="list" allowBlank="1" sqref="B1"><formula1>"Exames NDI,Consultas NDI"</formula1></dataValidation></dataValidations>' +
+        '<extLst><ext><x14:dataValidations><x14:dataValidation type="list" allowBlank="1"><x14:formula1><xm:f>Listas!$A$1:$A$3</xm:f></x14:formula1><xm:sqref>B2</xm:sqref></x14:dataValidation></x14:dataValidations></ext></extLst></worksheet>'
+    ),
+    'xl/worksheets/sheet2.xml': enc('<worksheet><sheetData/></worksheet>'),
+  };
+  const wb = XLSX.utils.book_new();
+  const painel = XLSX.utils.aoa_to_sheet([['Operação', 'x'], ['Operação 2', 'y'], [46296, 150792.33940000006]]);
+  (painel['A3'] as XLSX.CellObject).z = 'm/d/yy';
+  (painel['B3'] as XLSX.CellObject).z = '0';
+  painel['C1'] = { t: 'n', v: 0.004433, z: '[$-F400]h:mm:ss\\ AM/PM' };
+  painel['!ref'] = 'A1:C3';
+  XLSX.utils.book_append_sheet(wb, painel, 'Painel');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Alfa'], ['Beta'], ['Alfa']]), 'Listas');
+  (wb as unknown as { files: unknown }).files = files;
+  const [painelSheet] = workbookToSheets(wb).sheets;
+
+  it('lista com opções escritas e lista que aponta para outra aba', () => {
+    const [inline, linked] = painelSheet.validations ?? [];
+    assert.deepEqual(inline.values, ['Exames NDI', 'Consultas NDI']);
+    assert.deepEqual(linked.values, ['Alfa', 'Beta']);
+    assert.equal(linked.source, 'Listas!$A$1:$A$3');
+    assert.equal(linked.range.startRow, 1);
+  });
+
+  it('data do sistema sai no padrão brasileiro e hora longa sem AM/PM', () => {
+    assert.equal(painelSheet.data[cellPosToKey(2, 0)].value, '1/10/2026');
+    assert.equal(painelSheet.data[cellPosToKey(0, 2)].value, '00:06:23');
+  });
+
+  it('número sem separador de milhar e sem ruído de ponto flutuante', () => {
+    const cell = painelSheet.data[cellPosToKey(2, 1)];
+    assert.equal(cell.value, 150792.3394);
+    assert.equal(cell.format?.type, 'number');
+    assert.equal(cell.format?.grouping, false);
+    assert.equal(cell.format?.decimals, 0);
+  });
+});
+
 describe('textos longos', () => {
   const longo = 'Regra explícita sua (ou já aprovada no v4). Entra no mapeamento sem decisão sua, mas confira cada linha antes de usar o resultado final.';
   const sheet = autoFormatTabularData([['Status', 'VQs', 'Significado'], ['CONFIRMADO', 73, longo], ['SUGERIDO', 18, 'curto']], 'T');
