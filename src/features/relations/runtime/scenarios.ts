@@ -6,6 +6,7 @@
 
 import { CellData, Sheet } from '../../../types/spreadsheet';
 import { cellPosToKey, getCellValue, parseNumberSafely } from '../../../engine/formulaParser';
+import { dataColumns } from '../../../engine/sheetColumns';
 import { topologicalOrder } from '../model/dag';
 import { FilterOperator, FlowGraph, FlowNode, TransformParams } from '../model/graph';
 import { evaluateGraph, NodeResult, Row } from './evaluate';
@@ -101,14 +102,15 @@ function filterRows(sheet: Sheet, column: string, operator: FilterOperator, valu
   const col = headerColumn(sheet, column);
   if (col < 0) return sheet;
   const data: Record<string, CellData> = {};
-  for (let c = 0; c < sheet.colCount; c++) {
+  const columns = dataColumns(sheet);
+  for (const c of columns) {
     const head = sheet.data[cellPosToKey(0, c)];
     if (head) data[cellPosToKey(0, c)] = head;
   }
   let next = 1;
   for (let r = 1; r < sheet.rowCount; r++) {
     if (!matches(getCellValue(sheet, r, col), operator, value)) continue;
-    for (let c = 0; c < sheet.colCount; c++) {
+    for (const c of columns) {
       const cell = sheet.data[cellPosToKey(r, c)];
       if (cell) data[cellPosToKey(next, c)] = cell;
     }

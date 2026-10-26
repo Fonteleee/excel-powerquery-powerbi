@@ -4,6 +4,7 @@
 import { cellPosToKey, parseNumberSafely } from '../../../engine/formulaParser';
 import { getColumnHeaderName } from '../../../engine/relationFormulaEngine';
 import { Sheet } from '../../../types/spreadsheet';
+import { dataColumns } from '../../../engine/sheetColumns';
 import { FORBIDDEN_KEYS } from '../model/graph';
 import { CellKind } from './healthTypes';
 import { parseDateText } from './dates';
@@ -29,7 +30,8 @@ export function isFormulaCell(sheet: Sheet, row: number, col: number): boolean {
 /** Mesma regra do motor: entra a coluna com cabeçalho explícito ou com algum dado. */
 export function listColumns(sheet: Sheet): SheetColumn[] {
   const columns: SheetColumn[] = [];
-  for (let c = 0; c < sheet.colCount; c++) {
+  for (const c of dataColumns(sheet)) {
+    if (c >= sheet.colCount) continue;
     let keep = isFilled(cellValue(sheet, 0, c));
     for (let r = 1; r < sheet.rowCount && !keep; r++) keep = isFilled(cellValue(sheet, r, c));
     if (keep) columns.push({ index: c, header: getColumnHeaderName(sheet, c) });

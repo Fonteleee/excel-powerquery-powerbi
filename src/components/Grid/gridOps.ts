@@ -3,6 +3,7 @@
 
 import { CellData, Sheet } from '../../types/spreadsheet';
 import { cellPosToKey, getCellValue, parseNumberSafely } from '../../engine/formulaParser';
+import { dataColumns } from '../../engine/sheetColumns';
 
 /** Ordena as linhas de dados (a linha 0 é o cabeçalho) pela coluna indicada. */
 export function sortRowsData(sheet: Sheet, colIndex: number, direction: 'asc' | 'desc'): { [key: string]: CellData } {
@@ -34,7 +35,8 @@ export function sortRowsData(sheet: Sheet, colIndex: number, direction: 'asc' | 
   // Reconstruct sheet.data with rows in sorted order
   const updatedData: { [key: string]: CellData } = {};
   // Copy row 0 unchanged
-  for (let c = 0; c < sheet.colCount; c++) {
+  const columns = dataColumns(sheet);
+  for (const c of columns) {
     const k0 = cellPosToKey(0, c);
     if (sheet.data[k0]) updatedData[k0] = sheet.data[k0];
   }
@@ -42,7 +44,7 @@ export function sortRowsData(sheet: Sheet, colIndex: number, direction: 'asc' | 
   // Map sorted data rows
   dataRowIndices.forEach((origRowIdx, targetIdx) => {
     const newRowIdx = targetIdx + 1;
-    for (let c = 0; c < sheet.colCount; c++) {
+    for (const c of columns) {
       const srcKey = cellPosToKey(origRowIdx, c);
       const destKey = cellPosToKey(newRowIdx, c);
       if (sheet.data[srcKey]) {
@@ -57,10 +59,11 @@ export function sortRowsData(sheet: Sheet, colIndex: number, direction: 'asc' | 
 export function deleteRowsData(sheet: Sheet, start: number, end: number): { data: { [key: string]: CellData }; rowCount: number } {
   const countToDelete = end - start + 1;
   const data: { [key: string]: CellData } = {};
+  const columns = dataColumns(sheet);
   for (let r = 0; r < sheet.rowCount; r++) {
     if (r >= start && r <= end) continue;
     const targetR = r > end ? r - countToDelete : r;
-    for (let c = 0; c < sheet.colCount; c++) {
+    for (const c of columns) {
       const src = sheet.data[cellPosToKey(r, c)];
       if (src) data[cellPosToKey(targetR, c)] = src;
     }

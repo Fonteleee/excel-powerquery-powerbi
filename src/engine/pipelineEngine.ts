@@ -3,6 +3,7 @@ import { RelationNode, RelationEdge } from '../types/relations';
 import { cellPosToKey, colIndexToLabel, parseNumberSafely, recalculateSheet } from './formulaParser';
 import { createEmptySheet } from '../data/sampleDatasets';
 import { formatSheetNameForFormula, getColumnHeaderName } from './relationFormulaEngine';
+import { dataColumns } from './sheetColumns';
 
 export interface PipelineExecutionResult {
   updatedSheets: Sheet[];
@@ -20,10 +21,12 @@ export function extractSheetRecords(sheet: Sheet): { headers: string[]; rows: Re
   }
 
   const rows: Record<string, any>[] = [];
+  const columns = dataColumns(sheet); // colunas sem nenhuma célula não entram nas linhas (milhares, em planilhas largas)
   for (let r = 1; r < sheet.rowCount; r++) {
     let hasData = false;
     const rowObj: Record<string, any> = {};
-    for (let c = 0; c < sheet.colCount; c++) {
+    for (const c of columns) {
+      if (c >= sheet.colCount) continue;
       const val = sheet.data[cellPosToKey(r, c)]?.value;
       if (val !== null && val !== undefined && val !== '') hasData = true;
       rowObj[headers[c]] = val;

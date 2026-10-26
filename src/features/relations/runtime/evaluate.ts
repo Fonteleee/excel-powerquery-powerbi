@@ -75,6 +75,8 @@ function uniqueName(name: string, used: Set<string>): string {
   return `${name} (${n})`;
 }
 
+import { dataColumns } from '../../../engine/sheetColumns';
+
 const isFilled = (value: unknown): boolean => value !== null && value !== undefined && value !== '';
 
 /** Lê uma planilha como tabela (cabeçalho + linhas), ignorando colunas reservadas vazias. */
@@ -85,10 +87,11 @@ export function evaluateTable(sheet: Sheet | undefined, sheetId: string): NodeRe
   if (bad) return fail(`Cabeçalho proibido "${bad}" na planilha "${sheet.name}"`);
 
   // A planilha reserva colunas vazias (Coluna_D, Coluna_E...). Só entram as que têm cabeçalho ou dados.
-  const kept = extracted.headers.filter((header, col) => {
-    const explicit = isFilled(sheet.data[cellPosToKey(0, col)]?.value);
-    return explicit || extracted.rows.some(row => isFilled(row[header]));
-  });
+  // Só colunas que têm alguma célula podem ter cabeçalho ou dados (milhares de colunas vazias não são varridas).
+  const kept = dataColumns(sheet)
+    .filter(col => col < extracted.headers.length)
+    .filter(col => isFilled(sheet.data[cellPosToKey(0, col)]?.value) || extracted.rows.some(row => isFilled(row[extracted.headers[col]])))
+    .map(col => extracted.headers[col]);
   const rows = extracted.rows.map(row => {
     const slim: Row = {};
     for (const header of kept) slim[header] = row[header];

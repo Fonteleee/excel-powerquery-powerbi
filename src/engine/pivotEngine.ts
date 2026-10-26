@@ -1,6 +1,7 @@
 import { Sheet } from '../types/spreadsheet';
 import { PivotConfig, PivotResult, PivotCell, AggregationType } from '../types/analytics';
 import { getCellValue, parseNumberSafely } from './formulaParser';
+import { dataColumns } from './sheetColumns';
 
 export function computePivotTable(sheet: Sheet, config: PivotConfig): PivotResult {
   // 1. Extract headers (Row 0)
@@ -13,10 +14,12 @@ export function computePivotTable(sheet: Sheet, config: PivotConfig): PivotResul
 
   // 2. Extract data rows
   const dataRows: Record<number, any>[] = [];
+  const columns = dataColumns(sheet); // colunas sem nenhuma célula (milhares em planilhas largas) não são varridas
   for (let r = 1; r < sheet.rowCount; r++) {
     let hasAnyData = false;
     const rowObj: Record<number, any> = {};
-    for (let c = 0; c < sheet.colCount; c++) {
+    for (const c of columns) {
+      if (c >= sheet.colCount) continue;
       const val = getCellValue(sheet, r, c);
       if (val !== null && val !== undefined && val !== '') hasAnyData = true;
       rowObj[c] = val;
