@@ -330,10 +330,10 @@ const GridCellComponent: React.FC<GridCellProps> = ({
           )}
         </div>
       ) : (
-        <div className={`relative z-1 truncate w-full flex items-center ${
+        <div className={`relative z-1 w-full flex ${fmt?.wrap ? 'items-start whitespace-normal break-words py-0.5' : 'truncate items-center'} ${
           cellStyle.textAlign === 'center' ? 'justify-center' : cellStyle.textAlign === 'right' ? 'justify-end' : 'justify-start'
         }`}>
-          <span className={`truncate text-inherit ${typeof cellVal === 'number' || /^\d{2}:\d{2}/.test(String(cellVal)) ? 'font-mono tabular-nums font-semibold text-[13px]' : 'font-sans text-[13px]'}`}>
+          <span className={`${fmt?.wrap ? 'whitespace-normal break-words leading-snug' : 'truncate'} text-inherit ${typeof cellVal === 'number' || /^\d{2}:\d{2}/.test(String(cellVal)) ? 'font-mono tabular-nums font-semibold text-[13px]' : 'font-sans text-[13px]'}`}>
             {displayFormatted}
           </span>
         </div>

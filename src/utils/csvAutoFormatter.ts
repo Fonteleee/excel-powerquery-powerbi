@@ -232,6 +232,8 @@ export function autoFormatTabularData(
     });
   });
 
+  wrapLongText(data, colWidths, rowHeights, numRows, numCols, headerRow);
+
   return {
     id: `sheet-${Date.now()}`,
     name: sheetName,
@@ -299,4 +301,43 @@ export function parseCSVToAutoFormattedSheet(csvText: string, sheetName = 'Dados
   }
 
   return autoFormatTabularData(matrix, sheetName);
+}
+
+const CHAR_PX = 7.4;
+const LINE_PX = 17;
+const MAX_ROW_PX = 340;
+
+/**
+ * Textos longos não podem ser cortados: a célula quebra em várias linhas e a linha cresce o necessário
+ * (as colunas de texto também ganham largura, até um limite).
+ */
+function wrapLongText(
+  data: { [key: string]: CellData },
+  colWidths: { [col: number]: number },
+  rowHeights: { [row: number]: number },
+  numRows: number,
+  numCols: number,
+  headerRow: number
+): void {
+  for (let c = 0; c < numCols; c++) {
+    let longest = 0;
+    for (let r = 0; r < numRows; r++) {
+      const v = data[cellPosToKey(r, c)]?.value;
+      if (typeof v === 'string' && r !== headerRow && v.length > longest) longest = v.length;
+    }
+    if (longest > 60) colWidths[c] = Math.max(colWidths[c] ?? 0, Math.min(440, longest * CHAR_PX + 30));
+  }
+  for (let r = 0; r < numRows; r++) {
+    if (r === headerRow) continue;
+    let lines = 1;
+    for (let c = 0; c < numCols; c++) {
+      const cell = data[cellPosToKey(r, c)];
+      if (!cell || typeof cell.value !== 'string') continue;
+      const fit = Math.max(8, Math.floor(((colWidths[c] ?? 120) - 18) / CHAR_PX));
+      if (cell.value.length <= fit) continue;
+      cell.format = { ...cell.format, wrap: true };
+      lines = Math.max(lines, Math.ceil((cell.value.length * 1.08) / fit));
+    }
+    if (lines > 1) rowHeights[r] = Math.max(rowHeights[r] ?? 28, Math.min(MAX_ROW_PX, lines * LINE_PX + 10));
+  }
 }

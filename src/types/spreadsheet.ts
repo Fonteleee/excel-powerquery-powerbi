@@ -53,6 +53,8 @@ export interface CellFormat {
   type?: CellFormatType;
   decimals?: number;
   border?: CellBorder;
+  /** Quebra o texto em várias linhas em vez de cortá-lo (a altura da linha acompanha). */
+  wrap?: boolean;
   textCase?: 'uppercase' | 'lowercase' | 'capitalize' | 'none';
 }
 

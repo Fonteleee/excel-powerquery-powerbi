@@ -138,3 +138,20 @@ describe('importWorkbookFile', () => {
     assert.deepEqual([sheet.mergedRegions[0].startCol, sheet.mergedRegions[0].endCol], [0, 2]);
   });
 });
+
+describe('textos longos', () => {
+  const longo = 'Regra explícita sua (ou já aprovada no v4). Entra no mapeamento sem decisão sua, mas confira cada linha antes de usar o resultado final.';
+  const sheet = autoFormatTabularData([['Status', 'VQs', 'Significado'], ['CONFIRMADO', 73, longo], ['SUGERIDO', 18, 'curto']], 'T');
+
+  it('o texto longo quebra em linhas em vez de ser cortado, e a linha cresce', () => {
+    assert.equal(sheet.data[cellPosToKey(1, 2)].format?.wrap, true);
+    assert.equal(sheet.data[cellPosToKey(1, 2)].value, longo);
+    assert.ok((sheet.rowHeights[1] ?? 0) > 40);
+  });
+
+  it('texto curto e números não quebram', () => {
+    assert.equal(sheet.data[cellPosToKey(2, 2)].format?.wrap, undefined);
+    assert.equal(sheet.data[cellPosToKey(1, 1)].format?.wrap, undefined);
+    assert.equal(sheet.rowHeights[2], 28);
+  });
+});
