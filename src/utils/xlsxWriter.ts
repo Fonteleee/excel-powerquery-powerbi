@@ -277,7 +277,8 @@ export async function buildXlsx(sheets: Sheet[], options: XlsxWriteOptions = {})
 
     for (const v of sheet.validations ?? []) {
       const inline = `"${v.values.join(',').replace(/"/g, '""')}"`;
-      const formula = v.source ?? (inline.length <= 255 ? inline : undefined);
+      // Lista curta vai escrita na própria regra (a origem original pode estar numa coluna que não é exportada).
+      const formula = inline.length <= 255 ? inline : v.source;
       if (!formula) continue;
       // `dataValidations.add` aceita o intervalo inteiro ("S2" ou "S2:S9").
       (ws as unknown as { dataValidations: { add: (ref: string, rule: unknown) => void } }).dataValidations.add(refOf(v.range), {
