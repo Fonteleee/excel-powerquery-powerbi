@@ -1,3 +1,4 @@
+import { countDataRows } from './engine/sheetColumns';
 import { keepExcelResults } from './utils/workbookImport';
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { SplitLayout } from './components/Layout/SplitLayout';
@@ -759,7 +760,7 @@ export function App() {
               }}
               searchFilter={searchFilter}
               onSearchChange={setSearchFilter}
-              recordCount={activeSheet.rowCount}
+              recordCount={countDataRows(activeSheet)}
               onOpenFields={() => setIsFieldsModalOpen(true)}
               onOpenSort={() => setIsSortModalOpen(true)}
               onOpenFormat={() => setIsFormatModalOpen(true)}

@@ -14,3 +14,20 @@ export function dataColumns(sheet: Pick<Sheet, 'data'>): number[] {
   }
   return [...seen].sort((a, b) => a - b);
 }
+
+/** Linhas de dados (sem o cabeçalho) que têm algum conteúdo: é o que o usuário entende por "registros". */
+const rowCountCache = new WeakMap<object, number>();
+
+export function countDataRows(sheet: Pick<Sheet, 'data'>): number {
+  const cached = rowCountCache.get(sheet.data);
+  if (cached !== undefined) return cached;
+  const rows = new Set<number>();
+  for (const key in sheet.data) {
+    const cell = sheet.data[key];
+    if (cell.raw === '' && (cell.value === '' || cell.value === null || cell.value === undefined)) continue;
+    const row = Number(key.slice(1, key.indexOf('C', 1)));
+    if (row > 0) rows.add(row);
+  }
+  rowCountCache.set(sheet.data, rows.size);
+  return rows.size;
+}

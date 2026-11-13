@@ -22,7 +22,7 @@ export function profileSheetColumns(sheet: Sheet, headerRowIndex = 0): ColumnPro
   }
 
   const effectiveCols = Math.min(Math.max(maxColUsed + 1, 6), sheet.colCount);
-  const effectiveRows = Math.min(Math.max(maxRowUsed + 1, 10), sheet.rowCount);
+  const effectiveRows = Math.min(maxRowUsed + 1, sheet.rowCount);
 
   for (let c = 0; c < effectiveCols; c++) {
     const rawHeader = getCellValue(sheet, headerRowIndex, c);

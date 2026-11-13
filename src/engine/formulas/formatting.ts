@@ -136,6 +136,11 @@ export function formatCellValue(value: any, format?: CellFormat): string {
     }
   }
 
+  // Formato Geral: como o Excel, até 11 dígitos significativos e vírgula decimal (16,6666666667, não 16.666666666666668).
+  if (typeof value === 'number' && Number.isFinite(value) && !Number.isInteger(value) && type === 'general') {
+    return String(Number(value.toPrecision(11))).replace('.', ',');
+  }
+
   let text = String(value);
   if (format?.textCase === 'uppercase') text = text.toUpperCase();
   else if (format?.textCase === 'lowercase') text = text.toLowerCase();

@@ -1,3 +1,4 @@
+import { countDataRows } from '../../engine/sheetColumns';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Sparkles,
@@ -1006,7 +1007,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       </div>
 
       <GridStatusBar
-        recordCount={Math.max(sheet.rowCount - 1, 0)}
+        recordCount={countDataRows(sheet)}
         onAddRow={handleAddRow}
         onSummary={onToggleSummary || onOpenQuickAnalysis}
         onToggleCopilot={onToggleCopilot}
