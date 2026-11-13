@@ -594,7 +594,7 @@ export function App() {
     });
     const all = [...kept, ...renamed];
     setSheets(all.map(sheet => keepExcelResults(recalculateSheet(sheet, all))));
-    setActiveSheetId(renamed[0].id);
+    setActiveSheetId((renamed.find(sheet => !sheet.hidden) ?? renamed[0]).id);
   };
 
   const handleCreateNewSheetFromData = useCallback((name: string, columns: string[], rows: any[]) => {

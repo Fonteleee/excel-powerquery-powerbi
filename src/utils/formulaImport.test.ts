@@ -57,3 +57,20 @@ describe('importação de fórmulas', () => {
     assert.equal(novo.data['R0C5'].value, 260);
   });
 });
+
+describe('abas ocultas e Tabelas do Excel', () => {
+  it('marca a aba oculta e liga o filtro de quem tem Tabela', async () => {
+    const wb = new ExcelJS.Workbook();
+    wb.addWorksheet('Visivel').getCell('A1').value = 'a';
+    wb.addWorksheet('Oculta', { state: 'hidden' }).getCell('A1').value = 'b';
+    wb.addWorksheet('MuitoOculta', { state: 'veryHidden' }).getCell('A1').value = 'c';
+    wb.addWorksheet('ComTabela').addTable({ name: 'T', ref: 'A1', headerRow: true, columns: [{ name: 'X' }, { name: 'Y' }], rows: [[1, 2]] });
+    const { sheets } = importWorkbookFile(new Uint8Array((await wb.xlsx.writeBuffer()) as ArrayBuffer), 'o.xlsx');
+    const by = (n: string) => sheets.find(s => s.name === n)!;
+    assert.equal(by('Visivel').hidden, undefined);
+    assert.equal(by('Oculta').hidden, true);
+    assert.equal(by('MuitoOculta').hidden, true);
+    assert.equal(by('ComTabela').filterEnabled, true);
+    assert.equal(by('Visivel').filterEnabled, undefined);
+  });
+});

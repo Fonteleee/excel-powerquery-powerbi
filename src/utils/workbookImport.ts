@@ -6,7 +6,7 @@ import { CellFormat, MergedRegion, Sheet } from '../types/spreadsheet';
 import { cellPosToKey } from '../engine/formulaParser';
 import { filledCount, RawValue } from './tableLayout';
 import { argumentSeparatorsToSemicolon, RawValidation, readSheetExtras, splitSheetRef } from './xlsxExtras';
-import { numberFormatOf, readWorkbookStyles, WorkbookStyles, ZipFiles } from './xlsxStyles';
+import { numberFormatOf, readWorkbookStyles, sheetPaths, text as xmlText, WorkbookStyles, ZipFiles } from './xlsxStyles';
 
 const MAX_IMPORT_ROWS = 100_000;
 /** XFD, a última coluna do Excel: todas as colunas do arquivo entram (a grade só desenha as que estão na tela). */
@@ -104,6 +104,14 @@ export function importedFormula(cell: XLSX.CellObject): string | null {
   return `=${argumentSeparatorsToSemicolon(f.trim())}`;
 }
 
+/** A aba tem uma "Tabela" do Excel (Formatar como Tabela): ela traz filtros nos cabeçalhos. */
+function hasTable(files: ZipFiles, index: number): boolean {
+  const path = sheetPaths(files)[index];
+  if (!path) return false;
+  const rels = xmlText(files, path.replace(/([^/]+)$/, '_rels/$1.rels'));
+  return rels.includes('/relationships/table"');
+}
+
 /** Fórmula que devolve data/hora: o motor devolve o número de série, o formato diz como mostrá-lo. */
 function dateFormatOf(z: string): Pick<CellFormat, 'type' | 'align'> {
   const code = z.replace(/\[[^\]]*\]|"[^"]*"/g, '');
@@ -189,7 +197,8 @@ export function workbookToSheets(workbook: XLSX.WorkBook, fallbackName = 'Planil
       return;
     }
     const built = faithfulSheet(ws, filled, uniqueName(name || fallbackName, taken), styles, files, index, raws => pendingValidations.set(`sheet-${stamp}-${index + 1}`, { raws, sheetName: name }));
-    sheets.push({ ...built, id: `sheet-${stamp}-${index + 1}` });
+    const state = workbook.Workbook?.Sheets?.[index]?.Hidden ?? 0;
+    sheets.push({ ...built, id: `sheet-${stamp}-${index + 1}`, ...(state > 0 ? { hidden: true } : {}) });
   });
 
   // As listas suspensas só podem ser lidas depois de todas as abas existirem (a origem pode estar em outra aba).
@@ -322,7 +331,7 @@ function faithfulSheet(ws: XLSX.WorkSheet, filled: FilledCells, name: string, st
     ...(hiddenCols.length > 0 ? { hiddenCols } : {}),
     ...(hiddenRows.length > 0 ? { hiddenRows } : {}),
     ...(tabColor ? { tabColor } : {}),
-    ...(ws['!autofilter'] ? { filterEnabled: true } : {}),
+    ...(ws['!autofilter'] || hasTable(files, index) ? { filterEnabled: true } : {}),
   };
 }
 

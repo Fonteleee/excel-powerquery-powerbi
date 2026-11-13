@@ -128,6 +128,8 @@ export interface Sheet {
   mergedRegions: MergedRegion[];
   conditionalRules: ConditionalFormatRule[];
   tabColor?: string;
+  /** Aba oculta no Excel: continua existindo (as fórmulas a usam), só não aparece na lista. */
+  hidden?: boolean;
   filterEnabled?: boolean;
   filters?: { [col: number]: string[] };
   /** Gráficos desenhados em cima da planilha. Eles leem as células e se atualizam sozinhos. */

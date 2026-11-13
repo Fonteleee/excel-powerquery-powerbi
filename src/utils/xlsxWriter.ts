@@ -226,7 +226,10 @@ export async function buildXlsx(sheets: Sheet[], options: XlsxWriteOptions = {})
   for (const sheet of sheets) {
     const name = uniqueSheetName(sheet.name, taken);
     sheetNames[sheet.id] = name;
-    const ws = wb.addWorksheet(name, sheet.tabColor ? { properties: { tabColor: argb(sheet.tabColor) } } : undefined);
+    const ws = wb.addWorksheet(name, {
+      ...(sheet.tabColor ? { properties: { tabColor: argb(sheet.tabColor) } } : {}),
+      ...(sheet.hidden ? { state: 'hidden' as const } : {}),
+    });
 
     let maxR = 0;
     let maxC = 0;

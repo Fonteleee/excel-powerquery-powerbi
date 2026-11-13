@@ -40,13 +40,16 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
 
   if (!isOpen) {
     return null;
   }
 
+  // Abas ocultas no Excel ficam fora da lista (a menos que estejam abertas ou o usuário peça para vê-las).
+  const hiddenCount = sheets.filter(s => s.hidden && s.id !== activeSheetId).length;
   const filteredSheets = sheets.filter(s =>
-    (s.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+    (s.name || '').toLowerCase().includes(searchTerm.toLowerCase()) && (!s.hidden || showHidden || s.id === activeSheetId)
   );
 
   return (
@@ -198,6 +201,14 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
             </div>
           );
         })}
+        {hiddenCount > 0 && (
+          <button
+            onClick={() => setShowHidden(v => !v)}
+            className="w-full px-2.5 py-1.5 rounded-md text-[11px] font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-800 text-left cursor-pointer"
+          >
+            {showHidden ? 'Ocultar' : 'Mostrar'} {hiddenCount} {hiddenCount === 1 ? 'tabela oculta' : 'tabelas ocultas'}
+          </button>
+        )}
       </div>
     </aside>
   );
