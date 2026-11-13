@@ -36,6 +36,9 @@ interface GridCellProps {
   formulaRule?: ConditionalFormatRule;
   /** Opções da lista suspensa (validação de dados) desta célula, se tiver. */
   listOptions?: string[];
+  /** Congelamento: posição (px) em que a célula fica fixa ao rolar. */
+  stickyTop?: number;
+  stickyLeft?: number;
   onPickValue?: (row: number, col: number, value: string) => void;
   allColumnValues?: any[];
   onMouseDown: (e: React.MouseEvent, row: number, col: number) => void;
@@ -69,6 +72,8 @@ const GridCellComponent: React.FC<GridCellProps> = ({
   conditionalRules,
   formulaRule,
   listOptions,
+  stickyTop,
+  stickyLeft,
   onPickValue,
   allColumnValues = [],
   onMouseDown,
@@ -253,6 +258,9 @@ const GridCellComponent: React.FC<GridCellProps> = ({
   const mergedStyle: React.CSSProperties = {
     ...cellStyle,
     ...rangeBorders,
+    ...(stickyTop !== undefined || stickyLeft !== undefined
+      ? { position: 'sticky', top: stickyTop, left: stickyLeft, zIndex: stickyTop !== undefined && stickyLeft !== undefined ? 8 : stickyLeft !== undefined ? 7 : 6 }
+      : {}),
   };
 
   // Compute unified selection class
@@ -422,7 +430,9 @@ export const GridCell = React.memo(GridCellComponent, (prev, next) => {
     prev.cell?.format === next.cell?.format &&
     prev.conditionalRules === next.conditionalRules &&
     prev.formulaRule === next.formulaRule &&
-    prev.listOptions === next.listOptions
+    prev.listOptions === next.listOptions &&
+    prev.stickyTop === next.stickyTop &&
+    prev.stickyLeft === next.stickyLeft
   );
 });
 

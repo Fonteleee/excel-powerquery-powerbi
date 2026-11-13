@@ -250,20 +250,27 @@ export async function buildXlsx(sheets: Sheet[], options: XlsxWriteOptions = {})
       maxC = Math.max(maxC, c);
     }
 
-    const lastCol = Math.max(maxC, ...(sheet.hiddenCols ?? []));
+    const lastCol = Math.max(maxC, ...(sheet.hiddenCols ?? []), ...Object.keys(sheet.colLevels ?? {}).map(Number));
     for (let c = 0; c <= lastCol; c++) {
       const col = ws.getColumn(c + 1);
       const px = sheet.colWidths[c];
       if (px) col.width = Math.max(2, Math.round(((px - 5) / 7) * 100) / 100);
       if (sheet.hiddenCols?.includes(c)) col.hidden = true;
+      if (sheet.colLevels?.[c]) col.outlineLevel = sheet.colLevels[c];
     }
-    const lastRow = Math.max(maxR, ...(sheet.hiddenRows ?? []));
+    const lastRow = Math.max(maxR, ...(sheet.hiddenRows ?? []), ...Object.keys(sheet.rowLevels ?? {}).map(Number));
     for (let r = 0; r <= lastRow; r++) {
       const px = sheet.rowHeights[r];
       const row = ws.getRow(r + 1);
       if (px) row.height = Math.round(px * 0.75 * 100) / 100;
       if (sheet.hiddenRows?.includes(r)) row.hidden = true;
+      if (sheet.rowLevels?.[r]) row.outlineLevel = sheet.rowLevels[r];
     }
+
+    if (sheet.frozenRows || sheet.frozenCols) {
+      ws.views = [{ state: 'frozen', xSplit: sheet.frozenCols ?? 0, ySplit: sheet.frozenRows ?? 0 }];
+    }
+    if (sheet.outlineSummaryAbove) ws.properties.outlineProperties = { summaryBelow: false, summaryRight: true };
 
     for (const m of sheet.mergedRegions ?? []) {
       if (m.endRow <= maxR || m.endCol <= maxC) {

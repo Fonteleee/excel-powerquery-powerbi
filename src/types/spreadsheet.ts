@@ -141,6 +141,14 @@ export interface Sheet {
   /** Colunas e linhas (base 0) ocultas, como no Excel: os dados continuam lá, só não aparecem. */
   hiddenCols?: number[];
   hiddenRows?: number[];
+  /** Linhas e colunas congeladas (ficam à vista ao rolar), contadas a partir do canto superior esquerdo. */
+  frozenRows?: number;
+  frozenCols?: number;
+  /** Agrupamento (estrutura de tópicos do Excel): nível de cada linha/coluna agrupada. Recolher = ocultar. */
+  rowLevels?: { [row: number]: number };
+  colLevels?: { [col: number]: number };
+  /** O botão +/− do grupo fica na linha/coluna ANTES do grupo (padrão do Excel é depois). */
+  outlineSummaryAbove?: boolean;
 }
 
 export interface DataValidation {

@@ -22,14 +22,17 @@ export interface GridContextMenuProps {
   onOpenQuickAnalysis: () => void;
   onOpenTextToColumns: () => void;
   onOpenConditionalModal: () => void;
+  onUpdateSheet: (sheet: Sheet) => void;
 }
 
 export function GridContextMenu(props: GridContextMenuProps) {
   const {
     contextMenu, sheet, activeCell, onClose, handleCopySelection, handlePasteSelection, handleApplyFlashFill,
     handleDeleteSelectedRows, clearSelectedCells, onOpenFormatModal, onOpenQuickAnalysis, onOpenTextToColumns,
-    onOpenConditionalModal,
+    onOpenConditionalModal, onUpdateSheet,
   } = props;
+  const frozenNow = (sheet.frozenRows ?? 0) > 0 || (sheet.frozenCols ?? 0) > 0;
+  const freeze = (rows: number, cols: number) => onUpdateSheet({ ...sheet, frozenRows: rows || undefined, frozenCols: cols || undefined });
       const menuWidth = 260;
       const menuHeight = 440;
       const winW = typeof window !== 'undefined' ? window.innerWidth : 1200;
@@ -145,6 +148,37 @@ export function GridContextMenu(props: GridContextMenuProps) {
             </span>
             <kbd className="text-[10px] text-slate-400 font-mono">Ctrl+S</kbd>
           </button>
+
+          <div className="my-1 border-t border-slate-100" />
+          <button
+            onClick={() => freeze(activeCell.row, activeCell.col)}
+            disabled={activeCell.row === 0 && activeCell.col === 0}
+            title="Mantém à vista as linhas acima e as colunas à esquerda da célula selecionada"
+            className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-left cursor-pointer font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Congelar até a célula selecionada
+          </button>
+          <button
+            onClick={() => freeze(1, sheet.frozenCols ?? 0)}
+            className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-left cursor-pointer font-medium"
+          >
+            Congelar a primeira linha
+          </button>
+          <button
+            onClick={() => freeze(sheet.frozenRows ?? 0, 1)}
+            className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-left cursor-pointer font-medium"
+          >
+            Congelar a primeira coluna
+          </button>
+          {frozenNow && (
+            <button
+              onClick={() => freeze(0, 0)}
+              className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-left cursor-pointer font-medium"
+            >
+              Descongelar painéis
+            </button>
+          )}
+          <div className="my-1 border-t border-slate-100" />
 
           <button
             onClick={handleDeleteSelectedRows}

@@ -303,6 +303,14 @@ function faithfulSheet(ws: XLSX.WorkSheet, filled: FilledCells, name: string, st
   const hiddenCols = (ws['!cols'] ?? []).flatMap((col, c) => (col?.hidden && c < colCount ? [c] : []));
   const hiddenRows = (ws['!rows'] ?? []).flatMap((row, r) => (row?.hidden && r > 0 && r < rowCount ? [r] : []));
   const extras = readSheetExtras(files, index, name, { colWidths, rowHeights, hiddenCols, hiddenRows });
+  const rowLevels: Record<number, number> = {};
+  (ws['!rows'] ?? []).forEach((row, r) => {
+    if (row?.level && r < rowCount) rowLevels[r] = row.level;
+  });
+  const colLevels: Record<number, number> = {};
+  (ws['!cols'] ?? []).forEach((col, c) => {
+    if (col?.level && c < colCount) colLevels[c] = col.level;
+  });
 
   if (extras.validations.length > 0) onValidations(extras.validations);
   const tabColor = styles.tabColor(index);
@@ -320,6 +328,11 @@ function faithfulSheet(ws: XLSX.WorkSheet, filled: FilledCells, name: string, st
     ...(extras.images.length > 0 ? { images: extras.images } : {}),
     ...(hiddenCols.length > 0 ? { hiddenCols } : {}),
     ...(hiddenRows.length > 0 ? { hiddenRows } : {}),
+    ...(extras.freeze.rows > 0 ? { frozenRows: Math.min(extras.freeze.rows, 20) } : {}),
+    ...(extras.freeze.cols > 0 ? { frozenCols: Math.min(extras.freeze.cols, 20) } : {}),
+    ...(Object.keys(rowLevels).length > 0 ? { rowLevels } : {}),
+    ...(Object.keys(colLevels).length > 0 ? { colLevels } : {}),
+    ...(extras.summaryAbove ? { outlineSummaryAbove: true } : {}),
     ...(tabColor ? { tabColor } : {}),
     ...(ws['!autofilter'] || hasTable(files, index) ? { filterEnabled: true } : {}),
   };

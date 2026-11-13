@@ -31,6 +31,20 @@ export interface SheetExtras {
   charts: SheetChart[];
   images: SheetImage[];
   validations: RawValidation[];
+  /** Linhas/colunas congeladas e posição do botão de agrupamento. */
+  freeze: { rows: number; cols: number };
+  summaryAbove: boolean;
+}
+
+/** Painéis congelados (`<pane state="frozen">`) e onde fica o botão +/− dos grupos (`summaryBelow="0"` = acima). */
+export function readViewOptions(sheetXml: string): { freeze: { rows: number; cols: number }; summaryAbove: boolean } {
+  const pane = /<pane\b([^>]*?)\/?>/.exec(sheetXml);
+  const frozen = pane && /frozen/.test(attr(pane[1], 'state') ?? '');
+  const num = (v: string | undefined): number => Math.max(0, Math.floor(Number(v) || 0));
+  return {
+    freeze: frozen && pane ? { rows: num(attr(pane[1], 'ySplit')), cols: num(attr(pane[1], 'xSplit')) } : { rows: 0, cols: 0 },
+    summaryAbove: /<outlinePr\b[^>]*summaryBelow="(0|false)"/.test(sheetXml),
+  };
 }
 
 /** Listas suspensas da aba: as comuns (`dataValidation`) e as que apontam para outra aba (extensão `x14`). */
@@ -346,13 +360,14 @@ function drawings(files: ZipFiles, sheetFile: string, sheetName: string, geo: Sh
 
 export function readSheetExtras(files: ZipFiles, sheetIndex: number, sheetName: string, geo: SheetGeometry): SheetExtras {
   const sheetFile = sheetPaths(files)[sheetIndex];
-  if (!sheetFile) return { conditionalRules: [], charts: [], images: [], validations: [] };
+  if (!sheetFile) return { conditionalRules: [], charts: [], images: [], validations: [], freeze: { rows: 0, cols: 0 }, summaryAbove: false };
   const theme = parseTheme(text(files, 'xl/theme/theme1.xml'));
   const dxfs = dxfStyles(text(files, 'xl/styles.xml'), theme);
   const sheetXml = text(files, sheetFile);
   return {
     conditionalRules: conditionalRules(sheetXml, dxfs, theme),
     validations: listValidations(sheetXml),
+    ...(({ freeze, summaryAbove }) => ({ freeze, summaryAbove }))(readViewOptions(sheetXml)),
     ...drawings(files, sheetFile, sheetName, geo),
   };
 }

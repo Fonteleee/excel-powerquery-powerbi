@@ -6,12 +6,18 @@ import { CellPosition, CellRange, ConditionalFormatRule, Sheet } from '../../typ
 import { cellPosToKey } from '../../engine/formulaParser';
 import { FormulaCellHighlightInfo, GridCell } from './GridCell';
 import { ColWindow } from './colWindow';
+import { FrozenLayout } from './freeze';
 
 export interface GridBodyRowsProps {
   sheet: Sheet;
   activeCell: CellPosition;
   selectedRange: CellRange;
   colWindow: ColWindow;
+  /** Congelamento: colunas fixas fora da janela, posições de linhas/colunas fixas. */
+  frozen: FrozenLayout;
+  /** Botões +/− de grupo de linhas: linha -> recolhido? */
+  rowToggles: Map<number, boolean>;
+  onToggleRowGroup: (row: number) => void;
   rowIndices: number[];
   /** Regra por fórmula que se aplica a cada célula visível. */
   formulaRuleHits: Map<string, ConditionalFormatRule>;
@@ -38,11 +44,14 @@ export interface GridBodyRowsProps {
 
 export function GridBodyRows(props: GridBodyRowsProps) {
   const {
-    sheet, activeCell, selectedRange, colWindow, rowIndices, formulaRuleHits, onPickValue, isEditing, editValue, multiSelectedKeys,
+    sheet, activeCell, selectedRange, colWindow, frozen, rowToggles, onToggleRowGroup, rowIndices, formulaRuleHits, onPickValue, isEditing, editValue, multiSelectedKeys,
     formulaHighlights, columnValueMap, setEditValue, startEditing, commitEdit, setIsEditing, onSelectCell,
     onSelectRange, handleRowHeaderMouseDown, handleRowHeaderMouseEnter, handleRowResizeMouseDown,
     handleCellMouseDown, handleCellMouseEnter, handleFillMouseDown, handleFillDoubleClick,
   } = props;
+
+  const windowCols = Array.from({ length: colWindow.end - colWindow.start + 1 }, (_, i) => colWindow.start + i);
+
   return (
     <>
           {rowIndices.map(rowIdx => {
@@ -50,11 +59,129 @@ export function GridBodyRows(props: GridBodyRowsProps) {
               rowIdx >= selectedRange.startRow && rowIdx <= selectedRange.endRow;
             const isRowActive = rowIdx === activeCell.row;
             const height = sheet.rowHeights[rowIdx] || 26;
+            const stickyTop = frozen.rowTop(rowIdx);
+            const collapsed = rowToggles.get(rowIdx);
+
+            const renderCell = (colIdx: number) => {
+              if (sheet.hiddenCols?.includes(colIdx)) return null;
+
+              const key = cellPosToKey(rowIdx, colIdx);
+              const cell = sheet.data[key];
+
+              const isCellSelected =
+                activeCell.row === rowIdx && activeCell.col === colIdx;
+              const isCellInRange =
+                rowIdx >= selectedRange.startRow &&
+                rowIdx <= selectedRange.endRow &&
+                colIdx >= selectedRange.startCol &&
+                colIdx <= selectedRange.endCol;
+
+              const isCellEditing = isEditing && isCellSelected;
+
+              const merged = sheet.mergedRegions.find(
+                m => m.startRow === rowIdx && m.startCol === colIdx
+              );
+              const isCovered = sheet.mergedRegions.some(
+                m =>
+                  rowIdx >= m.startRow &&
+                  rowIdx <= m.endRow &&
+                  colIdx >= m.startCol &&
+                  colIdx <= m.endCol &&
+                  !(m.startRow === rowIdx && m.startCol === colIdx)
+              );
+
+              const isSingleCell =
+                selectedRange.startRow === selectedRange.endRow &&
+                selectedRange.startCol === selectedRange.endCol;
+
+              // Check if this cell is part of any formula argument highlighted reference (Excel Arg Highlighting)
+              let cellFormulaHighlight: FormulaCellHighlightInfo | undefined = undefined;
+              if (formulaHighlights.length > 0) {
+                for (const fh of formulaHighlights) {
+                  const { startRow, startCol, endRow, endCol } = fh.range;
+                  if (rowIdx >= startRow && rowIdx <= endRow && colIdx >= startCol && colIdx <= endCol) {
+                    cellFormulaHighlight = {
+                      color: fh.color,
+                      bgColor: fh.bgColor,
+                      isTop: rowIdx === startRow,
+                      isBottom: rowIdx === endRow,
+                      isLeft: colIdx === startCol,
+                      isRight: colIdx === endCol,
+                    };
+                    break;
+                  }
+                }
+              }
+
+              return (
+                <GridCell
+                  key={colIdx}
+                  row={rowIdx}
+                  col={colIdx}
+                  cell={cell}
+                  isSelected={isCellSelected}
+                  isInRange={isCellInRange}
+                  isMultiSelected={multiSelectedKeys.has(key)}
+                  isSingleCellSelection={isSingleCell}
+                  isRangeTop={isCellInRange && rowIdx === selectedRange.startRow}
+                  isRangeBottom={isCellInRange && rowIdx === selectedRange.endRow}
+                  isRangeLeft={isCellInRange && colIdx === selectedRange.startCol}
+                  isRangeRight={isCellInRange && colIdx === selectedRange.endCol}
+                  isRangeBottomRight={isCellInRange && rowIdx === selectedRange.endRow && colIdx === selectedRange.endCol}
+                  formulaHighlight={cellFormulaHighlight}
+                  isEditing={isCellEditing}
+                  editValue={editValue}
+                  mergedRegion={merged}
+                  isMergeCovered={isCovered}
+                  conditionalRules={sheet.conditionalRules}
+                  formulaRule={formulaRuleHits.get(key)}
+                  listOptions={sheet.validations?.find(
+                    v => rowIdx >= v.range.startRow && rowIdx <= v.range.endRow && colIdx >= v.range.startCol && colIdx <= v.range.endCol
+                  )?.values}
+                  onPickValue={onPickValue}
+                  stickyTop={stickyTop}
+                  stickyLeft={frozen.colLeft(colIdx)}
+                  allColumnValues={columnValueMap[colIdx] || []}
+
+                  onMouseDown={handleCellMouseDown}
+                  onMouseEnter={handleCellMouseEnter}
+                  onDoubleClick={() => startEditing()}
+                  onEditChange={setEditValue}
+                  onEditKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      commitEdit();
+                      onSelectCell({ row: rowIdx + 1, col: colIdx });
+                      onSelectRange({
+                        startRow: rowIdx + 1,
+                        startCol: colIdx,
+                        endRow: rowIdx + 1,
+                        endCol: colIdx,
+                      });
+                    } else if (e.key === 'Escape') {
+                      setIsEditing(false);
+                    } else if (e.key === 'Tab') {
+                      commitEdit();
+                      onSelectCell({ row: rowIdx, col: colIdx + 1 });
+                      onSelectRange({
+                        startRow: rowIdx,
+                        startCol: colIdx + 1,
+                        endRow: rowIdx,
+                        endCol: colIdx + 1,
+                      });
+                    }
+                  }}
+                  onEditBlur={commitEdit}
+                  onFillMouseDown={handleFillMouseDown}
+                  onFillDoubleClick={handleFillDoubleClick}
+                />
+              );
+            };
 
             return (
-              <tr key={rowIdx} style={{ height: `${height}px` }}>
+              <tr key={rowIdx} data-frozen-row={stickyTop !== undefined ? rowIdx : undefined} style={{ height: `${height}px` }}>
                 {/* Sticky Row Number (Left column) - NocoDB # Column */}
                 <th
+                  style={stickyTop !== undefined ? { top: stickyTop, zIndex: 12 } : undefined}
                   className={`sticky left-0 z-10 w-10 border-r border-b border-[#e2e8f0] text-xs font-mono select-none transition-colors cursor-pointer text-center ${
                     isRowSelected || isRowActive
                       ? 'bg-indigo-50 text-indigo-950 font-bold border-r-2 border-r-indigo-600'
@@ -64,6 +191,22 @@ export function GridBodyRows(props: GridBodyRowsProps) {
                   onMouseEnter={e => handleRowHeaderMouseEnter(e, rowIdx)}
                 >
                   <div className="relative h-full flex items-center justify-center font-mono text-xs font-bold">
+                    {collapsed !== undefined && (
+                      <button
+                        type="button"
+                        title={collapsed ? 'Expandir grupo' : 'Recolher grupo'}
+                        aria-label={collapsed ? 'Expandir grupo de linhas' : 'Recolher grupo de linhas'}
+                        aria-expanded={!collapsed}
+                        onMouseDown={e => e.stopPropagation()}
+                        onClick={e => {
+                          e.stopPropagation();
+                          onToggleRowGroup(rowIdx);
+                        }}
+                        className="absolute left-0.5 top-1/2 -translate-y-1/2 size-3.5 rounded-xs border border-slate-400 bg-white text-[10px] leading-none text-slate-700 hover:bg-indigo-50 cursor-pointer"
+                      >
+                        {collapsed ? '+' : '−'}
+                      </button>
+                    )}
                     {rowIdx + 1}
                     <div
                       onMouseDown={e => handleRowResizeMouseDown(e, rowIdx)}
@@ -72,122 +215,10 @@ export function GridBodyRows(props: GridBodyRowsProps) {
                   </div>
                 </th>
 
-                {/* Cells in row */}
+                {/* Colunas congeladas que ficaram fora da janela continuam à esquerda */}
+                {frozen.extraCols.map(renderCell)}
                 {colWindow.leftPx > 0 && <td aria-hidden style={{ width: colWindow.leftPx, minWidth: colWindow.leftPx, maxWidth: colWindow.leftPx }} className="p-0 border-0" />}
-                {Array.from({ length: colWindow.end - colWindow.start + 1 }).map((_, i) => {
-                  const colIdx = colWindow.start + i;
-                  if (sheet.hiddenCols?.includes(colIdx)) return null;
-
-                  const key = cellPosToKey(rowIdx, colIdx);
-                  const cell = sheet.data[key];
-
-                  const isCellSelected =
-                    activeCell.row === rowIdx && activeCell.col === colIdx;
-                  const isCellInRange =
-                    rowIdx >= selectedRange.startRow &&
-                    rowIdx <= selectedRange.endRow &&
-                    colIdx >= selectedRange.startCol &&
-                    colIdx <= selectedRange.endCol;
-
-                  const isCellEditing = isEditing && isCellSelected;
-
-                  const merged = sheet.mergedRegions.find(
-                    m => m.startRow === rowIdx && m.startCol === colIdx
-                  );
-                  const isCovered = sheet.mergedRegions.some(
-                    m =>
-                      rowIdx >= m.startRow &&
-                      rowIdx <= m.endRow &&
-                      colIdx >= m.startCol &&
-                      colIdx <= m.endCol &&
-                      !(m.startRow === rowIdx && m.startCol === colIdx)
-                  );
-
-                  const isSingleCell =
-                    selectedRange.startRow === selectedRange.endRow &&
-                    selectedRange.startCol === selectedRange.endCol;
-
-                  // Check if this cell is part of any formula argument highlighted reference (Excel Arg Highlighting)
-                  let cellFormulaHighlight: FormulaCellHighlightInfo | undefined = undefined;
-                  if (formulaHighlights.length > 0) {
-                    for (const fh of formulaHighlights) {
-                      const { startRow, startCol, endRow, endCol } = fh.range;
-                      if (rowIdx >= startRow && rowIdx <= endRow && colIdx >= startCol && colIdx <= endCol) {
-                        cellFormulaHighlight = {
-                          color: fh.color,
-                          bgColor: fh.bgColor,
-                          isTop: rowIdx === startRow,
-                          isBottom: rowIdx === endRow,
-                          isLeft: colIdx === startCol,
-                          isRight: colIdx === endCol,
-                        };
-                        break;
-                      }
-                    }
-                  }
-
-                  return (
-                    <GridCell
-                      key={colIdx}
-                      row={rowIdx}
-                      col={colIdx}
-                      cell={cell}
-                      isSelected={isCellSelected}
-                      isInRange={isCellInRange}
-                      isMultiSelected={multiSelectedKeys.has(key)}
-                      isSingleCellSelection={isSingleCell}
-                      isRangeTop={isCellInRange && rowIdx === selectedRange.startRow}
-                      isRangeBottom={isCellInRange && rowIdx === selectedRange.endRow}
-                      isRangeLeft={isCellInRange && colIdx === selectedRange.startCol}
-                      isRangeRight={isCellInRange && colIdx === selectedRange.endCol}
-                      isRangeBottomRight={isCellInRange && rowIdx === selectedRange.endRow && colIdx === selectedRange.endCol}
-                      formulaHighlight={cellFormulaHighlight}
-                      isEditing={isCellEditing}
-                      editValue={editValue}
-                      mergedRegion={merged}
-                      isMergeCovered={isCovered}
-                      conditionalRules={sheet.conditionalRules}
-                      formulaRule={formulaRuleHits.get(key)}
-                      listOptions={sheet.validations?.find(
-                        v => rowIdx >= v.range.startRow && rowIdx <= v.range.endRow && colIdx >= v.range.startCol && colIdx <= v.range.endCol
-                      )?.values}
-                      onPickValue={onPickValue}
-                      allColumnValues={columnValueMap[colIdx] || []}
-
-
-                      onMouseDown={handleCellMouseDown}
-                      onMouseEnter={handleCellMouseEnter}
-                      onDoubleClick={() => startEditing()}
-                      onEditChange={setEditValue}
-                      onEditKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          commitEdit();
-                          onSelectCell({ row: rowIdx + 1, col: colIdx });
-                          onSelectRange({
-                            startRow: rowIdx + 1,
-                            startCol: colIdx,
-                            endRow: rowIdx + 1,
-                            endCol: colIdx,
-                          });
-                        } else if (e.key === 'Escape') {
-                          setIsEditing(false);
-                        } else if (e.key === 'Tab') {
-                          commitEdit();
-                          onSelectCell({ row: rowIdx, col: colIdx + 1 });
-                          onSelectRange({
-                            startRow: rowIdx,
-                            startCol: colIdx + 1,
-                            endRow: rowIdx,
-                            endCol: colIdx + 1,
-                          });
-                        }
-                      }}
-                      onEditBlur={commitEdit}
-                      onFillMouseDown={handleFillMouseDown}
-                      onFillDoubleClick={handleFillDoubleClick}
-                    />
-                  );
-                })}
+                {windowCols.map(renderCell)}
                 {colWindow.rightPx > 0 && <td aria-hidden style={{ width: colWindow.rightPx, minWidth: colWindow.rightPx, maxWidth: colWindow.rightPx }} className="p-0 border-0" />}
               </tr>
             );

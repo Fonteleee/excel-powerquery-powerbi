@@ -8,12 +8,17 @@ import { cellPosToKey, colIndexToLabel } from '../../engine/formulaParser';
 import { ColumnFilterDropdown } from './ColumnFilterDropdown';
 import { getNocoColumnIcon } from './columnMeta';
 import { ColWindow } from './colWindow';
+import { FrozenLayout } from './freeze';
 
 export interface GridHeaderRowProps {
   sheet: Sheet;
   activeCell: CellPosition;
   selectedRange: CellRange;
   colWindow: ColWindow;
+  frozen: FrozenLayout;
+  /** Botões +/− de grupo de colunas: coluna -> recolhido? */
+  colToggles: Map<number, boolean>;
+  onToggleColGroup: (col: number) => void;
   openFilterCol: number | null;
   setOpenFilterCol: (col: number | null) => void;
   onSelectAll: () => void;
@@ -27,26 +32,13 @@ export interface GridHeaderRowProps {
 
 export function GridHeaderRow(props: GridHeaderRowProps) {
   const {
-    sheet, activeCell, selectedRange, colWindow, openFilterCol, setOpenFilterCol, onSelectAll,
+    sheet, activeCell, selectedRange, colWindow, frozen, colToggles, onToggleColGroup, openFilterCol, setOpenFilterCol, onSelectAll,
     handleColHeaderMouseDown, handleColHeaderMouseEnter, handleColResizeMouseDown, handleColAutoFit,
     handleApplyColumnFilter, handleSortColumn,
   } = props;
-  return (
-    <thead className="sticky top-0 z-20 bg-[#f8fafc]">
-          <tr>
-            {/* Top-left corner origin cell (#) */}
-            <th
-              title="Selecionar Toda a Tabela (Ctrl+A)"
-              onClick={onSelectAll}
-              className="sticky left-0 z-30 w-10 h-8 bg-[#f8fafc] border-r border-b border-[#e2e8f0] select-none cursor-pointer hover:bg-slate-100 transition-colors text-center text-slate-700 font-mono text-xs font-bold"
-            >
-              #
-            </th>
-
-            {colWindow.leftPx > 0 && <th aria-hidden style={{ width: colWindow.leftPx, minWidth: colWindow.leftPx, maxWidth: colWindow.leftPx }} className="p-0 border-0" />}
-            {Array.from({ length: colWindow.end - colWindow.start + 1 }).map((_, i) => {
-              const colIdx = colWindow.start + i;
-              if (sheet.hiddenCols?.includes(colIdx)) return null;
+  const windowCols = Array.from({ length: colWindow.end - colWindow.start + 1 }, (_, i) => colWindow.start + i);
+  const renderHeader = (colIdx: number) => {
+    if (sheet.hiddenCols?.includes(colIdx)) return null;
               const colLabel = colIndexToLabel(colIdx);
               const isColSelected =
                 colIdx >= selectedRange.startCol && colIdx <= selectedRange.endCol;
@@ -65,6 +57,7 @@ export function GridHeaderRow(props: GridHeaderRowProps) {
                     width: `${width}px`,
                     minWidth: `${width}px`,
                     maxWidth: `${width}px`,
+                    ...(frozen.colLeft(colIdx) !== undefined ? { position: 'sticky', left: frozen.colLeft(colIdx), zIndex: 25 } : {}),
                   }}
                   className={`relative h-8 border-r border-b border-[#e2e8f0] text-xs font-sans font-semibold transition-colors cursor-pointer select-none group ${
                     isColSelected || isColActive
@@ -84,6 +77,22 @@ export function GridHeaderRow(props: GridHeaderRowProps) {
                       </span>
                     </div>
 
+                    {colToggles.has(colIdx) && (
+                      <button
+                        type="button"
+                        title={colToggles.get(colIdx) ? 'Expandir grupo' : 'Recolher grupo'}
+                        aria-label={colToggles.get(colIdx) ? 'Expandir grupo de colunas' : 'Recolher grupo de colunas'}
+                        aria-expanded={!colToggles.get(colIdx)}
+                        onMouseDown={e => e.stopPropagation()}
+                        onClick={e => {
+                          e.stopPropagation();
+                          onToggleColGroup(colIdx);
+                        }}
+                        className="size-3.5 rounded-xs border border-slate-400 bg-white text-[10px] leading-none text-slate-700 hover:bg-indigo-50 cursor-pointer shrink-0"
+                      >
+                        {colToggles.get(colIdx) ? '+' : '−'}
+                      </button>
+                    )}
                     <ChevronDown className="size-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
 
                     {/* Filter Button */}
@@ -129,7 +138,23 @@ export function GridHeaderRow(props: GridHeaderRowProps) {
                   </div>
                 </th>
               );
-            })}
+  };
+
+  return (
+    <thead className="sticky top-0 z-20 bg-[#f8fafc]">
+          <tr>
+            {/* Top-left corner origin cell (#) */}
+            <th
+              title="Selecionar Toda a Tabela (Ctrl+A)"
+              onClick={onSelectAll}
+              className="sticky left-0 z-30 w-10 h-8 bg-[#f8fafc] border-r border-b border-[#e2e8f0] select-none cursor-pointer hover:bg-slate-100 transition-colors text-center text-slate-700 font-mono text-xs font-bold"
+            >
+              #
+            </th>
+
+            {frozen.extraCols.map(renderHeader)}
+            {colWindow.leftPx > 0 && <th aria-hidden style={{ width: colWindow.leftPx, minWidth: colWindow.leftPx, maxWidth: colWindow.leftPx }} className="p-0 border-0" />}
+            {windowCols.map(renderHeader)}
             {colWindow.rightPx > 0 && <th aria-hidden style={{ width: colWindow.rightPx, minWidth: colWindow.rightPx, maxWidth: colWindow.rightPx }} className="p-0 border-0" />}
           </tr>
     </thead>

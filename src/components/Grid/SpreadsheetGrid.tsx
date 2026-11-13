@@ -1,5 +1,5 @@
 import { countDataRows } from '../../engine/sheetColumns';
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import {
   Sparkles,
   Zap,
@@ -59,6 +59,7 @@ import { GridBodyRows } from './GridBodyRows';
 import { GridHeaderRow } from './GridHeaderRow';
 const SheetChartsLayer = React.lazy(() => import('../../features/charts/SheetChartsLayer').then(m => ({ default: m.SheetChartsLayer })));
 import { columnOffsets, computeColWindow, VIRTUALIZE_FROM_COLS } from './colWindow';
+import { frozenLayout, groupToggles, toggleGroup, windowWithoutFrozen } from './freeze';
 import { SheetImagesLayer } from '../../features/charts/SheetImagesLayer';
 import { formulaRuleMatches } from '../../features/charts/formulaRules';
 import { GridContextMenu } from './GridContextMenu';
@@ -841,7 +842,21 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   const visibleCount = Math.ceil(viewportHeight / defaultRowHeight) + bufferRows * 2;
   const endVisibleIdx = Math.min(totalVisibleCount - 1, startVisibleIdx + visibleCount);
 
-  const topSpacerHeight = startVisibleIdx * defaultRowHeight;
+  // Linhas congeladas ficam sempre no DOM (fixas sob o cabeçalho), mesmo com a janela longe do topo.
+  const frozenRowCount = Math.max(0, sheet.frozenRows ?? 0);
+  const windowRowsRaw = visibleRowIndices.slice(startVisibleIdx, endVisibleIdx + 1);
+  const extraFrozenRows = useMemo(() => {
+    if (frozenRowCount === 0) return [] as number[];
+    const inWindow = new Set(windowRowsRaw);
+    const out: number[] = [];
+    for (const r of visibleRowIndices) {
+      if (r >= frozenRowCount) break;
+      if (!inWindow.has(r)) out.push(r);
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleRowIndices, frozenRowCount, startVisibleIdx, endVisibleIdx]);
+  const topSpacerHeight = Math.max(0, startVisibleIdx - extraFrozenRows.length) * defaultRowHeight;
   const bottomSpacerHeight = Math.max(0, (totalVisibleCount - 1 - endVisibleIdx) * defaultRowHeight);
 
   // Colunas: só as da tela (planilhas vão até XFD = 16384 colunas). Com zoom menor cabem mais colunas na tela.
@@ -861,7 +876,42 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     if (left < el.scrollLeft) el.scrollLeft = Math.max(0, left - 40);
     else if (right > el.scrollLeft + visibleWidth) el.scrollLeft = right - visibleWidth + 40;
   }, [activeCell.col, colOffsets, sheet.colCount, zoomLevel]);
-  const windowRows = useMemo(() => visibleRowIndices.slice(startVisibleIdx, endVisibleIdx + 1), [visibleRowIndices, startVisibleIdx, endVisibleIdx]);
+  const windowRows = useMemo(
+    () => [...extraFrozenRows, ...visibleRowIndices.slice(startVisibleIdx, endVisibleIdx + 1)],
+    [extraFrozenRows, visibleRowIndices, startVisibleIdx, endVisibleIdx]
+  );
+  // Altura real das linhas congeladas (medida no DOM): é o que decide onde cada uma "gruda" sob o cabeçalho.
+  const [frozenHeights, setFrozenHeights] = useState<number[]>([]);
+  useLayoutEffect(() => {
+    const el = gridRef.current;
+    if (!el || frozenRowCount === 0) {
+      setFrozenHeights(prev => (prev.length === 0 ? prev : []));
+      return;
+    }
+    const heights = [...el.querySelectorAll<HTMLElement>('tr[data-frozen-row]')]
+      .sort((a, b) => Number(a.dataset.frozenRow) - Number(b.dataset.frozenRow))
+      .map(tr => tr.offsetHeight);
+    setFrozenHeights(prev => (prev.length === heights.length && prev.every((h, i) => h === heights[i]) ? prev : heights));
+  });
+  const frozen = useMemo(
+    () => frozenLayout(sheet, colOffsets, colWindow, frozenHeights),
+    [sheet.frozenRows, sheet.frozenCols, sheet.hiddenRows, sheet.hiddenCols, colOffsets, colWindow, frozenHeights]
+  );
+  const colWindowShown = useMemo(() => windowWithoutFrozen(colWindow, colOffsets, frozen.extraCols), [colWindow, colOffsets, frozen.extraCols]);
+  const summaryAbove = Boolean(sheet.outlineSummaryAbove);
+  const rowToggles = useMemo(
+    () => groupToggles(sheet.rowLevels, sheet.hiddenRows, summaryAbove, sheet.rowCount, windowRows),
+    [sheet.rowLevels, sheet.hiddenRows, summaryAbove, sheet.rowCount, windowRows]
+  );
+  const colToggles = useMemo(() => {
+    if (!sheet.colLevels) return new Map<number, boolean>();
+    const shown = [...frozen.extraCols, ...Array.from({ length: colWindow.end - colWindow.start + 1 }, (_, i) => colWindow.start + i)];
+    return groupToggles(sheet.colLevels, sheet.hiddenCols, summaryAbove, sheet.colCount, shown);
+  }, [sheet.colLevels, sheet.hiddenCols, summaryAbove, sheet.colCount, frozen.extraCols, colWindow]);
+  const onToggleRowGroup = (row: number) =>
+    onUpdateSheet({ ...sheet, hiddenRows: toggleGroup(sheet.rowLevels, sheet.hiddenRows, row, summaryAbove, sheet.rowCount) });
+  const onToggleColGroup = (col: number) =>
+    onUpdateSheet({ ...sheet, hiddenCols: toggleGroup(sheet.colLevels, sheet.hiddenCols, col, summaryAbove, sheet.colCount) });
   const formulaRuleHits = useMemo(() => formulaRuleMatches(sheet, windowRows), [sheet, windowRows]);
   // Memoize column numeric values for conditional formatting (Data Bars, Color Scales, Average)
   const columnValueMap = useMemo(() => {
@@ -915,7 +965,10 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
           sheet={sheet}
           activeCell={activeCell}
           selectedRange={selectedRange}
-          colWindow={colWindow}
+          colWindow={colWindowShown}
+          frozen={frozen}
+          colToggles={colToggles}
+          onToggleColGroup={onToggleColGroup}
           openFilterCol={openFilterCol}
           setOpenFilterCol={setOpenFilterCol}
           onSelectAll={() => {
@@ -944,7 +997,10 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
             sheet={sheet}
             activeCell={activeCell}
             selectedRange={selectedRange}
-            colWindow={colWindow}
+            colWindow={colWindowShown}
+            frozen={frozen}
+            rowToggles={rowToggles}
+            onToggleRowGroup={onToggleRowGroup}
             rowIndices={windowRows}
             formulaRuleHits={formulaRuleHits}
             onPickValue={handlePickListValue}
@@ -1008,6 +1064,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
           onOpenQuickAnalysis={onOpenQuickAnalysis}
           onOpenTextToColumns={onOpenTextToColumns}
           onOpenConditionalModal={onOpenConditionalModal}
+          onUpdateSheet={onUpdateSheet}
         />
       )}
 
