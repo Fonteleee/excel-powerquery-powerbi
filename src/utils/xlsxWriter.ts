@@ -10,7 +10,7 @@ import { shiftFormula } from '../engine/formulas/addressing';
 import { chartToPngDataUrl } from '../features/charts/chartPng';
 import { FLOW_SHEET_NAME, serializeFlowToRows } from '../features/relations/excel/flowSheet';
 import type { FlowGraph } from '../features/relations/model/graph';
-import { translateFormulaToExcelEn } from './excelExporter';
+import { translateFormulaToExcelEn } from './excelExporterCore';
 
 // Mesmas medidas usadas ao importar e ao desenhar sobre a grade.
 const ROW_NUMBER_WIDTH = 40;

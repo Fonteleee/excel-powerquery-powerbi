@@ -1,5 +1,5 @@
 import { countDataRows } from './engine/sheetColumns';
-import { keepExcelResults } from './utils/workbookImport';
+import { keepExcelResults } from './utils/importedResults';
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { SplitLayout } from './components/Layout/SplitLayout';
 import { decideSidebar } from './components/Layout/splitMath';
@@ -25,8 +25,8 @@ import { RibbonBar } from './components/Header/RibbonBar';
 import { FormulaBar } from './components/Header/FormulaBar';
 import { SpreadsheetGrid } from './components/Grid/SpreadsheetGrid';
 import { SheetTabs } from './components/Grid/SheetTabs';
-import { PowerQueryEditor } from './components/PowerQuery/PowerQueryEditor';
-import { DashboardStudio } from './components/PowerBI/DashboardStudio';
+const PowerQueryEditor = React.lazy(() => import('./components/PowerQuery/PowerQueryEditor').then(m => ({ default: m.PowerQueryEditor })));
+const DashboardStudio = React.lazy(() => import('./components/PowerBI/DashboardStudio').then(m => ({ default: m.DashboardStudio })));
 import { AgentPanel } from './features/agent/ui/AgentPanel';
 import { chartFromSelection } from './features/charts/chartData';
 import { useAgentSession } from './features/agent/ui/useAgentSession';
@@ -57,7 +57,8 @@ import { NocoSummaryDrawer } from './components/NocoLayout/NocoSummaryDrawer';
 import { NocoUserProfileModal } from './components/NocoLayout/NocoUserProfileModal';
 import { NocoHistoryDrawer } from './components/NocoLayout/NocoHistoryDrawer';
 import { NocoFormatModal } from './components/NocoLayout/NocoFormatModal';
-import { RelationsCanvas } from './components/Relations/RelationsCanvas';
+const RelationsCanvas = React.lazy(() => import('./components/Relations/RelationsCanvas').then(m => ({ default: m.RelationsCanvas })));
+import { ErrorBoundary } from './components/Common/ErrorBoundary';
 import {
   loadInitialSheetsSync,
   loadSheetsFromStorageAsync,
@@ -834,25 +835,35 @@ export function App() {
 
         {/* POWER QUERY STUDIO VIEW */}
         {activeView === 'powerquery' && (
+          <ErrorBoundary area="Transformar" resetKey={activeSheetId}>
+            <React.Suspense fallback={<div className="flex flex-1 items-center justify-center text-xs text-slate-500">Carregando…</div>}>
           <PowerQueryEditor
             sheet={activeSheet}
             allSheets={sheets}
             onApplyChangesToSheet={handleUpdateSheet}
             onClose={() => setActiveView('spreadsheet')}
           />
+            </React.Suspense>
+          </ErrorBoundary>
         )}
 
         {/* POWER BI VISUAL ANALYTICS VIEW */}
         {activeView === 'powerbi' && (
+          <ErrorBoundary area="Painéis" resetKey={activeSheetId}>
+            <React.Suspense fallback={<div className="flex flex-1 items-center justify-center text-xs text-slate-500">Carregando…</div>}>
           <DashboardStudio
             sheet={activeSheet}
             onClose={() => setActiveView('spreadsheet')}
             onLoadSampleSales={handleLoadSampleSales}
           />
+            </React.Suspense>
+          </ErrorBoundary>
         )}
 
         {/* RELATIONS CANVAS & NODE-GRAPH PIPELINE VIEW */}
         {activeView === 'relations' && (
+          <ErrorBoundary area="Relacionamentos" resetKey={activeSheetId}>
+            <React.Suspense fallback={<div className="flex flex-1 items-center justify-center text-xs text-slate-500">Carregando…</div>}>
           <RelationsCanvas
             sheets={sheets}
             activeSheet={activeSheet}
@@ -870,6 +881,8 @@ export function App() {
               setActiveView('spreadsheet');
             }}
           />
+            </React.Suspense>
+          </ErrorBoundary>
         )}
       </div>
 

@@ -20,7 +20,7 @@ import {
   Undo2,
   X,
 } from 'lucide-react';
-import { CopilotChartCard } from '../../../components/Copilot/CopilotChartCard';
+const CopilotChartCard = React.lazy(() => import('../../../components/Copilot/CopilotChartCard').then(m => ({ default: m.CopilotChartCard })));
 import { getStoredApiKey, getStoredModel, saveStoredModel, STATIC_CANDIDATE_MODELS } from '../../../services/geminiService';
 import { Sheet } from '../../../types/spreadsheet';
 import { MODE_LABELS } from '../storage';
@@ -98,7 +98,7 @@ const ArtifactView: React.FC<{ artifact: Artifact; onOpenPowerBI?: () => void; o
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
-  if (artifact.kind === 'chart') return <div className="mt-2"><CopilotChartCard chart={artifact.config} onOpenPowerBI={onOpenPowerBI} /></div>;
+  if (artifact.kind === 'chart') return <div className="mt-2"><React.Suspense fallback={null}><CopilotChartCard chart={artifact.config} onOpenPowerBI={onOpenPowerBI} /></React.Suspense></div>;
   if (artifact.kind === 'sql') {
     return (
       <div className="mt-2 rounded-lg border border-slate-200 bg-slate-900 p-2 text-[11px]">

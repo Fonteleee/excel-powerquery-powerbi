@@ -57,7 +57,7 @@ import { computeFilledData } from './fillOps';
 import { deleteRowsData, sortRowsData } from './gridOps';
 import { GridBodyRows } from './GridBodyRows';
 import { GridHeaderRow } from './GridHeaderRow';
-import { SheetChartsLayer } from '../../features/charts/SheetChartsLayer';
+const SheetChartsLayer = React.lazy(() => import('../../features/charts/SheetChartsLayer').then(m => ({ default: m.SheetChartsLayer })));
 import { columnOffsets, computeColWindow, VIRTUALIZE_FROM_COLS } from './colWindow';
 import { SheetImagesLayer } from '../../features/charts/SheetImagesLayer';
 import { formulaRuleMatches } from '../../features/charts/formulaRules';
@@ -975,7 +975,11 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
           )}
         </tbody>
       </table>
-      <SheetChartsLayer sheet={sheet} onUpdateSheet={onUpdateSheet} />
+      {(sheet.charts?.length ?? 0) > 0 && (
+        <React.Suspense fallback={null}>
+          <SheetChartsLayer sheet={sheet} onUpdateSheet={onUpdateSheet} />
+        </React.Suspense>
+      )}
       <SheetImagesLayer sheet={sheet} />
 
 

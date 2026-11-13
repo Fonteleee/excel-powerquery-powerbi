@@ -4,6 +4,8 @@
 import * as XLSX from 'xlsx';
 import { CellFormat, MergedRegion, Sheet } from '../types/spreadsheet';
 import { cellPosToKey } from '../engine/formulaParser';
+import { keepExcelResults } from './importedResults';
+export { keepExcelResults };
 import { filledCount, RawValue } from './tableLayout';
 import { argumentSeparatorsToSemicolon, RawValidation, readSheetExtras, splitSheetRef } from './xlsxExtras';
 import { numberFormatOf, readWorkbookStyles, sheetPaths, text as xmlText, WorkbookStyles, ZipFiles } from './xlsxStyles';
@@ -119,18 +121,6 @@ function dateFormatOf(z: string): Pick<CellFormat, 'type' | 'align'> {
   const onlyTime = longTime || (!/[dy]/i.test(code) && /[hs]/i.test(code));
   if (!onlyTime) return { type: 'date', align: 'right' };
   return { type: longTime || /s/i.test(code) ? 'time_hh_mm_ss' : 'time_hh_mm', align: 'right' };
-}
-
-/** Depois do recálculo, fórmula que o motor não entendeu volta a mostrar o resultado guardado no Excel. */
-export function keepExcelResults(sheet: Sheet): Sheet {
-  let data: Sheet['data'] | null = null;
-  for (const key in sheet.data) {
-    const cell = sheet.data[key];
-    if (cell.excelValue === undefined || (!cell.error && !(typeof cell.value === 'string' && cell.value.startsWith('#')))) continue;
-    data ??= { ...sheet.data };
-    data[key] = { ...cell, value: cell.excelValue, error: null, errorDetail: undefined };
-  }
-  return data ? { ...sheet, data } : sheet;
 }
 
 /**

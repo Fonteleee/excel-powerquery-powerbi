@@ -9,7 +9,6 @@ import {
   Sparkles,
   FileUp,
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { Sheet } from '../../types/spreadsheet';
 import { getCellValue, cellPosToKey } from '../../engine/formulaParser';
 import {
@@ -18,7 +17,6 @@ import {
   createFinancialBudgetSheet,
 } from '../../data/sampleDatasets';
 import { parseCSVToAutoFormattedSheet } from '../../utils/csvAutoFormatter';
-import { importWorkbookFile } from '../../utils/workbookImport';
 
 
 interface ImportExportModalProps {
@@ -46,7 +44,8 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   const currentSheet = sheets.find(s => s.id === activeSheetId) || sheets[0];
 
   // Export to XLSX
-  const exportToXLSX = () => {
+  const exportToXLSX = async () => {
+    const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
 
     sheets.forEach(sheet => {
@@ -171,9 +170,10 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
       };
       reader.readAsText(file);
     } else {
-      reader.onload = event => {
+      reader.onload = async event => {
         try {
           const data = new Uint8Array(event.target?.result as ArrayBuffer);
+          const { importWorkbookFile } = await import('../../utils/workbookImport');
           const { sheets: imported, skipped } = importWorkbookFile(data, file.name);
           if (imported.length === 0) {
             alert('Não encontrei dados neste arquivo.');
