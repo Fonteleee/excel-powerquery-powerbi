@@ -5,7 +5,7 @@ import * as XLSX from 'xlsx';
 import { CellFormat, MergedRegion, Sheet } from '../types/spreadsheet';
 import { cellPosToKey } from '../engine/formulaParser';
 import { filledCount, RawValue } from './tableLayout';
-import { RawValidation, readSheetExtras, splitSheetRef } from './xlsxExtras';
+import { argumentSeparatorsToSemicolon, RawValidation, readSheetExtras, splitSheetRef } from './xlsxExtras';
 import { numberFormatOf, readWorkbookStyles, WorkbookStyles, ZipFiles } from './xlsxStyles';
 
 const MAX_IMPORT_ROWS = 100_000;
@@ -91,6 +91,38 @@ function filledCells(ws: XLSX.WorkSheet): FilledCells {
     if (c + 1 > out.numCols) out.numCols = c + 1;
   }
   return out;
+}
+
+/**
+ * Fórmula do arquivo no formato do sistema (`=SOMA(A1;B1)`), ou null quando deve ficar só o valor:
+ * fórmulas de matriz, tabelas estruturadas, outros arquivos e constantes de matriz.
+ */
+export function importedFormula(cell: XLSX.CellObject): string | null {
+  const f = cell.f;
+  if (typeof f !== 'string' || f.trim() === '' || cell.F) return null;
+  if (/[[\]{}]/.test(f.replace(/"[^"]*"/g, ''))) return null;
+  return `=${argumentSeparatorsToSemicolon(f.trim())}`;
+}
+
+/** Fórmula que devolve data/hora: o motor devolve o número de série, o formato diz como mostrá-lo. */
+function dateFormatOf(z: string): Pick<CellFormat, 'type' | 'align'> {
+  const code = z.replace(/\[[^\]]*\]|"[^"]*"/g, '');
+  const longTime = /\[\$-F400\]/i.test(z);
+  const onlyTime = longTime || (!/[dy]/i.test(code) && /[hs]/i.test(code));
+  if (!onlyTime) return { type: 'date', align: 'right' };
+  return { type: longTime || /s/i.test(code) ? 'time_hh_mm_ss' : 'time_hh_mm', align: 'right' };
+}
+
+/** Depois do recálculo, fórmula que o motor não entendeu volta a mostrar o resultado guardado no Excel. */
+export function keepExcelResults(sheet: Sheet): Sheet {
+  let data: Sheet['data'] | null = null;
+  for (const key in sheet.data) {
+    const cell = sheet.data[key];
+    if (cell.excelValue === undefined || (!cell.error && !(typeof cell.value === 'string' && cell.value.startsWith('#')))) continue;
+    data ??= { ...sheet.data };
+    data[key] = { ...cell, value: cell.excelValue, error: null, errorDetail: undefined };
+  }
+  return data ? { ...sheet, data } : sheet;
 }
 
 /**
@@ -243,6 +275,13 @@ function faithfulSheet(ws: XLSX.WorkSheet, filled: FilledCells, name: string, st
       format.align ??= 'right';
     }
     const text = String(v);
+    const formula = importedFormula(cell);
+    if (formula) {
+      if (cell.t === 'n' && typeof cell.z === 'string' && XLSX.SSF.is_date(cell.z)) Object.assign(format, dateFormatOf(cell.z));
+      // Fórmula viva: o motor recalcula; o resultado do arquivo fica de reserva (`excelValue`).
+      data[cellPosToKey(r, c)] = { raw: formula, value: v ?? null, excelValue: v ?? null, ...(Object.keys(format).length > 0 ? { format } : {}) };
+      continue;
+    }
     data[cellPosToKey(r, c)] = {
       raw: text,
       value: typeof v === 'number' || typeof v === 'boolean' ? v : text.startsWith('=') ? null : text,

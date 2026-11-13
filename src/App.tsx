@@ -1,3 +1,4 @@
+import { keepExcelResults } from './utils/workbookImport';
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { SplitLayout } from './components/Layout/SplitLayout';
 import { decideSidebar } from './components/Layout/splitMath';
@@ -592,7 +593,7 @@ export function App() {
       return { ...sheet, name };
     });
     const all = [...kept, ...renamed];
-    setSheets(all.map(sheet => recalculateSheet(sheet, all)));
+    setSheets(all.map(sheet => keepExcelResults(recalculateSheet(sheet, all))));
     setActiveSheetId(renamed[0].id);
   };
 

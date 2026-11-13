@@ -131,7 +131,7 @@ export function formatCellValue(value: any, format?: CellFormat): string {
     if (type === 'date') {
       const d = new Date(numVal > 10000000000 ? numVal : (numVal - 25569) * 86400 * 1000);
       if (!isNaN(d.getTime())) {
-        return d.toLocaleDateString('pt-BR');
+        return d.toLocaleDateString('pt-BR', numVal > 10000000000 ? undefined : { timeZone: 'UTC' });
       }
     }
   }

@@ -66,6 +66,8 @@ export interface CellData {
   format?: CellFormat;
   comment?: string;
   error?: string | null;
+  /** Resultado que o Excel guardou no arquivo: reserva quando o motor não entende a fórmula importada. */
+  excelValue?: string | number | boolean | null;
   errorDetail?: string; // Mensagem clara do erro (ex.: caminho da referência circular)
   isSpill?: boolean; // True if this cell is populated by dynamic array spill from another parent cell
   spillParent?: string; // Key of the parent formula cell (e.g. "R1C0")
