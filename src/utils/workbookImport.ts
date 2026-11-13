@@ -106,12 +106,20 @@ export function importedFormula(cell: XLSX.CellObject): string | null {
   return `=${argumentSeparatorsToSemicolon(f.trim())}`;
 }
 
+/** Relações da aba (tabelas, tabelas dinâmicas, desenhos...) como estão no arquivo. */
+function sheetRels(files: ZipFiles, index: number): string {
+  const path = sheetPaths(files)[index];
+  return path ? xmlText(files, path.replace(/([^/]+)$/, '_rels/$1.rels')) : '';
+}
+
 /** A aba tem uma "Tabela" do Excel (Formatar como Tabela): ela traz filtros nos cabeçalhos. */
 function hasTable(files: ZipFiles, index: number): boolean {
-  const path = sheetPaths(files)[index];
-  if (!path) return false;
-  const rels = xmlText(files, path.replace(/([^/]+)$/, '_rels/$1.rels'));
-  return rels.includes('/relationships/table"');
+  return sheetRels(files, index).includes('/relationships/table"');
+}
+
+/** A aba tem uma tabela dinâmica do Excel. Os números calculados entram como valores, com o visual do arquivo. */
+export function hasPivotTable(files: ZipFiles, index: number): boolean {
+  return sheetRels(files, index).includes('/relationships/pivotTable"');
 }
 
 /** Fórmula que devolve data/hora: o motor devolve o número de série, o formato diz como mostrá-lo. */
@@ -160,12 +168,15 @@ export interface WorkbookImport {
   sheets: Sheet[];
   /** Abas ignoradas por estarem vazias ou além do limite. */
   skipped: string[];
+  /** Avisos para o usuário (ex.: tabela dinâmica importada como valores). */
+  notes: string[];
 }
 
 /** Converte o arquivo inteiro. Abas vazias são ignoradas; o limite é de 50 abas por arquivo. */
 export function workbookToSheets(workbook: XLSX.WorkBook, fallbackName = 'Planilha'): WorkbookImport {
   const sheets: Sheet[] = [];
   const skipped: string[] = [];
+  const notes: string[] = [];
   const taken = new Set<string>();
   const stamp = Date.now().toString(36);
   const files = (workbook as { files?: ZipFiles }).files;
@@ -188,6 +199,7 @@ export function workbookToSheets(workbook: XLSX.WorkBook, fallbackName = 'Planil
     }
     const built = faithfulSheet(ws, filled, uniqueName(name || fallbackName, taken), styles, files, index, raws => pendingValidations.set(`sheet-${stamp}-${index + 1}`, { raws, sheetName: name }));
     const state = workbook.Workbook?.Sheets?.[index]?.Hidden ?? 0;
+    if (hasPivotTable(files, index)) notes.push(`A aba "${built.name}" tem uma tabela dinâmica do Excel: ela entrou com os valores e o visual do arquivo, mas não atualiza sozinha. Para uma dinâmica que atualiza, use Painéis > Tabela Dinâmica sobre os dados de origem.`);
     sheets.push({ ...built, id: `sheet-${stamp}-${index + 1}`, ...(state > 0 ? { hidden: true } : {}) });
   });
 
@@ -201,7 +213,7 @@ export function workbookToSheets(workbook: XLSX.WorkBook, fallbackName = 'Planil
     });
     if (validations.length > 0) sheet.validations = validations;
   }
-  return { sheets, skipped };
+  return { sheets, skipped, notes };
 }
 
 /** Opções de uma lista suspensa: texto entre aspas ("a,b,c"), intervalo (de qualquer aba) ou nome definido. */

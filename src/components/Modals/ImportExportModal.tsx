@@ -174,13 +174,14 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
         try {
           const data = new Uint8Array(event.target?.result as ArrayBuffer);
           const { importWorkbookFile } = await import('../../utils/workbookImport');
-          const { sheets: imported, skipped } = importWorkbookFile(data, file.name);
+          const { sheets: imported, skipped, notes } = importWorkbookFile(data, file.name);
           if (imported.length === 0) {
             alert('Não encontrei dados neste arquivo.');
             return;
           }
           onImportSheets(imported);
           if (skipped.length > 0) console.info('Abas ignoradas na importação:', skipped.join(', '));
+          if (notes.length > 0) alert(`Arquivo importado.\n\n${notes.join('\n\n')}`);
           onClose();
         } catch (err) {
           alert('Erro ao processar planilha Excel.');
