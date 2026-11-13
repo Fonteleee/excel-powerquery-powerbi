@@ -747,7 +747,7 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
           </button>
 
           <button
-            onClick={() => exportSheetToExcel(workingSheet, `${workingSheet.name}_PowerQuery`)}
+            onClick={() => exportSheetToExcel(workingSheet, `${workingSheet.name}_Transformado`)}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 font-semibold text-xs border border-slate-200 transition-all cursor-pointer"
           >
             <BespokeExportIcon size={14} />

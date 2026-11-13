@@ -314,7 +314,7 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
                   : 'text-[#505050] hover:text-[#4338ca]'
               }`}
             >
-              Power Query
+              Transformar
             </button>
             <button
               onClick={() => {
@@ -327,7 +327,7 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
                   : 'text-[#505050] hover:text-[#b45309]'
               }`}
             >
-              Power BI
+              Painéis
             </button>
           </div>
 
@@ -791,7 +791,7 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
                 className="flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-[#ebebeb] border border-[#e0e0e0] rounded text-xs font-semibold text-[#b45309] cursor-pointer"
               >
                 <BarChart3 className="size-3.5" />
-                <span>Gráficos no Power BI</span>
+                <span>Gráficos no Painel Analítico</span>
               </button>
               <button
                 onClick={() => onSetActiveView('powerbi')}
@@ -884,7 +884,7 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
                 className="flex items-center gap-1.5 px-3 py-1 bg-[#4338ca] text-white hover:bg-[#3730a3] rounded text-xs font-semibold cursor-pointer shadow-2xs"
               >
                 <Database className="size-3.5" />
-                <span>Abrir Power Query Studio (ETL)</span>
+                <span>Abrir Transformação de dados (ETL)</span>
               </button>
               <div className="h-4 w-px bg-[#d4d4d4]" />
               <button
@@ -931,7 +931,7 @@ export const RibbonBar: React.FC<RibbonBarProps> = ({
                 }`}
               >
                 <BarChart3 className="size-3.5" />
-                <span>Power BI Dashboard Studio</span>
+                <span>Painel Analítico</span>
               </button>
               <div className="h-4 w-px bg-[#d4d4d4]" />
               <label className="flex items-center gap-1.5 text-xs text-[#242424] cursor-pointer">

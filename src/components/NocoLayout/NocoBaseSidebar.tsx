@@ -194,7 +194,7 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
                     }`}
                   >
                     <Layers className="size-3.5 text-purple-600 shrink-0" />
-                    <span className="truncate">Power Query (ETL)</span>
+                    <span className="truncate">Transformar dados (ETL)</span>
                   </button>
                 </div>
               )}

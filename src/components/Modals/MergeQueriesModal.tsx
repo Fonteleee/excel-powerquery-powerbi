@@ -726,7 +726,7 @@ export const MergeQueriesModal: React.FC<MergeQueriesModalProps> = ({
         <div className="px-6 py-3 bg-white border-t border-slate-200 flex items-center justify-between shrink-0">
           <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
             <Info className="size-3.5 text-purple-600 shrink-0" />
-            <span>O cruzamento é adicionado como uma etapa reversível no pipeline do Power Query.</span>
+            <span>O cruzamento é adicionado como uma etapa reversível no pipeline de transformação.</span>
           </div>
 
           <div className="flex items-center gap-2">

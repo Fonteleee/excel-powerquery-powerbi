@@ -50,7 +50,7 @@ describe('compileFlowToSql: golden', () => {
   it('filtro em PostgreSQL (contains com ESCAPE e número lido de texto)', () => {
     const sql = sqlOf(filterFlow(), { dialect: 'postgres', includeInputs: false });
     const expected = [
-      '-- Fluxo exportado da aba Relacionamentos (Excel PowerQuery PowerBI)',
+      '-- Fluxo exportado da aba Relacionamentos (Verxel)',
       '-- Formato do script: v1',
       '-- Dialeto: PostgreSQL',
       '-- Gerado em: 1970-01-01T00:00:00.000Z',

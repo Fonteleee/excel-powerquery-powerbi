@@ -265,7 +265,7 @@ export const CopilotChartCard: React.FC<CopilotChartCardProps> = ({ chart, onOpe
             onClick={onOpenPowerBI}
             className="px-2.5 py-1 bg-[#107c41] hover:bg-[#0e6b37] text-white rounded text-[11px] font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
           >
-            <span>Abrir no Power BI Studio</span>
+            <span>Abrir no Painel Analítico</span>
             <ExternalLink className="size-3" />
           </button>
         )}

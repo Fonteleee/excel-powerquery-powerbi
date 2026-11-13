@@ -189,7 +189,7 @@ function pickTargets(graph: FlowGraph): FlowNode[] {
 
 function buildHeader(dialect: SqlDialect, generatedAt: Date, warnings: string[]): string {
   const lines = [
-    commentLine('Fluxo exportado da aba Relacionamentos (Excel PowerQuery PowerBI)'),
+    commentLine('Fluxo exportado da aba Relacionamentos (Verxel)'),
     commentLine(`Formato do script: v${SQL_FORMAT_VERSION}`),
     commentLine(`Dialeto: ${dialect.label}`),
     commentLine(`Gerado em: ${generatedAt.toISOString()}`),

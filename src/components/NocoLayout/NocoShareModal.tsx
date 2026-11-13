@@ -9,7 +9,6 @@ import {
   Code,
   Database,
   Download,
-  Globe,
   Lock,
 } from 'lucide-react';
 import { Sheet } from '../../types/spreadsheet';
@@ -82,29 +81,6 @@ export const NocoShareModal: React.FC<NocoShareModalProps> = ({
 
         {/* Content */}
         <div className="p-5 space-y-4">
-          {/* Shareable Link */}
-          <div>
-            <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 mb-1.5">
-              <Globe className="size-3.5 text-blue-500" />
-              <span>Link Público de Acesso</span>
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                readOnly
-                value={currentUrl}
-                className="flex-1 px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-mono select-all focus:outline-hidden"
-              />
-              <button
-                onClick={handleCopyLink}
-                className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-              >
-                {copiedLink ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-                <span>{copiedLink ? 'Copiado!' : 'Copiar'}</span>
-              </button>
-            </div>
-          </div>
-
           {/* Quick Export Grid */}
           <div>
             <span className="text-xs font-semibold text-slate-700 block mb-2">Exportações Rápidas</span>

@@ -202,7 +202,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">Importar & Exportar Arquivos</h3>
-              <p className="text-xs text-slate-500">Compatibilidade nativa com Microsoft Excel, CSV e JSON</p>
+              <p className="text-xs text-slate-500">Importa e exporta arquivos Excel (.xlsx, .xls), CSV e JSON</p>
             </div>
           </div>
 

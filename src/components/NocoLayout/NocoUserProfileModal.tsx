@@ -2,7 +2,6 @@ import React from 'react';
 import {
   X,
   User,
-  ShieldCheck,
   Cpu,
   Database,
   Key,
@@ -98,19 +97,12 @@ export const NocoUserProfileModal: React.FC<NocoUserProfileModalProps> = ({
               <span className="text-xs text-indigo-600 font-semibold group-hover:translate-x-0.5 transition-transform">→</span>
             </button>
 
-            <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200 flex items-center gap-2.5">
-              <ShieldCheck className="size-5 text-emerald-600 shrink-0" />
-              <div>
-                <div className="text-xs font-bold text-emerald-900">Strix Security Gate: Ativo</div>
-                <div className="text-[10px] text-emerald-700">0 vulnerabilidades detectadas • 100% isolado</div>
-              </div>
-            </div>
           </div>
         </div>
 
         {/* Footer */}
         <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs">
-          <span className="text-slate-400 font-mono">v2.4.0 • Full HD Engine</span>
+          <span className="text-slate-400">Verxel</span>
           <button
             onClick={onClose}
             className="px-4 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold transition-colors cursor-pointer"

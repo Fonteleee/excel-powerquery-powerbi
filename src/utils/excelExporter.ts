@@ -378,7 +378,7 @@ export async function exportPivotReportToExcel(
   sheet: Sheet,
   pivotResult: PivotResult,
   kpis: { title: string; value: string }[],
-  filename = 'Relatorio_PowerBI_Analytics',
+  filename = 'Relatorio_Analitico',
   options?: PowerBIExportOptions
 ): Promise<void> {
   const wb = new ExcelJS.Workbook();

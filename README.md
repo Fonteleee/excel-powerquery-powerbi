@@ -1,14 +1,12 @@
 # 📊 Verxel
 
-> **Ambiente Unificado de Engenharia de Dados, Planilhas Relacionais, ETL Power Query com DuckDB WASM e Dashboard Power BI In-Browser.**
+> **Planilhas relacionais, transformação de dados (ETL) com DuckDB WASM e painéis analíticos, tudo no navegador.**
 
 [![Live Demo](https://img.shields.io/badge/Demo-GitHub_Pages-2563eb?style=for-the-badge&logo=github)](https://fonteleee.github.io/excel-powerquery-powerbi/)
 [![React 19](https://img.shields.io/badge/React-19.2.8-61dafb?style=for-the-badge&logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178c6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS v4](https://img.shields.io/badge/Tailwind_CSS-v4.3-38bdf8?style=for-the-badge&logo=tailwindcss)](https://tailwindcss.com/)
 [![DuckDB WASM](https://img.shields.io/badge/DuckDB_WASM-v1.33-fff000?style=for-the-badge&logo=duckdb)](https://duckdb.org/)
-[![Strix Security](https://img.shields.io/badge/Strix_Security-Passed_100%25-10b981?style=for-the-badge&logo=shield)](https://owasp.org/)
-[![Accessibility](https://img.shields.io/badge/WCAG-2.2_Level_AA-8b5cf6?style=for-the-badge)](https://www.w3.org/WAI/standards-guidelines/wcag/)
 
 ---
 
@@ -127,19 +125,6 @@ Toda a arquitetura é executada **100% no navegador (Client-Side)** com latênci
 - Assistência contextual para criação de fórmulas complexas, formatação de planilhas e análise de anomalias em datasets.
 
 ---
-
-### 6. 🛡 Segurança & Acessibilidade Strix
-
-- **Zero Hardcoded Secrets**: Nenhuma credencial ou token exposto no código-fonte.
-- **Proteção contra Formula & CSV Injection**: Tratamento e escape de fórmulas maliciosas iniciadas por `=`, `+`, `-`, `@`, `DDE` ou comandos shell.
-- **XSS & DOM Safety**: Sanitização estrita e ausência de `dangerouslySetInnerHTML` ou `eval()` dinâmico.
-- **Defesa contra Prototype Pollution**: Bloqueio de mutações em `__proto__`, `constructor` e `prototype`.
-- **Acessibilidade WCAG 2.2 Nível AA**:
-  - Contraste de cor mínimo de $4.5:1$ para textos e $3:1$ para elementos visuais.
-  - Alturas de toque e hitboxes mínimas de 28px/32px.
-  - Indicador de foco duplo `:focus-visible` para navegação completa por teclado.
-  - Suporte e preservação de `@media (prefers-reduced-motion: reduce)`.
-
 ---
 
 ## 🛠 Stack Tecnológico
@@ -154,7 +139,7 @@ Toda a arquitetura é executada **100% no navegador (Client-Side)** com latênci
 | **Motor de Planilhas** | SheetJS (`xlsx`) + Parser Proprietário | Leitura/escrita `.xlsx` e avaliador de fórmulas Excel |
 | **Iconografia** | Lucide React | Mais de 40 ícones vetoriais padronizados |
 | **Build & Bundler** | Vite 8 + Rolldown | HMR ultrarrápido e compilação otimizada para produção |
-| **Testes & Auditoria** | Playwright + Chrome DevTools + Strix | Testes E2E visuais e auditoria de segurança contínua |
+| **Testes & Auditoria** | Playwright + Chrome DevTools | Testes visuais |
 
 ---
 
@@ -195,19 +180,6 @@ Toda a arquitetura é executada **100% no navegador (Client-Side)** com latênci
 
 ---
 
-## 🔒 Auditoria de Segurança Strix
-
-O projeto conta com o script de auditoria autônoma Strix para verificação contínua de vulnerabilidades de segurança:
-
-```powershell
-# Auditoria em arquivos modificados (Modo Diff)
-python .agents/scripts/strix_audit.py --diff
-
-# Auditoria completa em todos os arquivos do workspace
-python .agents/scripts/strix_audit.py --full
-```
-
----
 
 ## 📁 Estrutura do Projeto
 

@@ -435,7 +435,7 @@ export const QuickAnalysisModal: React.FC<QuickAnalysisModalProps> = ({
                   <div>
                     <h4 className="text-sm font-bold text-slate-900">Criar Tabela Dinâmica do Intervalo</h4>
                     <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                      Gera relatório multidimensional com agrupamentos dinâmicos, subtotais e filtros cruzados no Power BI Studio a partir de <strong className="font-mono text-emerald-900">{rangeAddress}</strong>.
+                      Gera relatório multidimensional com agrupamentos dinâmicos, subtotais e filtros cruzados no Painel Analítico a partir de <strong className="font-mono text-emerald-900">{rangeAddress}</strong>.
                     </p>
                   </div>
                 </div>

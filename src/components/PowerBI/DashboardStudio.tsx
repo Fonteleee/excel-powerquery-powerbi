@@ -213,7 +213,7 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ sheet, onClose
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-slate-900 text-sm">Power BI Visual Studio</span>
+                <span className="font-bold text-slate-900 text-sm">Painel Analítico</span>
                 <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
                   {sheet.name}
                 </span>
@@ -275,7 +275,7 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ sheet, onClose
             </div>
             <h3 className="text-lg font-bold text-slate-800">Planilha sem dados para visualização</h3>
             <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-              Para gerar gráficos analíticos e métricas no Power BI Studio, preencha dados na planilha ou carregue um modelo de exemplo.
+              Para gerar gráficos analíticos e métricas no Painel Analítico, preencha dados na planilha ou carregue um modelo de exemplo.
             </p>
             <div className="mt-6 flex flex-col gap-2">
               {onLoadSampleSales && (
@@ -335,7 +335,7 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ sheet, onClose
             </div>
 
             <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-              ⚡ Sincronizado em tempo real com o Excel
+              ⚡ Atualiza junto com os dados da tabela
             </span>
           </div>
 
