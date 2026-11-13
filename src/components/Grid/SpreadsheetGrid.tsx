@@ -892,6 +892,9 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     handleToggleFormat, handleApplyFlashFill, handleDeleteSelectedRows, startEditing, clearSelectedCells,
   });
 
+  let isEmptySheet = true;
+  for (const _key in sheet.data) { isEmptySheet = false; break; }
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-white relative">
       <div
@@ -1005,6 +1008,20 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       )}
 
       </div>
+
+      {isEmptySheet && onOpenImportModal && (
+        <div className="absolute inset-x-0 bottom-16 flex justify-center px-4 pointer-events-none z-10">
+          <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm">
+            <span className="text-xs text-slate-600">Tabela vazia. Clique numa célula e digite, ou traga seus dados:</span>
+            <button
+              onClick={onOpenImportModal}
+              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition-colors cursor-pointer"
+            >
+              Importar Excel ou CSV
+            </button>
+          </div>
+        </div>
+      )}
 
       <GridStatusBar
         recordCount={countDataRows(sheet)}

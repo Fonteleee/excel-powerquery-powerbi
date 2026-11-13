@@ -146,58 +146,6 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
                 )}
               </div>
 
-              {/* Sub-views (Grid, Relational Diagram, PowerBI Dashboard, Power Query) when Table is Active */}
-              {isActive && (
-                <div className="pl-4 space-y-1 pt-1 border-l border-slate-200 ml-3">
-                  <button
-                    onClick={() => onSelectView('spreadsheet')}
-                    className={`w-full min-h-[32px] flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors btn-tactile cursor-pointer ${
-                      activeView === 'spreadsheet'
-                        ? 'bg-indigo-100/80 text-indigo-900 font-bold shadow-2xs'
-                        : 'text-slate-700 font-semibold hover:bg-slate-50 hover:text-slate-950'
-                    }`}
-                  >
-                    <TableIcon className="size-3.5 text-indigo-600 shrink-0" />
-                    <span className="truncate">{cleanName} (Grid)</span>
-                  </button>
-
-                  <button
-                    onClick={() => onSelectView('relations')}
-                    className={`w-full min-h-[32px] flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors btn-tactile cursor-pointer ${
-                      activeView === 'relations'
-                        ? 'bg-indigo-100/80 text-indigo-900 font-bold shadow-2xs'
-                        : 'text-slate-700 font-semibold hover:bg-slate-50 hover:text-slate-950'
-                    }`}
-                  >
-                    <GitBranch className="size-3.5 text-indigo-600 shrink-0" />
-                    <span className="truncate">Relacionamentos</span>
-                  </button>
-
-                  <button
-                    onClick={() => onSelectView('powerbi')}
-                    className={`w-full min-h-[32px] flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors btn-tactile cursor-pointer ${
-                      activeView === 'powerbi'
-                        ? 'bg-emerald-100/80 text-emerald-900 font-bold shadow-2xs'
-                        : 'text-slate-700 font-semibold hover:bg-slate-50 hover:text-slate-950'
-                    }`}
-                  >
-                    <LayoutDashboard className="size-3.5 text-emerald-600 shrink-0" />
-                    <span className="truncate">Painel Analítico (BI)</span>
-                  </button>
-
-                  <button
-                    onClick={() => onSelectView('powerquery')}
-                    className={`w-full min-h-[32px] flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors btn-tactile cursor-pointer ${
-                      activeView === 'powerquery'
-                        ? 'bg-purple-100/80 text-purple-900 font-bold shadow-2xs'
-                        : 'text-slate-700 font-semibold hover:bg-slate-50 hover:text-slate-950'
-                    }`}
-                  >
-                    <Layers className="size-3.5 text-purple-600 shrink-0" />
-                    <span className="truncate">Transformar dados (ETL)</span>
-                  </button>
-                </div>
-              )}
             </div>
           );
         })}

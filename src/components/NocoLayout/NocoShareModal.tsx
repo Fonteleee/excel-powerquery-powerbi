@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import {
   X,
   Share2,
-  Copy,
-  Check,
   FileSpreadsheet,
   FileText,
   Code,
@@ -25,18 +23,11 @@ export const NocoShareModal: React.FC<NocoShareModalProps> = ({
   onClose,
   sheet,
 }) => {
-  const [copiedLink, setCopiedLink] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
 
   if (!isOpen) return null;
 
-  const currentUrl = window.location.href;
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(currentUrl);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
-  };
 
   const handleExportJson = () => {
     const jsonStr = JSON.stringify(sheet, null, 2);

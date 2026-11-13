@@ -14,6 +14,7 @@ import {
   ChevronDown,
   Sparkles,
   GitBranch,
+  Layers,
 } from 'lucide-react';
 import { Sheet } from '../../types/spreadsheet';
 
@@ -113,39 +114,30 @@ export const NocoTopHeader: React.FC<NocoTopHeaderProps> = ({
           )}
         </div>
 
-        {/* View Switcher Tabs (Dados vs Relacionamentos vs Painel BI) */}
-        <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 ml-2">
-          <button
-            onClick={() => onSelectView('relations')}
-            title="Relacionamentos: cruze tabelas com um fluxo visual"
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-extrabold transition-all btn-tactile cursor-pointer border ${activeView === 'relations' ? 'bg-indigo-700 text-white border-indigo-800 shadow-sm' : 'bg-indigo-50 text-indigo-900 border-indigo-300 hover:bg-indigo-100'}`}
-          >
-            <GitBranch className="size-3.5" />
-            <span>Relacionamentos</span>
-          </button>
-          <button
-            onClick={() => onSelectView('spreadsheet')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all btn-tactile cursor-pointer ${
-              activeView === 'spreadsheet'
-                ? 'bg-white text-indigo-900 shadow-xs font-bold border border-slate-200/60'
-                : 'text-slate-700 hover:text-slate-950'
-            }`}
-          >
-            <TableIcon className="size-3.5 text-indigo-600" />
-            <span>Dados</span>
-          </button>
-
-          <button
-            onClick={() => onSelectView('powerbi')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all btn-tactile cursor-pointer ${
-              activeView === 'powerbi'
-                ? 'bg-white text-emerald-900 shadow-xs font-bold border border-slate-200/60'
-                : 'text-slate-700 hover:text-slate-950'
-            }`}
-          >
-            <LayoutDashboard className="size-3.5 text-emerald-600" />
-            <span>Painel BI</span>
-          </button>
+        {/* Seletor único de visões: Dados, Relacionamentos, Painéis e Transformar */}
+        <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 ml-2" role="tablist" aria-label="Visões da tabela">
+          {([
+            ['spreadsheet', 'Dados', TableIcon, 'Planilha com as células da tabela'],
+            ['relations', 'Relacionamentos', GitBranch, 'Cruze tabelas com um fluxo visual'],
+            ['powerbi', 'Painéis', LayoutDashboard, 'Gráficos e indicadores da tabela'],
+            ['powerquery', 'Transformar', Layers, 'Limpe e transforme os dados (ETL)'],
+          ] as const).map(([view, label, Icon, hint]) => (
+            <button
+              key={view}
+              role="tab"
+              aria-selected={activeView === view}
+              onClick={() => onSelectView(view)}
+              title={hint}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition-all cursor-pointer ${
+                activeView === view
+                  ? 'bg-white text-indigo-900 shadow-xs font-bold border border-slate-200/60'
+                  : 'text-slate-600 font-semibold hover:text-slate-950'
+              }`}
+            >
+              <Icon className="size-3.5 text-indigo-600" />
+              <span>{label}</span>
+            </button>
+          ))}
         </div>
       </div>
 
