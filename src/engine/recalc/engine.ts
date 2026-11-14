@@ -14,6 +14,7 @@ import {
   nodeKeyFromDataKey,
 } from './dependencyGraph';
 import { SheetNameIndex, extractReferences } from './references';
+import { restoreExcelResult } from '../../utils/importedResults';
 import { clearAllSpillCells, clearSpillCells, isFormula, writeFormulaResult } from './spill';
 
 export const CIRCULAR_ERROR = '#CIRCULAR!';
@@ -275,11 +276,13 @@ export class RecalcEngine {
             const value = evaluateFormula(cell.raw, ws, work, new Set([`${ws.id}:${dataKey}`]));
             const outcome = writeFormulaResult(ws.data, dataKey, node.row, node.col, cell, value);
             outcomeSpill = outcome.spill;
+            restoreExcelResult(ws.data, dataKey, cell.excelValue);
             for (const k of outcome.touched) touch(node.sheetId, k);
           } catch (err) {
             clearSpillCells(ws.data, dataKey, cell.spillRange);
             const message = err instanceof Error && err.message ? err.message : '#ERRO!';
             ws.data[dataKey] = { ...cell, value: '#ERRO!', error: message, spillRange: undefined };
+            restoreExcelResult(ws.data, dataKey, cell.excelValue);
           }
           recalculated++;
           touch(node.sheetId, dataKey);

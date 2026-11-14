@@ -215,6 +215,7 @@ const GridCellComponent: React.FC<GridCellProps> = ({
     backgroundColor: effectiveBgColor,
     fontSize: fmt?.fontSize ? `${fmt.fontSize}px` : undefined,
     textAlign: fmt?.align || (typeof cellVal === 'number' ? 'right' : 'left'),
+    ...(fmt?.indent ? { paddingLeft: `${8 + fmt.indent * 10}px` } : {}),
   };
 
 

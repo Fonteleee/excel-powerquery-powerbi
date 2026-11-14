@@ -68,6 +68,7 @@ function styleCell(cell: ExcelJS.Cell, format: CellFormat | undefined): void {
   if (format.align) alignment.horizontal = format.align;
   if (format.valign) alignment.vertical = format.valign;
   if (format.wrap) alignment.wrapText = true;
+  if (format.indent) alignment.indent = format.indent;
   if (Object.keys(alignment).length > 0) cell.alignment = alignment;
 
   const b = format.border;

@@ -170,6 +170,22 @@ export function GridContextMenu(props: GridContextMenuProps) {
           >
             Congelar a primeira coluna
           </button>
+          {(sheet.hiddenRows?.length ?? 0) > 0 && (
+            <button
+              onClick={() => onUpdateSheet({ ...sheet, hiddenRows: undefined })}
+              className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-left cursor-pointer font-medium"
+            >
+              Reexibir linhas ocultas ({sheet.hiddenRows?.length})
+            </button>
+          )}
+          {(sheet.hiddenCols?.length ?? 0) > 0 && (
+            <button
+              onClick={() => onUpdateSheet({ ...sheet, hiddenCols: undefined })}
+              className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-left cursor-pointer font-medium"
+            >
+              Reexibir colunas ocultas ({sheet.hiddenCols?.length})
+            </button>
+          )}
           {frozenNow && (
             <button
               onClick={() => freeze(0, 0)}

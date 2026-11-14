@@ -50,6 +50,8 @@ export interface CellFormat {
   fontFamily?: string;
   align?: 'left' | 'center' | 'right';
   valign?: 'top' | 'middle' | 'bottom';
+  /** Recuo à esquerda (níveis de indentação do Excel, como nas tabelas dinâmicas em forma compacta). */
+  indent?: number;
   type?: CellFormatType;
   decimals?: number;
   /** Separador de milhar nos números. `false` mostra 150792 em vez de 150.792 (formatos "0" e "0,00" do Excel). */

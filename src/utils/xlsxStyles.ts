@@ -23,6 +23,7 @@ interface XlXf {
   horizontal?: string;
   vertical?: string;
   wrap?: boolean;
+  indent?: number;
 }
 
 export interface WorkbookStyles {
@@ -188,6 +189,7 @@ function parseCellXfs(xml: string): XlXf[] {
       horizontal: align ? attr(align, 'horizontal') : undefined,
       vertical: align ? attr(align, 'vertical') : undefined,
       wrap: align ? attr(align, 'wrapText') === '1' || attr(align, 'wrapText') === 'true' : undefined,
+      indent: align ? Number(attr(align, 'indent') ?? 0) || undefined : undefined,
     });
   }
   return out;
@@ -216,6 +218,7 @@ function toFormat(xf: XlXf, fonts: XlFont[], fills: (string | undefined)[], bord
   else if (xf.vertical === 'center') format.valign = 'middle';
   else if (xf.vertical === 'bottom') format.valign = 'bottom';
   if (xf.wrap) format.wrap = true;
+  if (xf.indent && xf.indent > 0) format.indent = Math.min(xf.indent, 15);
   return Object.keys(format).length > 0 ? format : undefined;
 }
 
