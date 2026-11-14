@@ -1,4 +1,4 @@
-import { Sheet, CellData, CellRange } from '../types/spreadsheet';
+import { Sheet, CellData } from '../types/spreadsheet';
 import { AgentAction } from './agentActionProtocol';
 import { recalculateSheet, cellPosToKey, keyToCellPos } from './formulaParser';
 import { createEmptySheet } from '../data/sampleDatasets';

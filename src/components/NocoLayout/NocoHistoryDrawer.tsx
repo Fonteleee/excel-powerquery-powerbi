@@ -5,10 +5,7 @@ import {
   RotateCcw,
   RotateCw,
   CheckCircle2,
-  Calendar,
-  Layers,
 } from 'lucide-react';
-import { Sheet } from '../../types/spreadsheet';
 
 interface NocoHistoryDrawerProps {
   isOpen: boolean;

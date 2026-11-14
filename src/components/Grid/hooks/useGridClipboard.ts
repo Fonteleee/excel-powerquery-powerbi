@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { CellData, CellPosition, CellRange, Sheet } from '../../../types/spreadsheet';
-import { cellPosToKey, recalculateSheet, shiftFormula } from '../../../engine/formulaParser';
+import { cellPosToKey, shiftFormula } from '../../../engine/formulaParser';
 import { applyHtmlTable, parseHtmlTable } from '../../../utils/htmlTablePaste';
 
 export interface GridClipboard {
@@ -30,7 +30,7 @@ export function useGridClipboard(params: {
         const table = parseHtmlTable(await (await item.getType('text/html')).text());
         if (!table) continue;
         const pasted = applyHtmlTable(sheet.data, table, activeCell.row, activeCell.col, sheet, sheet.mergedRegions);
-        onUpdateSheet(recalculateSheet({ ...sheet, data: pasted.data, mergedRegions: pasted.mergedRegions }));
+        onUpdateSheet({ ...sheet, data: pasted.data, mergedRegions: pasted.mergedRegions });
         return true;
       }
     } catch {
@@ -118,7 +118,7 @@ export function useGridClipboard(params: {
         setClipboard(null);
       }
 
-      const recalculated = recalculateSheet({ ...sheet, data: updatedData });
+      const recalculated = { ...sheet, data: updatedData };
       onUpdateSheet(recalculated);
     } else if (await tryPasteHtml()) {
       return;
@@ -141,7 +141,7 @@ export function useGridClipboard(params: {
               }
             });
           });
-          const recalculated = recalculateSheet({ ...sheet, data: updatedData });
+          const recalculated = { ...sheet, data: updatedData };
           onUpdateSheet(recalculated);
         }
       } catch {

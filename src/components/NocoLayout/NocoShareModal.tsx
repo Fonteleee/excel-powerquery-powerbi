@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   X,
   Share2,
@@ -8,24 +8,99 @@ import {
   Database,
   Download,
   Lock,
+  Save,
+  FolderOpen,
 } from 'lucide-react';
 import { Sheet } from '../../types/spreadsheet';
 import { exportSheetToExcel } from '../../utils/excelExporter';
+import { notify } from '../../utils/notify';
+import { appendableSheets, decodeProject, encodeProject, MAX_PROJECT_BYTES, ProjectEnvelope, PROJECT_EXTENSION } from '../../utils/projectFile';
+import { applyProjectStorage, collectProjectData, OpenMode, pickPreferences } from '../../utils/projectApply';
+import type { UserPreferences } from '../../utils/storageManager';
 
 interface NocoShareModalProps {
   isOpen: boolean;
   onClose: () => void;
   sheet: Sheet;
+  /** Projeto (.verxel): todas as abas, aba ativa e favoritas atuais. */
+  sheets?: Sheet[];
+  activeSheetId?: string;
+  starredSheetIds?: Iterable<string>;
+  /** Chamado ao abrir um projeto: o App só precisa guardar estes valores no estado. */
+  onApplyProject?: (next: { sheets: Sheet[]; activeSheetId: string; starredSheetIds: string[]; preferences: UserPreferences; mode: OpenMode }) => void;
 }
 
 export const NocoShareModal: React.FC<NocoShareModalProps> = ({
   isOpen,
   onClose,
   sheet,
+  sheets,
+  activeSheetId,
+  starredSheetIds,
+  onApplyProject,
 }) => {
   const [copiedSql, setCopiedSql] = useState(false);
+  const [pending, setPending] = useState<{ project: ProjectEnvelope; fileName: string } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
+
+  const allSheets = sheets && sheets.length > 0 ? sheets : [sheet];
+
+  const handleSaveProject = async () => {
+    try {
+      const data = collectProjectData(allSheets, activeSheetId ?? sheet.id, starredSheetIds ?? []);
+      const { bytes, compressed } = await encodeProject(data);
+      const blob = new Blob([bytes as BlobPart], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `projeto-verxel-${new Date().toISOString().slice(0, 10)}${PROJECT_EXTENSION}`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      notify(`Projeto salvo (${allSheets.length} ${allSheets.length === 1 ? 'aba' : 'abas'}${compressed ? ', compactado' : ''}).`, 'success');
+    } catch {
+      notify('Não foi possível salvar o projeto.', 'error');
+    }
+  };
+
+  const handleFileChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > MAX_PROJECT_BYTES) {
+      notify('Arquivo grande demais para abrir.', 'error');
+      return;
+    }
+    try {
+      const result = await decodeProject(new Uint8Array(await file.arrayBuffer()));
+      if (!result.ok) {
+        notify(result.error, 'error');
+        return;
+      }
+      setPending({ project: result.project, fileName: file.name });
+    } catch {
+      notify('Não foi possível ler o arquivo.', 'error');
+    }
+  };
+
+  const confirmOpen = (mode: OpenMode) => {
+    if (!pending || !onApplyProject) return;
+    const { project } = pending;
+    const next = mode === 'replace' ? project.sheets : [...allSheets, ...appendableSheets(allSheets, project.sheets)];
+    const added = mode === 'replace' ? project.sheets.length : next.length - allSheets.length;
+    applyProjectStorage(project, mode);
+    onApplyProject({
+      sheets: next,
+      activeSheetId: mode === 'replace' ? project.activeSheetId : next[allSheets.length]?.id ?? (activeSheetId ?? sheet.id),
+      starredSheetIds: mode === 'replace' ? project.starredSheetIds : [...(starredSheetIds ?? [])],
+      preferences: mode === 'replace' ? pickPreferences(project.preferences) : {},
+      mode,
+    });
+    setPending(null);
+    onClose();
+    notify(mode === 'replace' ? `Projeto aberto (${added} abas).` : `${added} abas acrescentadas ao projeto atual.`, 'success');
+  };
 
 
 
@@ -129,6 +204,69 @@ export const NocoShareModal: React.FC<NocoShareModalProps> = ({
               </button>
             </div>
           </div>
+
+          {/* Projeto .verxel */}
+          <div>
+            <span className="text-xs font-semibold text-slate-700 block mb-2">Projeto completo</span>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                onClick={handleSaveProject}
+                className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 bg-white hover:bg-blue-50/50 hover:border-blue-200 transition-all text-left group cursor-pointer shadow-xs"
+              >
+                <div className="size-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <Save className="size-4.5" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-800">Salvar projeto (.verxel)</div>
+                  <div className="text-[10px] text-slate-500">Abas, fluxo e preferências</div>
+                </div>
+              </button>
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={!onApplyProject}
+                className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 bg-white hover:bg-teal-50/50 hover:border-teal-200 transition-all text-left group cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                <div className="size-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <FolderOpen className="size-4.5" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-800">Abrir projeto…</div>
+                  <div className="text-[10px] text-slate-500">Arquivo .verxel</div>
+                </div>
+              </button>
+            </div>
+            <input ref={fileRef} type="file" accept={`${PROJECT_EXTENSION},application/octet-stream`} className="hidden" onChange={handleFileChosen} />
+          </div>
+
+          {pending && (
+            <div role="dialog" aria-label="Abrir projeto" className="rounded-xl border border-teal-200 bg-teal-50/60 p-3 space-y-2">
+              <div className="text-xs text-slate-800">
+                <span className="font-bold">{pending.fileName}</span> tem {pending.project.sheets.length}{' '}
+                {pending.project.sheets.length === 1 ? 'aba' : 'abas'}. O que fazer?
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => confirmOpen('replace')}
+                  className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold cursor-pointer"
+                >
+                  Substituir tudo
+                </button>
+                <button
+                  onClick={() => confirmOpen('append')}
+                  className="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold cursor-pointer"
+                >
+                  Acrescentar abas
+                </button>
+                <button
+                  onClick={() => setPending(null)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-500">"Substituir tudo" troca as abas, o fluxo de Relacionamentos e as preferências atuais.</p>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

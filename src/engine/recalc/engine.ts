@@ -62,7 +62,7 @@ export interface ApplyOptions {
    * Altera o mapa data das planilhas recebidas em vez de copiá-lo (copy-on-write). Use quando o chamador é
    * o dono do estado (ex.: o worker), pois a cópia de uma aba de 100 mil linhas custa mais que o recálculo.
    */
-  inPlace?: boolean;
+  inPlace?: boolean | ReadonlySet<string>;
 }
 
 interface RunOptions {
@@ -70,7 +70,7 @@ interface RunOptions {
   trustedSheetId: string | null;
   /** Abas cujas células derramadas são limpas antes de calcular (recálculo completo). */
   clearSpillsOf: readonly string[];
-  inPlace?: boolean;
+  inPlace?: boolean | ReadonlySet<string>;
 }
 
 const now = (): number => (typeof performance !== 'undefined' ? performance.now() : Date.now());
@@ -194,7 +194,7 @@ export class RecalcEngine {
     const ensure = (sheetId: string): Sheet => {
       const i = indexById.get(sheetId)!;
       if (!owned.has(sheetId)) {
-        work[i] = options.inPlace ? work[i] : { ...work[i], data: { ...work[i].data } };
+        work[i] = options.inPlace === true || (options.inPlace && options.inPlace.has(sheetId)) ? work[i] : { ...work[i], data: { ...work[i].data } };
         owned.add(sheetId);
       }
       return work[i];

@@ -1,10 +1,6 @@
-import { CellPosition, CellRange, FormulaParamGuide } from '../types/spreadsheet';
+import { CellRange, FormulaParamGuide } from '../types/spreadsheet';
 import {
-  cellPosToAddress,
-  rangeToAddress,
-  parseCellAddress,
   parseRangeAddress,
-  colIndexToLabel,
   FORMULA_CATALOG,
 } from './formulaParser';
 

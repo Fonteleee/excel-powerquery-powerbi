@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Check, X, ChevronDown } from 'lucide-react';
 import { CellPosition, CellRange, Sheet } from '../../types/spreadsheet';
-import { cellPosToAddress, cellPosToKey, rangeToAddress, formatCellValue, parseRangeAddress, parseCellAddress } from '../../engine/formulaParser';
+import { cellPosToAddress, cellPosToKey, rangeToAddress, formatCellValue } from '../../engine/formulaParser';
+import { parseJumpTarget } from '../../utils/cellJump';
+import { notify } from '../../utils/notify';
 import { FormulaAutocomplete } from '../Grid/FormulaAutocomplete';
 
 interface FormulaBarProps {
@@ -80,18 +82,17 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
   const handleNameBoxKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const rawTarget = nameBoxValue.trim().toUpperCase();
-      const range = parseRangeAddress(rawTarget);
-      if (range) {
-        onSelectRange?.(range);
-        onSelectCell?.({ row: range.startRow, col: range.startCol });
+      const jump = parseJumpTarget(nameBoxValue, sheet.rowCount, sheet.colCount);
+      if (jump.ok) {
+        onSelectRange?.(jump.target.range);
+        onSelectCell?.(jump.target.cell);
+        setIsNameBoxEditing(false);
+        (e.target as HTMLInputElement).blur();
       } else {
-        const cell = parseCellAddress(rawTarget);
-        if (cell) {
-          onSelectCell?.(cell);
-        }
+        notify(jump.error, 'warning');
+        setNameBoxValue(addressText);
+        setIsNameBoxEditing(false);
       }
-      setIsNameBoxEditing(false);
     } else if (e.key === 'Escape') {
       setNameBoxValue(addressText);
       setIsNameBoxEditing(false);

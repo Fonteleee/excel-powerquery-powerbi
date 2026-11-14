@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   X,
   ArrowUpDown,
@@ -7,6 +7,7 @@ import {
   Check,
 } from 'lucide-react';
 import { Sheet } from '../../types/spreadsheet';
+import { dataColumns } from '../../engine/sheetColumns';
 import { colIndexToLabel, cellPosToKey, parseNumberSafely, recalculateSheet } from '../../engine/formulaParser';
 
 interface NocoSortModalProps {
@@ -24,6 +25,12 @@ export const NocoSortModal: React.FC<NocoSortModalProps> = ({
 }) => {
   const [selectedCol, setSelectedCol] = useState<number>(0);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  // Lista só colunas com dados (ou o campo já escolhido), não as milhares vazias
+  const sortableColumns = useMemo(
+    () => (isOpen ? [...new Set([...dataColumns(sheet), selectedCol])].filter(c => c < sheet.colCount).sort((a, b) => a - b) : []),
+    [isOpen, sheet, selectedCol],
+  );
 
   if (!isOpen) return null;
 
@@ -50,7 +57,8 @@ export const NocoSortModal: React.FC<NocoSortModalProps> = ({
 
     const newData: typeof sheet.data = {};
     // Copy row 0 (headers)
-    for (let c = 0; c < sheet.colCount; c++) {
+    const columns = dataColumns(sheet).filter(c => c < sheet.colCount);
+    for (const c of columns) {
       const k = cellPosToKey(0, c);
       if (sheet.data[k]) newData[k] = { ...sheet.data[k] };
     }
@@ -59,7 +67,7 @@ export const NocoSortModal: React.FC<NocoSortModalProps> = ({
     rowsToSort.forEach((sortedItem, newRowOffset) => {
       const newRowIdx = newRowOffset + 1;
       const oldRowIdx = sortedItem.rowIdx;
-      for (let c = 0; c < sheet.colCount; c++) {
+      for (const c of columns) {
         const oldKey = cellPosToKey(oldRowIdx, c);
         const oldCell = sheet.data[oldKey];
         if (oldCell) {
@@ -104,7 +112,7 @@ export const NocoSortModal: React.FC<NocoSortModalProps> = ({
               onChange={e => setSelectedCol(parseInt(e.target.value, 10))}
               className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-indigo-500 text-slate-800 font-medium"
             >
-              {Array.from({ length: sheet.colCount }).map((_, c) => {
+              {sortableColumns.map(c => {
                 const header = sheet.data[cellPosToKey(0, c)]?.value;
                 const label = header ? String(header) : `Coluna ${colIndexToLabel(c)}`;
                 return (

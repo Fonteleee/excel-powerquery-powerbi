@@ -3,7 +3,8 @@
 
 import { Call } from '../call';
 import { DIV0, isBlank, isErrorValue, isMatrix, N_D, NUM, Scalar, toNumber, Value, VALOR, XlError } from '../values';
-import { criteriaMatcher } from './criteria';
+import { activeSession } from '../../formulas/session';
+import { criteriaMatcher, indexedMatches } from './criteria';
 import { def } from './registry';
 
 const sum = (xs: number[]): number => xs.reduce((a, b) => a + b, 0);
@@ -111,14 +112,28 @@ def(['ORDEM', 'ORDEM.EQ', 'RANK', 'RANK.EQ'], c => {
 /** Posições que atendem a todos os pares (intervalo; critério) a partir do argumento `from`. */
 function matchingIndexes(c: Call, from: number, size: number): number[] {
   if ((c.length - from) % 2 !== 0 || c.length - from < 2) throw new XlError(VALOR);
-  let hits: number[] = Array.from({ length: size }, (_, i) => i);
+  const cacheable = activeSession() !== null;
+  let hits: number[] | null = null;
   for (let i = from; i < c.length; i += 2) {
     const range = c.flat(i);
     if (range.length !== size) throw new XlError(VALOR);
-    const test = criteriaMatcher(c.scalar(i + 1));
-    hits = hits.filter(k => test(range[k]));
+    const criteria = c.scalar(i + 1);
+    if (hits === null) {
+      const indexed = indexedMatches(range, criteria, cacheable);
+      if (indexed) {
+        hits = indexed;
+        continue;
+      }
+    }
+    const test = criteriaMatcher(criteria);
+    if (hits === null) {
+      hits = [];
+      for (let k = 0; k < size; k++) if (test(range[k])) hits.push(k);
+    } else {
+      hits = hits.filter(k => test(range[k]));
+    }
   }
-  return hits;
+  return hits ?? [];
 }
 
 const numericAt = (values: Scalar[], hits: number[]): number[] => {

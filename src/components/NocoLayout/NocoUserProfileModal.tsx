@@ -1,13 +1,9 @@
 import React from 'react';
 import {
   X,
-  User,
-  Cpu,
   Database,
   Key,
   Layers,
-  Sparkles,
-  Zap,
 } from 'lucide-react';
 
 interface NocoUserProfileModalProps {

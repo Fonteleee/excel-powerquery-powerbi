@@ -5,16 +5,11 @@ import {
   Activity,
   Table,
   Sparkles,
-  Send,
   Layers,
   Download,
   Clock,
-  Hash,
   ArrowLeft,
   BarChart2,
-  FolderOpen,
-  PieChart as PieIcon,
-  RefreshCw,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -29,17 +24,13 @@ import {
   CartesianGrid,
   Legend,
 } from 'recharts';
-import brandEmblem from '../../assets/brand_emblem.jpg';
 import {
-  BespokeAnalyticsIcon,
-  BespokeExportIcon,
-  BespokeSparkIcon,
 } from '../Icons/BespokeIcons';
 import { Sheet } from '../../types/spreadsheet';
 import { PivotConfig, AggregationType } from '../../types/analytics';
 import { computePivotTable } from '../../engine/pivotEngine';
 import { profileSheetColumns } from '../../engine/dataProfiler';
-import { getCellValue, parseNumberSafely, valueToSeconds, formatSecondsToTime } from '../../engine/formulaParser';
+import { getCellValue, parseNumberSafely, formatSecondsToTime } from '../../engine/formulaParser';
 import { exportPivotReportToExcel } from '../../utils/excelExporter';
 
 interface DashboardStudioProps {
@@ -50,7 +41,6 @@ interface DashboardStudioProps {
 
 export const DashboardStudio: React.FC<DashboardStudioProps> = ({ sheet, onClose, onLoadSampleSales }) => {
   const [activeTab, setActiveTab] = useState<'kpi_charts' | 'pivot_table' | 'ai_assistant'>('kpi_charts');
-  const [filterCategory, setFilterCategory] = useState<string | null>(null);
 
   // Extract columns
   const columnProfiles = useMemo(() => {
@@ -85,7 +75,7 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ sheet, onClose
 
   const [selectedDimensionCol, setSelectedDimensionCol] = useState<number>(defaultDimensionCol);
   const [selectedMetricCol, setSelectedMetricCol] = useState<number>(defaultMetricCol);
-  const [selectedAggregation, setSelectedAggregation] = useState<AggregationType>('SUM');
+  const [selectedAggregation] = useState<AggregationType>('SUM');
 
   // Active Metric Column Profile
   const activeMetricProfile = useMemo(() => {

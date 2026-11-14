@@ -1,5 +1,4 @@
 import { Sheet } from '../types/spreadsheet';
-import { RelationNode, RelationEdge } from '../types/relations';
 import { cellPosToKey, colIndexToLabel, parseNumberSafely, recalculateSheet } from './formulaParser';
 import { createEmptySheet } from '../data/sampleDatasets';
 import { formatSheetNameForFormula, getColumnHeaderName } from './relationFormulaEngine';

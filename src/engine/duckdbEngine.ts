@@ -1,5 +1,6 @@
 import { Sheet } from '../types/spreadsheet';
 import { cellPosToKey } from './formulaParser';
+import { dataColumns } from './sheetColumns';
 import { getDbClient } from './dbClient';
 
 export async function initDuckDB(): Promise<boolean> {
@@ -18,7 +19,8 @@ export interface DuckDBSyncResult {
 export async function syncSheetToDuckDB(sheet: Sheet, tableName = 'uploaded_data'): Promise<DuckDBSyncResult> {
   // 1. Extrair cabeçalhos (Linha 0)
   const headerCols: { colIndex: number; name: string }[] = [];
-  for (let c = 0; c < sheet.colCount; c++) {
+  for (const c of dataColumns(sheet)) {
+    if (c >= sheet.colCount) continue;
     const key = cellPosToKey(0, c);
     const cell = sheet.data[key];
     const val = cell?.value ?? cell?.raw;

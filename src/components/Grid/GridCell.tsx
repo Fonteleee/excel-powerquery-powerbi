@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CellData, CellPosition, CellRange, ConditionalFormatRule, MergedRegion } from '../../types/spreadsheet';
+import { CellData, ConditionalFormatRule, MergedRegion } from '../../types/spreadsheet';
 import { formatCellValue, parseNumberSafely } from '../../engine/formulaParser';
 import { FormulaAutocomplete } from './FormulaAutocomplete';
 import { readableTextColor } from '../../utils/contrast';
@@ -89,8 +89,6 @@ const GridCellComponent: React.FC<GridCellProps> = ({
   useEffect(() => {
     if (!isSelected || isEditing) setListOpen(false);
   }, [isSelected, isEditing]);
-
-  if (isMergeCovered) return null;
 
   const rawValue = cell?.raw ?? '';
   const cellVal = cell?.value !== undefined ? cell.value : rawValue;
@@ -277,6 +275,9 @@ const GridCellComponent: React.FC<GridCellProps> = ({
   } else {
     selectionClass = 'hover:bg-[#f3f2f1]/60 bg-white';
   }
+
+  // Célula coberta por mesclagem não é desenhada (o retorno vem depois dos hooks, que não podem ser condicionais).
+  if (isMergeCovered) return null;
 
   return (
     <td

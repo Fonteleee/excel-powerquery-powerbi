@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Plus, X, Hash, Layers, CheckCircle, Copy, Check } from 'lucide-react';
+import { Plus, X, Check } from 'lucide-react';
 import { Sheet, CellRange } from '../../types/spreadsheet';
-import { getFlatRangeValues, parseNumberSafely, colIndexToLabel } from '../../engine/formulaParser';
+import { getFlatRangeValues, parseNumberSafely } from '../../engine/formulaParser';
 
 interface SheetTabsProps {
   sheets: Sheet[];

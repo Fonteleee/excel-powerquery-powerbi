@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { dataColumns } from '../../engine/sheetColumns';
 import {
   Database,
   CheckCircle2,
@@ -7,7 +8,6 @@ import {
   Sparkles,
   Layers,
   Type,
-  Plus,
   Copy,
   Table,
   Sliders,
@@ -17,22 +17,13 @@ import {
   Percent,
   Calendar,
   Filter,
-  ArrowRight,
-  ArrowDown,
-  FileSpreadsheet,
-  Download,
   X,
   PlusCircle,
-  HelpCircle,
   Scissors,
   Check,
-  Zap,
 } from 'lucide-react';
 import brandEmblem from '../../assets/brand_emblem.jpg';
 import {
-  BespokeQueryIcon,
-  BespokeMergeIcon,
-  BespokeSparkIcon,
   BespokeExportIcon,
 } from '../Icons/BespokeIcons';
 import { Sheet, CellFormat } from '../../types/spreadsheet';
@@ -45,7 +36,7 @@ import {
   cellPosToKey,
   formatCellValue,
   parseNumberSafely,
-  valueToSeconds,
+  evaluateFormula,
 } from '../../engine/formulaParser';
 import { exportSheetToExcel } from '../../utils/excelExporter';
 import { MergeQueriesModal } from '../Modals/MergeQueriesModal';
@@ -103,7 +94,6 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
   const [mergeSeparator, setMergeSeparator] = useState<'space' | 'hyphen' | 'comma' | 'semicolon' | 'slash' | 'none' | 'custom'>('hyphen');
   const [mergeCustomSep, setMergeCustomSep] = useState(' - ');
   const [mergeNewColName, setMergeNewColName] = useState('Colunas_Mescladas');
-  const [mergeReplaceOriginal, setMergeReplaceOriginal] = useState(false);
 
   // Custom Column Modal State
   const [customColName, setCustomColName] = useState('Personalizada');
@@ -307,10 +297,10 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
       let calculatedResult: any = formulaExpr;
       try {
         if (/^[\d\s+\-*/.()]+$/.test(formulaExpr)) {
-          // eslint-disable-next-line no-eval
-          calculatedResult = Function(`"use strict"; return (${formulaExpr})`)();
+          // Só dígitos e operadores (já validado acima): usa o avaliador de fórmulas, sem eval/Function (CSP).
+          calculatedResult = evaluateFormula(`=${formulaExpr}`, workingSheet);
         }
-      } catch (err) {
+      } catch {
         calculatedResult = formulaExpr;
       }
 
@@ -542,9 +532,10 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
     const remainingRowsData: any[][] = [];
 
     // Header row
+    const columns = dataColumns(workingSheet).filter(c => c < workingSheet.colCount); // colunas sem célula ficam de fora (matriz esparsa)
     const headerRow: any[] = [];
-    for (let c = 0; c < workingSheet.colCount; c++) {
-      headerRow.push(getCellValue(workingSheet, 0, c));
+    for (const c of columns) {
+      headerRow[c] = getCellValue(workingSheet, 0, c);
     }
     remainingRowsData.push(headerRow);
 
@@ -553,8 +544,8 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
       const val = getCellValue(workingSheet, r, targetCol);
       if (val !== null && val !== undefined && String(val).trim() !== '') {
         const rowVals: any[] = [];
-        for (let c = 0; c < workingSheet.colCount; c++) {
-          rowVals.push(getCellValue(workingSheet, r, c));
+        for (const c of columns) {
+          rowVals[c] = getCellValue(workingSheet, r, c);
         }
         remainingRowsData.push(rowVals);
       }
@@ -594,9 +585,10 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
     const remainingRowsData: any[][] = [];
 
     // Header row
+    const columns = dataColumns(workingSheet).filter(c => c < workingSheet.colCount); // colunas sem célula ficam de fora (matriz esparsa)
     const headerRow: any[] = [];
-    for (let c = 0; c < workingSheet.colCount; c++) {
-      headerRow.push(getCellValue(workingSheet, 0, c));
+    for (const c of columns) {
+      headerRow[c] = getCellValue(workingSheet, 0, c);
     }
     remainingRowsData.push(headerRow);
 
@@ -606,8 +598,8 @@ export const PowerQueryEditor: React.FC<PowerQueryEditorProps> = ({
       if (!seenValues.has(strKey)) {
         seenValues.add(strKey);
         const rowVals: any[] = [];
-        for (let c = 0; c < workingSheet.colCount; c++) {
-          rowVals.push(getCellValue(workingSheet, r, c));
+        for (const c of columns) {
+          rowVals[c] = getCellValue(workingSheet, r, c);
         }
         remainingRowsData.push(rowVals);
       }

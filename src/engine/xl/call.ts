@@ -3,8 +3,11 @@
 // avaliando-os só quando pedidos (SE, SEERRO etc. não avaliam o ramo que não usam).
 
 import { CellRange, Sheet } from '../../types/spreadsheet';
+import { activeSession } from '../formulas/session';
 import { Node } from './parser';
 import { flatten, isBlank, isErrorValue, isMatrix, Matrix, Scalar, toBool, toMatrix, toNumber, toScalar, toText, Value, VALOR, XlError } from './values';
+
+const FLAT_CACHE = new WeakMap<object, Scalar[]>();
 
 export interface RefTarget {
   sheet: Sheet;
@@ -71,7 +74,15 @@ export class Call {
   }
 
   flat(i: number): Scalar[] {
-    return flatten(this.value(i));
+    const v = this.value(i);
+    // Em recálculo a matriz do intervalo é a mesma em toda a rodada: achatar uma vez só (leitura apenas).
+    if (!isMatrix(v) || !activeSession()) return flatten(v);
+    let flat = FLAT_CACHE.get(v);
+    if (!flat) {
+      flat = flatten(v);
+      FLAT_CACHE.set(v, flat);
+    }
+    return flat;
   }
 
   num(i: number, fallback?: number): number {

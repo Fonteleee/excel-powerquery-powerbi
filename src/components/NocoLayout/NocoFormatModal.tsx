@@ -11,12 +11,10 @@ import {
   AlignRight,
   DollarSign,
   Clock,
-  Calendar,
   Percent,
   Hash,
   Type,
   Check,
-  Sparkles,
 } from 'lucide-react';
 import { Sheet, CellRange, CellFormat, CellFormatType } from '../../types/spreadsheet';
 import { cellPosToKey, recalculateSheet } from '../../engine/formulaParser';
@@ -42,16 +40,6 @@ const PRESET_BG_COLORS = [
   { label: 'Azul Royal', val: '#2563eb', text: '#ffffff' },
   { label: 'Índigo Escuro', val: '#4f46e5', text: '#ffffff' },
   { label: 'Grafite Obsidian', val: '#1e293b', text: '#ffffff' },
-];
-
-const PRESET_TEXT_COLORS = [
-  { label: 'Padrão', val: '#0f172a' },
-  { label: 'Azul', val: '#1d4ed8' },
-  { label: 'Verde', val: '#15803d' },
-  { label: 'Vermelho', val: '#b91c1c' },
-  { label: 'Roxo', val: '#7e22ce' },
-  { label: 'Cinza', val: '#64748b' },
-  { label: 'Branco', val: '#ffffff' },
 ];
 
 const FONT_FAMILIES = [
@@ -80,8 +68,8 @@ export const NocoFormatModal: React.FC<NocoFormatModalProps> = ({
   const [fontSize, setFontSize] = useState<number>(13);
   const [align, setAlign] = useState<'left' | 'center' | 'right'>('left');
   const [bgColor, setBgColor] = useState<string>('transparent');
-  const [textColor, setTextColor] = useState<string>('#0f172a');
-  const [decimals, setDecimals] = useState<number>(2);
+  const [textColor] = useState<string>('#0f172a');
+  const [decimals] = useState<number>(2);
 
   if (!isOpen) return null;
 

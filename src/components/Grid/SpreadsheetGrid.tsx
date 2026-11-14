@@ -37,7 +37,6 @@ import { ColumnFilterDropdown } from './ColumnFilterDropdown';
 import {
   colIndexToLabel,
   cellPosToKey,
-  recalculateSheet,
   getCellValue,
   parseNumberSafely,
   shiftFormula,
@@ -49,6 +48,7 @@ import {
   extractReferencesFromFormula,
 } from '../../engine/formulaPointHelper';
 import { detectFlashFill, FlashFillPrediction } from '../../engine/flashFill';
+import { declareEdit } from '../../engine/recalc/incremental';
 import { computeSmartSeries } from '../../engine/autoFillEngine';
 import { getNocoColumnIcon } from './columnMeta';
 import { useGridClipboard } from './hooks/useGridClipboard';
@@ -216,7 +216,8 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       };
     });
 
-    const updated = recalculateSheet({ ...sheet, data: updatedData });
+    const updated = { ...sheet, data: updatedData };
+    declareEdit(sheet.data, updatedData, hint.predictedValues.map(pv => cellPosToKey(pv.row, hint.targetCol)));
     onUpdateSheet(updated);
     setFlashFillHint(null);
   };
@@ -245,7 +246,8 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       };
     });
 
-    const recalculated = recalculateSheet({ ...sheet, data: updatedData });
+    declareEdit(sheet.data, updatedData, keysToFormat);
+    const recalculated = { ...sheet, data: updatedData };
     onUpdateSheet(recalculated);
   };
 
@@ -286,7 +288,8 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       format: prevCell?.format,
     };
 
-    const recalculated = recalculateSheet({ ...sheet, data: updatedData });
+    declareEdit(sheet.data, updatedData, [key]);
+    const recalculated = { ...sheet, data: updatedData };
     onUpdateSheet(recalculated);
   };
 
@@ -295,14 +298,15 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     const key = cellPosToKey(row, col);
     const asNumber = value.trim() !== '' && Number.isFinite(Number(value.replace(',', '.'))) ? Number(value.replace(',', '.')) : null;
     const updatedData = { ...sheet.data, [key]: { raw: value, value: asNumber ?? value, format: sheet.data[key]?.format } };
-    onUpdateSheet(recalculateSheet({ ...sheet, data: updatedData }));
+    declareEdit(sheet.data, updatedData, [key]);
+    onUpdateSheet({ ...sheet, data: updatedData });
   };
 
   // Excluir as linhas selecionadas por completo
   const handleDeleteSelectedRows = () => {
     const rStart = selectedRange.startRow;
     const { data, rowCount: newRowCount } = deleteRowsData(sheet, rStart, selectedRange.endRow);
-    const recalculated = recalculateSheet({ ...sheet, data, rowCount: newRowCount });
+    const recalculated = { ...sheet, data, rowCount: newRowCount };
     onUpdateSheet(recalculated);
     onSelectCell({ row: Math.min(rStart, newRowCount - 1), col: activeCell.col });
     onSelectRange({
@@ -340,7 +344,8 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       }
     });
 
-    const recalculated = recalculateSheet({ ...sheet, data: updatedData });
+    declareEdit(sheet.data, updatedData, keysToClear);
+    const recalculated = { ...sheet, data: updatedData };
     onUpdateSheet(recalculated);
     setMultiSelectedKeys(new Set());
   };
@@ -646,7 +651,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   };
 
   const applyFillHandleDrag = (targetRange: CellRange) => {
-    const recalculated = recalculateSheet({ ...sheet, data: computeFilledData(sheet, selectedRange, targetRange) });
+    const recalculated = { ...sheet, data: computeFilledData(sheet, selectedRange, targetRange) };
     onUpdateSheet(recalculated);
     onSelectRange(targetRange);
   };
@@ -779,7 +784,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
 
   // Ordena as linhas pela coluna (a linha 0 é o cabeçalho)
   const handleSortColumn = (colIndex: number, direction: 'asc' | 'desc') => {
-    onUpdateSheet(recalculateSheet({ ...sheet, data: sortRowsData(sheet, colIndex, direction) }));
+    onUpdateSheet({ ...sheet, data: sortRowsData(sheet, colIndex, direction) });
   };
 
 
@@ -912,7 +917,12 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     onUpdateSheet({ ...sheet, hiddenRows: toggleGroup(sheet.rowLevels, sheet.hiddenRows, row, summaryAbove, sheet.rowCount) });
   const onToggleColGroup = (col: number) =>
     onUpdateSheet({ ...sheet, hiddenCols: toggleGroup(sheet.colLevels, sheet.hiddenCols, col, summaryAbove, sheet.colCount) });
-  const formulaRuleHits = useMemo(() => formulaRuleMatches(sheet, windowRows), [sheet, windowRows]);
+  // Só as colunas desenhadas (mais as congeladas): em planilhas largas não avalia regras de 16 mil colunas.
+  const ruleCols = useMemo(
+    () => (sheet.colCount <= VIRTUALIZE_FROM_COLS ? undefined : { start: (sheet.frozenCols ?? 0) > 0 ? 0 : colWindow.start, end: colWindow.end }),
+    [sheet.colCount, sheet.frozenCols, colWindow.start, colWindow.end]
+  );
+  const formulaRuleHits = useMemo(() => formulaRuleMatches(sheet, windowRows, ruleCols), [sheet, windowRows, ruleCols]);
   // Memoize column numeric values for conditional formatting (Data Bars, Color Scales, Average)
   const columnValueMap = useMemo(() => {
     const map: Record<number, any[]> = {};

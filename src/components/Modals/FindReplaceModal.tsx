@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, Replace, X, ChevronDown, ChevronUp, Check, ArrowRight, Table, Hash } from 'lucide-react';
+import { Search, Replace, X, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { Sheet, CellPosition } from '../../types/spreadsheet';
 import { cellPosToAddress, cellPosToKey, colIndexToLabel, recalculateSheet } from '../../engine/formulaParser';
+import { dataColumns } from '../../engine/sheetColumns';
 
 interface FindReplaceModalProps {
   isOpen: boolean;
@@ -44,8 +45,9 @@ export const FindReplaceModal: React.FC<FindReplaceModalProps> = ({
     const list: { row: number; col: number; key: string; address: string; value: string; raw: string }[] = [];
     const query = matchCase ? findText : findText.toLowerCase();
 
+    const columns = dataColumns(sheet).filter(c => c < sheet.colCount); // só colunas que têm célula
     for (let r = 0; r < sheet.rowCount; r++) {
-      for (let c = 0; c < sheet.colCount; c++) {
+      for (const c of columns) {
         const key = cellPosToKey(r, c);
         const cell = sheet.data[key];
         if (!cell) continue;

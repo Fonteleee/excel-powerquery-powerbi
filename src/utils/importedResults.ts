@@ -17,6 +17,18 @@ export function restoreExcelResult(data: { [key: string]: CellData }, key: strin
   const now = data[key];
   if (!now.error && !isErrorValue(now.value) && !isBlank(now.value)) return;
   data[key] = { ...now, value: excelValue, error: null, errorDetail: undefined };
+  restoreObserver?.(data, key);
+}
+
+type RestoreObserver = (data: { [key: string]: CellData }, key: string) => void;
+let restoreObserver: RestoreObserver | null = null;
+
+/**
+ * Observa as fórmulas em que o resultado do arquivo substituiu o do motor (relatório de fidelidade da importação).
+ * Passe null para parar. Só um observador por vez (cada worker/thread tem o seu módulo).
+ */
+export function observeRestoredResults(observer: RestoreObserver | null): void {
+  restoreObserver = observer;
 }
 
 /** Depois do recálculo, fórmula que o motor não entendeu volta a mostrar o resultado guardado no Excel. */

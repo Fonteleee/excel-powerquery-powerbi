@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Download,
   Upload,
@@ -8,6 +8,8 @@ import {
   X,
   Sparkles,
   FileUp,
+  Loader2,
+  CheckCircle2,
 } from 'lucide-react';
 import { Sheet } from '../../types/spreadsheet';
 import { getCellValue, cellPosToKey } from '../../engine/formulaParser';
@@ -17,6 +19,18 @@ import {
   createFinancialBudgetSheet,
 } from '../../data/sampleDatasets';
 import { parseCSVToAutoFormattedSheet } from '../../utils/csvAutoFormatter';
+import { notify } from '../../utils/notify';
+import { startImport, ImportCancelledError, type ImportJob } from '../../utils/importClient';
+import { summarizeReport } from '../../utils/importProtocol';
+import type { ImportProgress, ImportReport } from '../../utils/importPipeline';
+
+type ImportState =
+  | { phase: 'idle' }
+  | { phase: 'running'; fileName: string; progress: ImportProgress }
+  | { phase: 'done'; report: ImportReport }
+  | { phase: 'error'; message: string };
+
+const fmtSeconds = (ms: number): string => `${(ms / 1000).toFixed(1).replace('.', ',')} s`;
 
 
 interface ImportExportModalProps {
@@ -26,7 +40,8 @@ interface ImportExportModalProps {
   activeSheetId: string;
   onLoadSheet: (sheet: Sheet) => void;
   /** Arquivos importados: todas as abas de uma vez. */
-  onImportSheets: (sheets: Sheet[]) => void;
+  /** `calculated`: as abas já vêm recalculadas (importação em segundo plano). */
+  onImportSheets: (sheets: Sheet[], calculated?: boolean) => void;
 }
 
 export const ImportExportModal: React.FC<ImportExportModalProps> = ({
@@ -38,6 +53,11 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   onImportSheets,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const jobRef = useRef<ImportJob | null>(null);
+  const [importState, setImportState] = useState<ImportState>({ phase: 'idle' });
+
+  // Fechar a página encerra a importação em andamento.
+  useEffect(() => () => jobRef.current?.cancel(), []);
 
   if (!isOpen) return null;
 
@@ -132,9 +152,48 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
     onClose();
   };
 
+  // Excel: leitura, conversão e cálculo rodam num Web Worker; aqui só mostramos o progresso.
+  const runWorkbookImport = (data: Uint8Array, fileName: string): void => {
+    jobRef.current?.cancel();
+    setImportState({ phase: 'running', fileName, progress: { stage: 'reading', message: 'Preparando…', percent: 0 } });
+    const job = startImport(data, fileName, {
+      onProgress: progress => {
+        if (jobRef.current === job) setImportState({ phase: 'running', fileName, progress });
+      },
+    });
+    jobRef.current = job;
+    job.promise
+      .then(({ sheets: imported, report }) => {
+        if (jobRef.current !== job) return;
+        jobRef.current = null;
+        if (imported.length === 0) {
+          setImportState({ phase: 'error', message: 'Não encontrei dados neste arquivo.' });
+          return;
+        }
+        onImportSheets(imported, true);
+        setImportState({ phase: 'done', report });
+        notify(summarizeReport(report), report.totals.divergent > 0 ? 'warning' : 'success');
+      })
+      .catch(err => {
+        if (jobRef.current !== job) return;
+        jobRef.current = null;
+        if (err instanceof ImportCancelledError) setImportState({ phase: 'idle' });
+        else setImportState({ phase: 'error', message: err instanceof Error && err.message ? err.message : 'Erro ao processar planilha Excel.' });
+      });
+  };
+
+  const cancelImport = (): void => {
+    const job = jobRef.current;
+    jobRef.current = null;
+    job?.cancel();
+    setImportState({ phase: 'idle' });
+    notify('Importação cancelada.', 'info');
+  };
+
   // Handle file import
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
 
     const reader = new FileReader();
@@ -150,7 +209,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
           }
           onClose();
         } catch {
-          alert('Erro ao carregar arquivo JSON.');
+          notify('Erro ao carregar arquivo JSON.', 'error');
         }
       };
       reader.readAsText(file);
@@ -165,28 +224,16 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
           onImportSheets([formattedSheet]);
           onClose();
         } catch {
-          alert('Erro ao formatar e carregar arquivo CSV.');
+          notify('Erro ao formatar e carregar arquivo CSV.', 'error');
         }
       };
       reader.readAsText(file);
     } else {
-      reader.onload = async event => {
-        try {
-          const data = new Uint8Array(event.target?.result as ArrayBuffer);
-          const { importWorkbookFile } = await import('../../utils/workbookImport');
-          const { sheets: imported, skipped, notes } = importWorkbookFile(data, file.name);
-          if (imported.length === 0) {
-            alert('Não encontrei dados neste arquivo.');
-            return;
-          }
-          onImportSheets(imported);
-          if (skipped.length > 0) console.info('Abas ignoradas na importação:', skipped.join(', '));
-          if (notes.length > 0) alert(`Arquivo importado.\n\n${notes.join('\n\n')}`);
-          onClose();
-        } catch (err) {
-          alert('Erro ao processar planilha Excel.');
-        }
+      reader.onload = event => {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        runWorkbookImport(data, file.name);
       };
+      reader.onerror = () => setImportState({ phase: 'error', message: 'Não consegui ler o arquivo.' });
       reader.readAsArrayBuffer(file);
     }
   };
@@ -289,6 +336,93 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                 ⚡ Detecta cabeçalhos, moedas, percentuais, datas, ajusta largura das colunas e insere linha de total automaticamente
               </span>
             </button>
+
+            {importState.phase === 'running' && (
+              <div role="status" aria-live="polite" className="rounded-xl border border-blue-200 bg-blue-50 p-3 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-blue-900">
+                  <Loader2 className="size-4 animate-spin" />
+                  <span className="truncate">Importando {importState.fileName}</span>
+                </div>
+                <div className="text-[11px] text-blue-900 truncate">{importState.progress.message}</div>
+                <div
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(importState.progress.percent)}
+                  className="h-2 w-full overflow-hidden rounded-full bg-blue-100"
+                >
+                  <div className="h-full bg-blue-600 transition-all duration-300" style={{ width: `${Math.max(2, importState.progress.percent)}%` }} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-blue-800">A tela continua livre enquanto o arquivo é processado.</span>
+                  <button onClick={cancelImport} className="px-3 py-1 rounded-lg bg-white border border-blue-300 text-blue-900 text-[11px] font-bold hover:bg-blue-100 cursor-pointer">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {importState.phase === 'error' && (
+              <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800">{importState.message}</div>
+            )}
+
+            {importState.phase === 'done' && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 space-y-2 text-[11px] text-slate-800">
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
+                  <CheckCircle2 className="size-4" />
+                  <span className="truncate">Importação concluída: {importState.report.fileName}</span>
+                </div>
+                <div className="text-slate-600">
+                  Leitura {fmtSeconds(importState.report.timings.readMs)}, conversão {fmtSeconds(importState.report.timings.convertMs)}, cálculo {fmtSeconds(importState.report.timings.calcMs)}.
+                </div>
+                <div className="font-bold text-slate-900">Relatório de fidelidade</div>
+                {importState.report.totals.formulas === 0 ? (
+                  <div>Nenhuma fórmula neste arquivo: os valores entraram como estão.</div>
+                ) : (
+                  <>
+                    <div>
+                      <strong>{importState.report.totals.formulas.toLocaleString('pt-BR')}</strong> fórmulas importadas:{' '}
+                      <strong>{importState.report.totals.matched.toLocaleString('pt-BR')}</strong> batem com o resultado do Excel,{' '}
+                      <strong>{importState.report.totals.fallback.toLocaleString('pt-BR')}</strong> com o valor do arquivo como reserva (o motor não calculou)
+                      {importState.report.totals.divergent > 0 && (
+                        <>, <strong className="text-amber-700">{importState.report.totals.divergent.toLocaleString('pt-BR')}</strong> divergem do Excel</>
+                      )}
+                      {importState.report.totals.unverified > 0 && <>, {importState.report.totals.unverified.toLocaleString('pt-BR')} não comparáveis (data/hora)</>}.
+                    </div>
+                    <div className="max-h-40 overflow-y-auto rounded-lg border border-emerald-200 bg-white">
+                      <table className="w-full text-[10px]">
+                        <thead className="bg-emerald-100 text-emerald-900">
+                          <tr>
+                            <th className="text-left px-2 py-1">Aba</th>
+                            <th className="text-right px-2 py-1">Fórmulas</th>
+                            <th className="text-right px-2 py-1">Batem</th>
+                            <th className="text-right px-2 py-1">Reserva</th>
+                            <th className="text-right px-2 py-1">Divergem</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {importState.report.sheets.map(s => (
+                            <tr key={s.name} className="border-t border-emerald-100">
+                              <td className="px-2 py-1 truncate max-w-[160px]">{s.name}</td>
+                              <td className="px-2 py-1 text-right">{s.formulas.toLocaleString('pt-BR')}</td>
+                              <td className="px-2 py-1 text-right">{s.matched.toLocaleString('pt-BR')}</td>
+                              <td className="px-2 py-1 text-right">{s.fallback.toLocaleString('pt-BR')}</td>
+                              <td className="px-2 py-1 text-right">{s.divergent.toLocaleString('pt-BR')}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+                {importState.report.skipped.length > 0 && (
+                  <div><strong>Abas ignoradas:</strong> {importState.report.skipped.join(', ')}</div>
+                )}
+                {importState.report.notes.map(note => (
+                  <div key={note} className="rounded-lg bg-amber-50 border border-amber-200 p-2 text-amber-900">{note}</div>
+                ))}
+              </div>
+            )}
           </div>
 
 

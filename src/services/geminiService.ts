@@ -16,6 +16,16 @@ export interface CopilotMessage {
   maskedItemsCount?: number;
 }
 
+interface GeminiModelInfo {
+  name: string;
+  supportedGenerationMethods?: string[];
+}
+
+interface GeminiPart {
+  text?: string;
+  thought?: boolean;
+}
+
 const STORAGE_KEY = 'gemini_api_key';
 const MODEL_KEY = 'gemini_model_choice';
 
@@ -52,13 +62,13 @@ export function saveStoredModel(model: string): void {
 
 export async function fetchValidGeminiModels(apiKey: string): Promise<string[]> {
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}`;
-    const res = await fetch(url);
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models';
+    const res = await fetch(url, { headers: { 'x-goog-api-key': apiKey.trim() } });
     if (res.ok) {
       const data = await res.json();
       const models = (data.models || [])
-        .filter((m: any) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
-        .map((m: any) => m.name.replace(/^models\//, ''));
+        .filter((m: GeminiModelInfo) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+        .map((m: GeminiModelInfo) => m.name.replace(/^models\//, ''));
       if (models.length > 0) {
         return models;
       }
@@ -83,10 +93,10 @@ export async function testGeminiConnection(apiKey: string, preferredModel?: stri
 
   for (const model of candidateList) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey.trim()}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey.trim() },
         body: JSON.stringify({
           contents: [{ parts: [{ text: 'Responda apenas OK em português.' }] }],
         }),
@@ -103,8 +113,8 @@ export async function testGeminiConnection(apiKey: string, preferredModel?: stri
         const errJson = await response.json().catch(() => null);
         lastError = errJson?.error?.message || `HTTP ${response.status}`;
       }
-    } catch (e: any) {
-      lastError = e?.message || 'Falha de rede ou CORS.';
+    } catch (e) {
+      lastError = (e instanceof Error && e.message) || 'Falha de rede ou CORS.';
     }
   }
 
@@ -284,10 +294,10 @@ ATENÇÃO: Rows e Cols são baseados em índice 0. Linha 1 = row:0, Coluna A = c
 
   for (const model of modelsToTry) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey.trim()}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey.trim() },
         body: JSON.stringify({
           contents: [
             {
@@ -306,11 +316,11 @@ ATENÇÃO: Rows e Cols são baseados em índice 0. Linha 1 = row:0, Coluna A = c
         const parts = data.candidates?.[0]?.content?.parts || [];
         
         // Extrair texto real (descartando thoughts de modelos de raciocínio se marcados)
-        const nonThoughtParts = parts.filter((p: any) => !p.thought);
+        const nonThoughtParts = parts.filter((p: GeminiPart) => !p.thought);
         if (nonThoughtParts.length > 0) {
-          rawResponseText = nonThoughtParts.map((p: any) => p.text || '').join('\n');
+          rawResponseText = nonThoughtParts.map((p: GeminiPart) => p.text || '').join('\n');
         } else {
-          rawResponseText = parts.map((p: any) => p.text || '').join('\n');
+          rawResponseText = parts.map((p: GeminiPart) => p.text || '').join('\n');
         }
 
         if (rawResponseText.trim()) {
@@ -322,8 +332,8 @@ ATENÇÃO: Rows e Cols são baseados em índice 0. Linha 1 = row:0, Coluna A = c
         const errData = await response.json().catch(() => null);
         lastError = errData?.error?.message || `HTTP ${response.status}`;
       }
-    } catch (e: any) {
-      lastError = e?.message || 'Falha de conexão.';
+    } catch (e) {
+      lastError = (e instanceof Error && e.message) || 'Falha de conexão.';
     }
   }
 
@@ -349,12 +359,12 @@ ATENÇÃO: Rows e Cols são baseados em índice 0. Linha 1 = row:0, Coluna A = c
       if (Array.isArray(parsed.actions)) {
         actions = parsed.actions;
         
-        const chartAction = actions?.find(a => a.type === 'create_chart') as any;
+        const chartAction = actions?.find((a): a is Extract<AgentAction, { type: 'create_chart' }> => a.type === 'create_chart');
         if (chartAction && chartAction.config) {
           suggestedChart = chartAction.config;
         }
 
-        const sqlAction = actions?.find(a => a.type === 'run_duckdb_sql') as any;
+        const sqlAction = actions?.find((a): a is Extract<AgentAction, { type: 'run_duckdb_sql' }> => a.type === 'run_duckdb_sql');
         if (sqlAction && sqlAction.query) {
           suggestedSql = sqlAction.query;
         }

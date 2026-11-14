@@ -2,14 +2,11 @@ import React, { useState } from 'react';
 import {
   X,
   Plus,
-  Table2,
-  FileSpreadsheet,
   Users,
   DollarSign,
   TrendingUp,
   Clock,
   Upload,
-  Check,
 } from 'lucide-react';
 import { Sheet } from '../../types/spreadsheet';
 import {

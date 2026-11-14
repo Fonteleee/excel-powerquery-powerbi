@@ -1,24 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   GitMerge,
-  Table,
   Check,
   X,
-  Layers,
-  ArrowRight,
   Info,
   Sparkles,
   Code2,
   CheckCircle2,
   AlertCircle,
-  HelpCircle,
-  Link,
   ChevronDown,
   ChevronUp,
-  Sliders,
-  Database,
   MoveHorizontal,
-  Compass,
 } from 'lucide-react';
 import { Sheet } from '../../types/spreadsheet';
 import {
@@ -27,6 +19,13 @@ import {
   MergeQueriesResult,
 } from '../../engine/mergeQueriesEngine';
 import { getCellValue, colIndexToLabel } from '../../engine/formulaParser';
+import { dataColumns } from '../../engine/sheetColumns';
+
+function previewColumns(sheet: Sheet): number[] {
+  const set = new Set<number>(dataColumns(sheet));
+  for (let c = 0; c < Math.min(7, sheet.colCount); c++) set.add(c);
+  return [...set].filter(c => c < sheet.colCount).sort((a, b) => a - b);
+}
 
 interface MergeQueriesModalProps {
   isOpen: boolean;
@@ -119,10 +118,15 @@ export const MergeQueriesModal: React.FC<MergeQueriesModalProps> = ({
   // Placement for new expanded columns
   const [placement, setPlacement] = useState<'next_to_key' | 'end_of_table'>('next_to_key');
 
+  // Colunas mostradas na prévia: as 7 primeiras + as que têm células (em vez de até 16 mil colunas)
+  const primaryPreviewCols = useMemo(() => previewColumns(primarySheet), [primarySheet]);
+  const secondaryPreviewCols = useMemo(() => previewColumns(secondarySheet), [secondarySheet]);
+
   // Expanded columns from secondary table
   const secondaryColIndices = useMemo(() => {
     const indices: number[] = [];
-    for (let c = 0; c < secondarySheet.colCount; c++) {
+    for (const c of dataColumns(secondarySheet)) {
+      if (c >= secondarySheet.colCount) continue;
       const h = getCellValue(secondarySheet, 0, c);
       if (h !== null && h !== undefined && String(h).trim() !== '') {
         indices.push(c);
@@ -147,7 +151,8 @@ export const MergeQueriesModal: React.FC<MergeQueriesModalProps> = ({
   // Auto-Suggest Key Columns (Proactive Intelligence)
   const handleAutoDetectKeys = () => {
     const primCols: { index: number; name: string }[] = [];
-    for (let c = 0; c < primarySheet.colCount; c++) {
+    for (const c of dataColumns(primarySheet)) {
+      if (c >= primarySheet.colCount) continue;
       const h = getCellValue(primarySheet, 0, c);
       if (h !== null && h !== undefined && String(h).trim() !== '') {
         primCols.push({ index: c, name: String(h).trim().toLowerCase() });
@@ -155,7 +160,8 @@ export const MergeQueriesModal: React.FC<MergeQueriesModalProps> = ({
     }
 
     const secCols: { index: number; name: string }[] = [];
-    for (let c = 0; c < secondarySheet.colCount; c++) {
+    for (const c of dataColumns(secondarySheet)) {
+      if (c >= secondarySheet.colCount) continue;
       const h = getCellValue(secondarySheet, 0, c);
       if (h !== null && h !== undefined && String(h).trim() !== '') {
         secCols.push({ index: c, name: String(h).trim().toLowerCase() });
@@ -224,7 +230,7 @@ export const MergeQueriesModal: React.FC<MergeQueriesModalProps> = ({
         usePrefix,
         prefixText,
       });
-    } catch (e) {
+    } catch {
       return null;
     }
   }, [
@@ -331,7 +337,7 @@ export const MergeQueriesModal: React.FC<MergeQueriesModalProps> = ({
                   <table className="border-collapse table-fixed w-max text-xs font-mono bg-white">
                     <thead className="sticky top-0 bg-slate-100 border-b border-slate-200">
                       <tr>
-                        {Array.from({ length: primarySheet.colCount }).map((_, colIdx) => {
+                        {primaryPreviewCols.map(colIdx => {
                           const headerVal = getCellValue(primarySheet, 0, colIdx);
                           if (headerVal === null && colIdx > 6) return null;
                           const headerText = headerVal !== null && headerVal !== undefined ? String(headerVal) : `Col ${colIndexToLabel(colIdx)}`;
@@ -367,7 +373,7 @@ export const MergeQueriesModal: React.FC<MergeQueriesModalProps> = ({
                         const r = rIdx + 1;
                         return (
                           <tr key={r} className="border-b border-slate-100 hover:bg-slate-50/50">
-                            {Array.from({ length: primarySheet.colCount }).map((_, colIdx) => {
+                            {primaryPreviewCols.map(colIdx => {
                               const headerVal = getCellValue(primarySheet, 0, colIdx);
                               if (headerVal === null && colIdx > 6) return null;
                               const val = getCellValue(primarySheet, r, colIdx);
@@ -422,7 +428,7 @@ export const MergeQueriesModal: React.FC<MergeQueriesModalProps> = ({
                   <table className="border-collapse table-fixed w-max text-xs font-mono bg-white">
                     <thead className="sticky top-0 bg-slate-100 border-b border-slate-200">
                       <tr>
-                        {Array.from({ length: secondarySheet.colCount }).map((_, colIdx) => {
+                        {secondaryPreviewCols.map(colIdx => {
                           const headerVal = getCellValue(secondarySheet, 0, colIdx);
                           if (headerVal === null && colIdx > 6) return null;
                           const headerText = headerVal !== null && headerVal !== undefined ? String(headerVal) : `Col ${colIndexToLabel(colIdx)}`;
@@ -458,7 +464,7 @@ export const MergeQueriesModal: React.FC<MergeQueriesModalProps> = ({
                         const r = rIdx + 1;
                         return (
                           <tr key={r} className="border-b border-slate-100 hover:bg-slate-50/50">
-                            {Array.from({ length: secondarySheet.colCount }).map((_, colIdx) => {
+                            {secondaryPreviewCols.map(colIdx => {
                               const headerVal = getCellValue(secondarySheet, 0, colIdx);
                               if (headerVal === null && colIdx > 6) return null;
                               const val = getCellValue(secondarySheet, r, colIdx);

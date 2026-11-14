@@ -6,6 +6,7 @@ import { CellPosition, ConditionalFormatRule, Sheet } from '../../types/spreadsh
 import { cellPosToKey } from '../../engine/formulaParser';
 import { shiftFormula } from '../../engine/formulas/addressing';
 import { evaluateFormula } from '../../engine/formulas/evaluator';
+import { createSession, withSession } from '../../engine/formulas/session';
 
 /** LIN() e COL() sem argumento valem a linha e a coluna da própria célula. */
 function bindOwnCell(formula: string, pos: CellPosition): string {
@@ -34,19 +35,55 @@ export function formulaRuleApplies(sheet: Sheet, rule: ConditionalFormatRule, ro
   }
 }
 
-/** Para as linhas visíveis: a primeira regra por fórmula que se aplica a cada célula (chave "R{linha}C{coluna}"). */
-export function formulaRuleMatches(sheet: Sheet, rowIndices: readonly number[]): Map<string, ConditionalFormatRule> {
+/**
+ * Resultado já calculado por célula, válido enquanto as células e as regras forem as mesmas (rolar a grade
+ * reaproveita; editar invalida). Sem isso, cada passo de rolagem reavaliava todas as regras das linhas visíveis.
+ */
+const cellResults = new WeakMap<object, { rules: readonly ConditionalFormatRule[]; byKey: Map<string, ConditionalFormatRule | null> }>();
+
+/**
+ * Para as linhas visíveis: a primeira regra por fórmula que se aplica a cada célula (chave "R{linha}C{coluna}").
+ * `cols` limita às colunas desenhadas (planilhas largas); sem ele vale o intervalo inteiro de cada regra.
+ */
+export function formulaRuleMatches(
+  sheet: Sheet,
+  rowIndices: readonly number[],
+  cols?: { start: number; end: number }
+): Map<string, ConditionalFormatRule> {
   const matches = new Map<string, ConditionalFormatRule>();
   const rules = sheet.conditionalRules.filter(r => r.type === 'custom_formula' && r.formula);
   if (rules.length === 0) return matches;
-  for (const rule of rules) {
+
+  let cache = cellResults.get(sheet.data);
+  if (!cache || cache.rules !== sheet.conditionalRules) {
+    cache = { rules: sheet.conditionalRules, byKey: new Map() };
+    cellResults.set(sheet.data, cache);
+  }
+  const byKey = cache.byKey;
+
+  // Uma sessão de avaliação reaproveita os intervalos e os índices (CONT.SE sobre a coluna inteira, por exemplo)
+  // entre as células; os valores da aba já estão calculados.
+  const session = createSession({ isFresh: () => true, isPending: () => false });
+  withSession(session, () => {
     for (const row of rowIndices) {
-      if (row < rule.range.startRow || row > rule.range.endRow) continue;
-      for (let col = rule.range.startCol; col <= Math.min(rule.range.endCol, sheet.colCount - 1); col++) {
+      const lastCol = Math.min(sheet.colCount - 1, cols?.end ?? sheet.colCount - 1);
+      const firstCol = cols?.start ?? 0;
+      for (let col = firstCol; col <= lastCol; col++) {
         const key = cellPosToKey(row, col);
-        if (!matches.has(key) && formulaRuleApplies(sheet, rule, row, col)) matches.set(key, rule);
+        let hit = byKey.get(key);
+        if (hit === undefined) {
+          hit = null;
+          for (const rule of rules) {
+            if (formulaRuleApplies(sheet, rule, row, col)) {
+              hit = rule;
+              break;
+            }
+          }
+          byKey.set(key, hit);
+        }
+        if (hit) matches.set(key, hit);
       }
     }
-  }
+  });
   return matches;
 }

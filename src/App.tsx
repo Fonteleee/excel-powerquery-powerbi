@@ -19,6 +19,7 @@ import {
   rangeToAddress,
   parseNumberSafely,
 } from './engine/formulaParser';
+import { WorkbookRecalculator, declareEdit } from './engine/recalc/incremental';
 
 // Components
 import { RibbonBar } from './components/Header/RibbonBar';
@@ -59,6 +60,7 @@ import { NocoHistoryDrawer } from './components/NocoLayout/NocoHistoryDrawer';
 import { NocoFormatModal } from './components/NocoLayout/NocoFormatModal';
 const RelationsCanvas = React.lazy(() => import('./components/Relations/RelationsCanvas').then(m => ({ default: m.RelationsCanvas })));
 import { ErrorBoundary } from './components/Common/ErrorBoundary';
+import { notify } from './utils/notify';
 import {
   loadInitialSheetsSync,
   loadSheetsFromStorageAsync,
@@ -162,18 +164,29 @@ export function App() {
     };
   }, []);
 
+  const recalculator = useMemo(() => new WorkbookRecalculator(), []);
+
   // Auto-Save Sheets to Persistent Storage
   const latestSheets = useRef(sheets);
   latestSheets.current = sheets;
   useEffect(() => {
     if (!storageReady) return;
+    // Debounce maior: em planilha grande cada gravação custa; o saveSheetsToStorage só escreve as abas que mudaram.
     const timer = setTimeout(() => {
       saveSheetsToStorage(sheets);
-    }, 200);
+    }, 1200);
     return () => clearTimeout(timer);
   }, [sheets, storageReady]);
 
-  // Ao fechar ou atualizar a página dentro dos 200 ms da gravação, grava na hora.
+  // Recálculo incremental: o grafo de dependências é mantido entre edições; depois de importar/desfazer ele é
+  // remontado com a tela ociosa para a primeira edição não pagar a montagem.
+  useEffect(() => {
+    if (!storageReady || recalculator.isSynced(sheets)) return;
+    const timer = setTimeout(() => recalculator.warm(sheets), 600);
+    return () => clearTimeout(timer);
+  }, [sheets, storageReady, recalculator]);
+
+  // Ao fechar ou atualizar a página dentro da janela de gravação, grava na hora.
   useEffect(() => {
     if (!storageReady) return;
     const flush = () => void saveSheetsToStorage(latestSheets.current);
@@ -227,14 +240,36 @@ export function App() {
     setSheets(next);
   }, [historyFuture, sheets]);
 
-  // Update active sheet and recalculate all sheets with full workbook context
+  // Update active sheet. O recálculo é incremental e único: só as células que mudaram e quem depende delas
+  // (inclusive em outras abas) são recalculadas; a grade entrega a aba apenas com as edições aplicadas.
+  const lastUpdate = useRef<{ prev: Sheet[]; updated: Sheet; result: Sheet[] } | null>(null);
   const handleUpdateSheet = useCallback((updatedSheet: Sheet) => {
     pushHistory(sheets);
     setSheets(prev => {
+      // O React pode chamar o atualizador duas vezes (StrictMode): a segunda reaproveita o resultado.
+      const memo = lastUpdate.current;
+      if (memo && memo.prev === prev && memo.updated === updatedSheet) return memo.result;
       const nextSheets = prev.map(s => (s.id === updatedSheet.id ? updatedSheet : s));
-      return nextSheets.map(s => recalculateSheet(s, nextSheets));
+      const { sheets: result } = recalculator.update(prev, nextSheets);
+      lastUpdate.current = { prev, updated: updatedSheet, result };
+      return result;
     });
-  }, [sheets, pushHistory]);
+  }, [sheets, pushHistory, recalculator]);
+
+  // Abrir projeto (.verxel): a modal já validou e gravou fluxo/arestas; aqui só entram os estados.
+  const handleApplyProject = (next: { sheets: Sheet[]; activeSheetId: string; starredSheetIds: string[]; preferences: { showGridlines?: boolean; showFormulaBar?: boolean; zoomLevel?: number; isSidebarOpen?: boolean }; mode: 'replace' | 'append' }) => {
+    pushHistory(sheets);
+    setSheets(next.sheets.map(s => recalculateSheet(s, next.sheets)));
+    setActiveSheetId(next.activeSheetId);
+    setStarredSheetIds(new Set(next.starredSheetIds));
+    if (next.mode === 'replace') {
+      setActiveCell({ row: 0, col: 0 });
+      setSelectedRange({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
+      if (next.preferences.showGridlines !== undefined) setShowGridlines(next.preferences.showGridlines);
+      if (next.preferences.showFormulaBar !== undefined) setShowFormulaBar(next.preferences.showFormulaBar);
+      if (next.preferences.zoomLevel !== undefined) setZoomLevel(next.preferences.zoomLevel);
+    }
+  };
 
   // Auto recognize types and format active sheet cleanly
   const handleAutoRecognize = useCallback(() => {
@@ -245,7 +280,7 @@ export function App() {
 
   // Commit formula from FormulaBar
   const handleCommitFormula = useCallback((formula: string) => {
-    pushHistory(sheets);
+    // (o histórico é gravado uma única vez, dentro de handleUpdateSheet)
     const key = cellPosToKey(activeCell.row, activeCell.col);
     const updatedData = { ...activeSheet.data };
     const prevCell = activeSheet.data[key];
@@ -256,9 +291,9 @@ export function App() {
       format: prevCell?.format,
     };
 
-    const recalculated = recalculateSheet({ ...activeSheet, data: updatedData });
-    handleUpdateSheet(recalculated);
-  }, [activeCell, activeSheet, handleUpdateSheet, pushHistory, sheets]);
+    declareEdit(activeSheet.data, updatedData, [key]);
+    handleUpdateSheet({ ...activeSheet, data: updatedData });
+  }, [activeCell, activeSheet, handleUpdateSheet]);
 
   // Insert formula from Wizard with flexible destination support
   const handleInsertFormula = useCallback((options: FormulaInsertOptions | string) => {
@@ -356,8 +391,7 @@ export function App() {
       }
     }
 
-    const recalculated = recalculateSheet({ ...activeSheet, data: updatedData });
-    handleUpdateSheet(recalculated);
+    handleUpdateSheet({ ...activeSheet, data: updatedData });
     setIsFormulaWizardOpen(false);
   }, [activeCell, activeSheet, handleUpdateSheet, pushHistory, selectedRange, sheets]);
 
@@ -373,8 +407,7 @@ export function App() {
         format: activeSheet.data[key]?.format,
       },
     };
-    const recalculated = recalculateSheet({ ...activeSheet, data: updatedData });
-    handleUpdateSheet(recalculated);
+    handleUpdateSheet({ ...activeSheet, data: updatedData });
   }, [activeCell, activeSheet, handleUpdateSheet, pushHistory, sheets]);
 
   // Quick Analysis: Insert totals / calculations
@@ -442,8 +475,7 @@ export function App() {
       }
     }
 
-    const recalculated = recalculateSheet({ ...activeSheet, data: updatedData });
-    handleUpdateSheet(recalculated);
+    handleUpdateSheet({ ...activeSheet, data: updatedData });
     setIsQuickAnalysisOpen(false);
   };
 
@@ -477,8 +509,7 @@ export function App() {
       }
     }
 
-    const recalculated = recalculateSheet({ ...activeSheet, data: updatedData });
-    handleUpdateSheet(recalculated);
+    handleUpdateSheet({ ...activeSheet, data: updatedData });
     setIsTextToColumnsOpen(false);
   };
 
@@ -542,8 +573,7 @@ export function App() {
         value: null,
       },
     };
-    const recalculated = recalculateSheet({ ...activeSheet, data: updatedData });
-    handleUpdateSheet(recalculated);
+    handleUpdateSheet({ ...activeSheet, data: updatedData });
   };
 
   const handleExecuteAgentActions = useCallback((actions: AgentAction[]) => {
@@ -561,7 +591,7 @@ export function App() {
   const handleInsertChart = (): void => {
     const result = chartFromSelection(activeSheet, selectedRange, activeCell);
     if (!result.ok) {
-      window.alert(result.error);
+      notify(result.error, 'error');
       return;
     }
     handleUpdateSheet({ ...activeSheet, charts: [...(activeSheet.charts ?? []), result.chart] });
@@ -582,7 +612,8 @@ export function App() {
   });
 
   // Arquivos importados entram com todas as abas. A tabela em branco inicial é substituída; senão as abas são acrescentadas.
-  const handleImportSheets = (imported: Sheet[]): void => {
+  // `calculated`: abas que já vieram recalculadas do worker de importação (não recalcula de novo na thread principal).
+  const handleImportSheets = (imported: Sheet[], calculated = false): void => {
     if (imported.length === 0) return;
     pushHistory(sheets);
     const replacesBlank = sheets.length === 1 && Object.keys(sheets[0].data).length === 0;
@@ -595,7 +626,7 @@ export function App() {
       return { ...sheet, name };
     });
     const all = [...kept, ...renamed];
-    setSheets(all.map(sheet => keepExcelResults(recalculateSheet(sheet, all))));
+    setSheets(all.map(sheet => (calculated && renamed.includes(sheet) ? sheet : keepExcelResults(recalculateSheet(sheet, all)))));
     setActiveSheetId((renamed.find(sheet => !sheet.hidden) ?? renamed[0]).id);
   };
 
@@ -915,6 +946,10 @@ export function App() {
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
         sheet={activeSheet}
+        sheets={sheets}
+        activeSheetId={activeSheetId}
+        starredSheetIds={starredSheetIds}
+        onApplyProject={handleApplyProject}
       />
 
       <NocoFieldsModal

@@ -10,8 +10,6 @@ import {
   Redo2,
   Download,
   Upload,
-  MoreHorizontal,
-  ChevronDown,
   Sparkles,
   GitBranch,
   Layers,

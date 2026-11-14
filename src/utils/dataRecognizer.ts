@@ -1,4 +1,5 @@
-import { Sheet, CellFormat, CellData } from '../types/spreadsheet';
+import { Sheet, CellFormat } from '../types/spreadsheet';
+import { dataColumns } from '../engine/sheetColumns';
 import { cellPosToKey, getCellValue, parseNumberSafely, colIndexToLabel, recalculateSheet } from '../engine/formulaParser';
 
 export interface DataRecognitionReport {
@@ -25,7 +26,8 @@ export function autoRecognizeAndFormatSheet(sheet: Sheet): {
   const updatedColWidths = { ...sheet.colWidths };
   const reportList: DataRecognitionReport['columnsFormatted'] = [];
 
-  for (let c = 0; c < sheet.colCount; c++) {
+  for (const c of dataColumns(sheet)) {
+    if (c >= sheet.colCount) continue;
     const colLabel = colIndexToLabel(c);
     const headerKey = cellPosToKey(0, c);
     const headerCell = sheet.data[headerKey];

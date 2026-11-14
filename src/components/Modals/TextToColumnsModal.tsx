@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Columns, Split, Check, X, ArrowRight } from 'lucide-react';
+import { Split, Check, X } from 'lucide-react';
 import { CellRange, Sheet } from '../../types/spreadsheet';
 import { colIndexToLabel, getCellValue } from '../../engine/formulaParser';
 

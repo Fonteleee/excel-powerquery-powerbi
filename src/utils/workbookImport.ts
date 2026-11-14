@@ -172,8 +172,16 @@ export interface WorkbookImport {
   notes: string[];
 }
 
+/** Ganchos opcionais da conversão: progresso por aba e cancelamento cooperativo (entre uma aba e outra). */
+export interface WorkbookConvertHooks {
+  onSheet?: (done: number, total: number, name: string) => void;
+  /** Se devolver true, a conversão para (lança o erro devolvido por `cancelError`). */
+  shouldCancel?: () => boolean;
+  cancelError?: () => Error;
+}
+
 /** Converte o arquivo inteiro. Abas vazias são ignoradas; o limite é de 50 abas por arquivo. */
-export function workbookToSheets(workbook: XLSX.WorkBook, fallbackName = 'Planilha'): WorkbookImport {
+export function workbookToSheets(workbook: XLSX.WorkBook, fallbackName = 'Planilha', hooks: WorkbookConvertHooks = {}): WorkbookImport {
   const sheets: Sheet[] = [];
   const skipped: string[] = [];
   const notes: string[] = [];
@@ -187,6 +195,8 @@ export function workbookToSheets(workbook: XLSX.WorkBook, fallbackName = 'Planil
   for (const n of workbook.Workbook?.Names ?? []) if (n.Name && n.Ref) definedNames.set(n.Name.toLowerCase(), n.Ref);
 
   workbook.SheetNames.forEach((name, index) => {
+    if (hooks.shouldCancel?.()) throw hooks.cancelError?.() ?? new Error('Importação cancelada.');
+    hooks.onSheet?.(index, workbook.SheetNames.length, name);
     const ws = workbook.Sheets[name];
     const filled = ws ? filledCells(ws) : { cells: [], numRows: 0, numCols: 0 };
     if (filled.cells.length === 0) {
@@ -350,10 +360,17 @@ function faithfulSheet(ws: XLSX.WorkSheet, filled: FilledCells, name: string, st
   };
 }
 
-/** Lê os bytes de um .xlsx/.xls e devolve as abas prontas. */
-export function importWorkbookFile(bytes: Uint8Array, fileName: string): WorkbookImport {
+/** Lê os bytes de um .xlsx/.xls para o modelo do SheetJS (a parte mais demorada da importação). */
+export function readWorkbookBytes(bytes: Uint8Array): XLSX.WorkBook {
   // cellNF mantém o formato numérico de cada célula, que é como reconhecemos datas e horas.
   // bookFiles guarda o XML original (de onde saem fontes e bordas); cellStyles traz larguras e alturas.
-  const workbook = XLSX.read(bytes, { type: 'array', cellDates: false, cellText: true, cellNF: true, cellStyles: true, bookFiles: true });
-  return workbookToSheets(workbook, fileName.replace(/\.[^/.]+$/, ''));
+  return XLSX.read(bytes, { type: 'array', cellDates: false, cellText: true, cellNF: true, cellStyles: true, bookFiles: true });
+}
+
+/** Nome da planilha a partir do nome do arquivo (sem extensão). */
+export const baseFileName = (fileName: string): string => fileName.replace(/\.[^/.]+$/, '');
+
+/** Lê os bytes de um .xlsx/.xls e devolve as abas prontas. */
+export function importWorkbookFile(bytes: Uint8Array, fileName: string): WorkbookImport {
+  return workbookToSheets(readWorkbookBytes(bytes), baseFileName(fileName));
 }

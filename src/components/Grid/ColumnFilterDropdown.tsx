@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Filter, ArrowDownAZ, ArrowUpZA, Search, Check, X, RotateCcw } from 'lucide-react';
+import { ArrowDownAZ, ArrowUpZA, Search, RotateCcw } from 'lucide-react';
 import { Sheet } from '../../types/spreadsheet';
-import { cellPosToKey, getCellValue, colIndexToLabel, parseNumberSafely } from '../../engine/formulaParser';
+import { getCellValue } from '../../engine/formulaParser';
 
 interface ColumnFilterDropdownProps {
   colIndex: number;

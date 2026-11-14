@@ -3,7 +3,7 @@
 // As funções de planilha ficam em ./functions/*; este módulo só orquestra operadores e referências.
 
 import { CellRange, Sheet } from '../../types/spreadsheet';
-import { cellPosToKey, parseCellAddress, parseRangeAddress } from './addressing';
+import { cellPosToKey, parseRangeAddress } from './addressing';
 import { findFunction } from './functions';
 import { FunctionContext, ResolvedRange } from './functions/types';
 import { Host } from '../xl/call';
@@ -12,12 +12,6 @@ import { Matrix, Scalar, XlError } from '../xl/values';
 import { parseNumberSafely } from './numbers';
 import { activeSession } from './session';
 import {
-  OP,
-  scanTopLevelOperators,
-  splitAdditive,
-  splitByTopLevelOperator,
-  splitFormulaArguments,
-  splitMultiplicative,
 } from './tokenizer';
 
 export type { ResolvedRange };

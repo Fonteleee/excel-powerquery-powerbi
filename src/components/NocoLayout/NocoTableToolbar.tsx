@@ -6,14 +6,11 @@ import {
   ArrowUpDown,
   Palette,
   Paintbrush,
-  Rows3,
   Search,
   FunctionSquare,
   Wand2,
   BarChart3,
   Maximize2,
-  MoreHorizontal,
-  Plus,
   X,
 } from 'lucide-react';
 import { Sheet } from '../../types/spreadsheet';

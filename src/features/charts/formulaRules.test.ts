@@ -49,3 +49,22 @@ describe('formatação condicional por fórmula', () => {
     assert.equal(formulaRuleMatches(sheetWith(rows, '=FUNCAOINEXISTENTE($B2)'), [1, 2, 3, 4]).size, 0);
   });
 });
+
+describe('regra por fórmula que lê outra fórmula', () => {
+  it('usa o valor já calculado da célula de fórmula e reaproveita o resultado ao rolar', () => {
+    const sheet = sheetWith(rows, '=$C2="ALTO"');
+    sheet.colCount = 5;
+    // coluna C é fórmula já calculada: =IF(B2>10,"ALTO","BAIXO")
+    for (let r = 1; r <= 4; r++) {
+      const v = Number(rows[r][1]) > 10 ? 'ALTO' : 'BAIXO';
+      sheet.data[cellPosToKey(r, 2)] = { raw: '=IF(B' + (r + 1) + '>10;"ALTO";"BAIXO")', value: v };
+    }
+    const hits = formulaRuleMatches(sheet, [1, 2, 3, 4]);
+    assert.deepEqual([...hits.keys()].sort(), ['R2C0', 'R2C1', 'R3C0', 'R3C1']);
+    // segunda chamada (cache) devolve o mesmo
+    assert.deepEqual([...formulaRuleMatches(sheet, [2, 3]).keys()].sort(), ['R2C0', 'R2C1', 'R3C0', 'R3C1']);
+    // outra cópia dos dados (edição) é reavaliada
+    const edited = { ...sheet, data: { ...sheet.data, R2C2: { raw: 'x', value: 'BAIXO' } } };
+    assert.deepEqual([...formulaRuleMatches(edited, [2, 3]).keys()].sort(), ['R3C0', 'R3C1']);
+  });
+});

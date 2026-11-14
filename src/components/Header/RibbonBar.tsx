@@ -16,7 +16,6 @@ import {
   Plus,
   Trash2,
   Filter,
-  ArrowUpDown,
   Type,
   PaintBucket,
   Table,
@@ -26,20 +25,14 @@ import {
   FileSpreadsheet,
   HelpCircle,
   BarChart3,
-  PieChart as PieIcon,
-  LineChart as LineIcon,
   Calculator,
   Layers,
   Database,
-  Eye,
   FileText,
   Upload,
   RefreshCw,
-  FolderOpen,
-  Check,
   X,
   Keyboard,
-  ExternalLink,
 } from 'lucide-react';
 import { Sheet, CellRange, CellFormat } from '../../types/spreadsheet';
 import { cellPosToKey, recalculateSheet } from '../../engine/formulaParser';

@@ -2,6 +2,7 @@ import { Sheet } from '../types/spreadsheet';
 import { RelationEdge } from '../types/relations';
 import { colIndexToLabel, cellPosToKey, recalculateSheet } from './formulaParser';
 import { createEmptySheet } from '../data/sampleDatasets';
+import { dataColumns } from './sheetColumns';
 
 /**
  * Retorna o cabeçalho/nome da coluna em row 0 ou fallback para a letra da coluna
@@ -184,7 +185,8 @@ export function applyRelationToSpreadsheet(edge: RelationEdge, sheets: Sheet[]):
   // --- DESTINO: PRÓXIMA COLUNA VAZIA (IMEDIATAMENTE APÓS O ÚLTIMO CABEÇALHO) ---
   if (edge.outputDestination === 'next_column') {
     let lastHeaderCol = 0;
-    for (let c = 0; c < sourceSheet.colCount; c++) {
+    for (const c of dataColumns(sourceSheet)) {
+      if (c >= sourceSheet.colCount) continue;
       const headerVal = sourceSheet.data[cellPosToKey(0, c)]?.value;
       if (headerVal !== null && headerVal !== undefined && String(headerVal).trim() !== '') {
         lastHeaderCol = Math.max(lastHeaderCol, c);
@@ -268,8 +270,9 @@ export function applyRelationToSpreadsheet(edge: RelationEdge, sheets: Sheet[]):
     const newSheet = createEmptySheet(newSheetId, newSheetName, sourceSheet.rowCount, sourceSheet.colCount + 1);
 
     const newData = { ...newSheet.data };
+    const sourceColumns = dataColumns(sourceSheet).filter(c => c < sourceSheet.colCount);
     for (let r = 0; r < sourceSheet.rowCount; r++) {
-      for (let c = 0; c < sourceSheet.colCount; c++) {
+      for (const c of sourceColumns) {
         const cell = sourceSheet.data[cellPosToKey(r, c)];
         if (cell) {
           newData[cellPosToKey(r, c)] = { ...cell };

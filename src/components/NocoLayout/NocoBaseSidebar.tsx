@@ -5,15 +5,11 @@ import {
   ChevronsLeft,
   Plus,
   Table as TableIcon,
-  LayoutDashboard,
-  GitBranch,
-  MoreHorizontal,
   ChevronDown,
-  Sparkles,
   Trash2,
-  Layers,
 } from 'lucide-react';
 import { Sheet } from '../../types/spreadsheet';
+import { useConfirm } from '../Common/ConfirmDialog';
 
 interface NocoBaseSidebarProps {
   isOpen: boolean;
@@ -41,6 +37,7 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
+  const { confirm, dialog } = useConfirm();
 
   if (!isOpen) {
     return null;
@@ -135,9 +132,9 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (confirm(`Deseja realmente excluir a tabela "${cleanName}"?`)) {
-                        onDeleteSheet(sheet.id);
-                      }
+                      void confirm({ message: `Deseja realmente excluir a tabela "${cleanName}"?`, confirmLabel: 'Excluir', danger: true }).then(ok => {
+                        if (ok) onDeleteSheet(sheet.id);
+                      });
                     }}
                     className="p-1 opacity-0 group-hover:opacity-100 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded cursor-pointer transition-all"
                   >
@@ -158,6 +155,7 @@ export const NocoBaseSidebar: React.FC<NocoBaseSidebarProps> = ({
           </button>
         )}
       </div>
+      {dialog}
     </aside>
   );
 };

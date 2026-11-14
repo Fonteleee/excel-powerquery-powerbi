@@ -6,7 +6,6 @@ import {
   X,
   BookOpen,
   Sparkles,
-  ArrowRight,
   CornerDownRight,
   Rows3,
   Columns3,
@@ -66,7 +65,7 @@ export const FormulaWizardModal: React.FC<FormulaWizardModalProps> = ({
     for (let c = 0; c < sheet.colCount; c++) {
       let hasData = false;
       for (let r = 0; r < Math.min(sheet.rowCount, 50); r++) {
-        const val = sheet.data[`${r}_${c}`]?.value;
+        const val = sheet.data[`R${r}C${c}`]?.value;
         if (val !== undefined && val !== null && String(val).trim() !== '') {
           hasData = true;
           break;

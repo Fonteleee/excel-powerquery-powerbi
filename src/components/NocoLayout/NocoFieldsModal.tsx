@@ -2,14 +2,7 @@ import React, { useState } from 'react';
 import {
   X,
   SlidersHorizontal,
-  Eye,
-  EyeOff,
   Check,
-  Type,
-  Hash,
-  Clock,
-  Calendar,
-  DollarSign,
   Search,
 } from 'lucide-react';
 import { Sheet } from '../../types/spreadsheet';

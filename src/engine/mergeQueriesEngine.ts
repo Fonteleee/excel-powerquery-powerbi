@@ -1,4 +1,5 @@
-import { Sheet, CellFormat } from '../types/spreadsheet';
+import { Sheet } from '../types/spreadsheet';
+import { dataColumns } from './sheetColumns';
 import { colIndexToLabel, getCellValue, cellPosToKey, recalculateSheet } from './formulaParser';
 
 export type JoinKind =
@@ -90,7 +91,8 @@ export function executeMergeQueries(config: MergeQueriesConfig): MergeQueriesRes
 
   // 1. Find actual used columns and headers
   let effectivePrimaryCols = 0;
-  for (let c = 0; c < primarySheet.colCount; c++) {
+  for (const c of dataColumns(primarySheet)) {
+    if (c >= primarySheet.colCount) continue;
     const h = getCellValue(primarySheet, 0, c);
     if (h !== null && h !== undefined && String(h).trim() !== '') {
       effectivePrimaryCols = c + 1;
@@ -99,7 +101,8 @@ export function executeMergeQueries(config: MergeQueriesConfig): MergeQueriesRes
   if (effectivePrimaryCols === 0) effectivePrimaryCols = Math.min(primarySheet.colCount, 26);
 
   let effectiveSecondaryCols = 0;
-  for (let c = 0; c < secondarySheet.colCount; c++) {
+  for (const c of dataColumns(secondarySheet)) {
+    if (c >= secondarySheet.colCount) continue;
     const h = getCellValue(secondarySheet, 0, c);
     if (h !== null && h !== undefined && String(h).trim() !== '') {
       effectiveSecondaryCols = c + 1;

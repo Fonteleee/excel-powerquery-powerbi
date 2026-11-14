@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { Sheet } from '../types/spreadsheet';
 import { cellPosToKey, parseNumberSafely } from '../engine/formulaParser';
+import { dataColumns } from '../engine/sheetColumns';
 import { PivotResult } from '../types/analytics';
 import { generateBarChartImage, generateDonutChartImage } from './chartImageGenerator';
 import { downloadXlsx } from './xlsxWriter';
@@ -569,8 +570,13 @@ export async function exportPivotReportToExcel(
   });
 
   // Calculate Column Widths
+  // Só até a última coluna com célula ou largura definida (a planilha pode declarar até 16.384 colunas)
+  let rawLastCol = 0;
+  for (const c of dataColumns(sheet)) rawLastCol = Math.max(rawLastCol, c);
+  for (const k of Object.keys(sheet.colWidths ?? {})) rawLastCol = Math.max(rawLastCol, Number(k));
+  const rawColCount = Math.min(sheet.colCount, rawLastCol + 1);
   const rawCols: { width: number }[] = [];
-  for (let c = 0; c < sheet.colCount; c++) {
+  for (let c = 0; c < rawColCount; c++) {
     const wPx = sheet.colWidths?.[c] || 110;
     rawCols.push({ width: Math.max(Math.round(wPx / 8), 12) });
   }
@@ -579,7 +585,7 @@ export async function exportPivotReportToExcel(
   // Export raw rows and formulas
   for (let r = 0; r < sheet.rowCount; r++) {
     const rowValues: any[] = [];
-    for (let c = 0; c < sheet.colCount; c++) {
+    for (let c = 0; c < rawColCount; c++) {
       const cell = sheet.data[cellPosToKey(r, c)];
       if (!cell || (cell.raw === '' && cell.value === null)) {
         rowValues.push('');

@@ -1,6 +1,6 @@
 import { Sheet, CellData, CellFormat } from '../types/spreadsheet';
-import { cellPosToKey, parseNumberSafely, colIndexToLabel } from '../engine/formulaParser';
-import { detectHeaderRow, filledCount, isFilled, isSingleCellRow, tableBlockEnd } from './tableLayout';
+import { cellPosToKey, parseNumberSafely } from '../engine/formulaParser';
+import { detectHeaderRow, filledCount, isSingleCellRow, tableBlockEnd } from './tableLayout';
 
 /**
  * Intelligent CSV / Table Auto-Formatter
