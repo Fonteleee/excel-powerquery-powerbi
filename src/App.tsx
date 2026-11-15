@@ -391,7 +391,20 @@ export function App() {
       }
     }
 
-    handleUpdateSheet({ ...activeSheet, data: updatedData });
+    // Assistente guiado: ele já resolveu cada célula (cabeçalho da coluna nova + uma fórmula por linha, ou um total).
+    let grownRows = activeSheet.rowCount;
+    let grownCols = activeSheet.colCount;
+    if (typeof options !== 'string' && targetMode === 'cells') {
+      for (const cell of options.cells ?? []) {
+        const key = cellPosToKey(cell.row, cell.col);
+        const format = cell.format || activeSheet.data[key]?.format ? { ...activeSheet.data[key]?.format, ...cell.format } : undefined;
+        updatedData[key] = { raw: cell.raw, value: cell.raw.startsWith('=') ? null : cell.raw, ...(format ? { format } : {}) };
+        grownRows = Math.max(grownRows, cell.row + 2);
+        grownCols = Math.max(grownCols, cell.col + 2);
+      }
+    }
+
+    handleUpdateSheet({ ...activeSheet, data: updatedData, rowCount: grownRows, colCount: grownCols });
     setIsFormulaWizardOpen(false);
   }, [activeCell, activeSheet, handleUpdateSheet, pushHistory, selectedRange, sheets]);
 
